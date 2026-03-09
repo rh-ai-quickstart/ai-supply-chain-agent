@@ -1,0 +1,9 @@
+dependencies:
+- name: pgvector
+  repository: https://rh-ai-quickstart.github.io/ai-architecture-charts
+  version: 0.5.5
+- name: llama-stack
+  repository: https://rh-ai-quickstart.github.io/ai-architecture-charts
+  version: 0.6.11
+digest: sha256:c967a9bdc2d9f251eaf26d6c7f8c890eb428497f14d23569c7e1ba762ff5201a
+generated: "2026-03-06T10:16:56.839887-05:00"

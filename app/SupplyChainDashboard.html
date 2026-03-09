@@ -1,0 +1,1109 @@
+<!-- Version: 11.6 (UI) - Context-Aware Toggle & Full Logic -->
+<!-- Feat: 'Show ALL Flights' toggle visible ONLY on Air Map. -->
+<!-- Feat: Client-side filtering to toggle between Cargo-Only and All-Traffic. -->
+<!-- Fix: Restored updateCharts and Zoom Level 2 logic. -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resilient Retailer: AI Command Center (vLLM Enabled)</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation"></script>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" 
+          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+          crossorigin=""/>
+    
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+            crossorigin=""></script>
+    
+    <style>
+        /* --- 1. THEME VARIABLES --- */
+        :root {
+            --color-bg-main: #10162A;
+            --color-panel: #1A2238;
+            --color-border: #333F58;
+            --color-text-primary: #E0E6F0;
+            --color-text-secondary: #9DA8BE;
+            --color-text-header: #FFFFFF;
+            --color-accent-cyan: #00E0FF;
+            --color-accent-red: #FF4757;
+            --color-accent-yellow: #FFC300;
+            --color-accent-green: #2ECC71;
+            --color-panel-accent: #252F48;
+            --color-input-bg: #212B40;
+            --color-vllm-purple: #9D00FF; 
+            --font-main: 'Inter', sans-serif;
+        }
+
+        body.light-theme {
+            --color-bg-main: #f4f7fc;
+            --color-panel: #ffffff;
+            --color-border: #dde4ed;
+            --color-text-primary: #2c3e50;
+            --color-text-secondary: #5a6a7b;
+            --color-text-header: #121221;
+            --color-accent-cyan: #007bff;
+            --color-accent-red: #d9534f;
+            --color-accent-green: #27ae60;
+            --color-accent-yellow: #f39c12;
+            --color-panel-accent: #e9f5ff;
+            --color-input-bg: #eef2f7;
+        }
+
+        /* --- 2. GLOBAL STYLES --- */
+        * { box-sizing: border-box; }
+        html, body {
+            height: 100%; margin: 0; padding: 0; overflow: hidden; 
+            background-color: var(--color-bg-main);
+            color: var(--color-text-primary);
+            font-family: var(--font-main);
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        .dashboard-wrapper {
+            display: grid;
+            grid-template-rows: auto 1fr auto auto;
+            height: 100vh; padding: 15px; gap: 15px;
+        }
+
+        .dashboard-header { 
+            display: flex; justify-content: space-between; align-items: center; 
+            padding-bottom: 5px; flex-shrink: 0; 
+        }
+        .dashboard-header h1 { 
+            color: var(--color-text-header); font-size: 1.6em; margin: 0; font-weight: 600;
+            display: flex; align-items: center; gap: 10px;
+        }
+        .theme-btn {
+            background: var(--color-input-bg);
+            border: 1px solid var(--color-border);
+            color: var(--color-text-primary);
+            width: 40px; height: 40px; border-radius: 50%;
+            cursor: pointer; font-size: 1.2em; display: flex; align-items: center; justify-content: center;
+            transition: background-color 0.3s, border-color 0.3s;
+        }
+        
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 300px 1fr 340px;
+            gap: 15px; flex-grow: 1; min-height: 0; 
+        }
+        .panel {
+            background-color: var(--color-panel);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+            border: 1px solid var(--color-border);
+            display: flex; flex-direction: column;
+            min-height: 0; 
+            transition: background-color 0.3s, border-color 0.3s;
+        }
+        .panel h3 { 
+            color: var(--color-text-header);
+            margin-top: 0; margin-bottom: 15px; font-size: 1.1em; 
+            border-bottom: 1px solid var(--color-border);
+            padding-bottom: 10px;
+        }
+
+        /* --- 3. CENTER CONTENT (MAP & CHARTS) --- */
+        .center-content { 
+            display: grid; 
+            grid-template-rows: 40% 60%;
+            gap: 15px; 
+            min-height: 0; 
+        }
+        
+        .top-charts-container {
+            display: grid;
+            grid-template-columns: 1.5fr 1fr 0.8fr; 
+            gap: 15px;
+            min-height: 0;
+        }
+        
+        .chart-panel { position: relative; display: flex; flex-direction: column; }
+        .chart-container-box { flex-grow: 1; position: relative; min-height: 0; }
+
+        /* GAUGES (Fixed Positioning) */
+        .gauge-stack { display: flex; flex-direction: column; height: 100%; gap: 10px; justify-content: space-around; }
+        .gauge-wrapper { 
+            position: relative; flex: 1; min-height: 0; 
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            padding-bottom: 25px; 
+        }
+        .gauge-label { 
+            position: absolute; bottom: 45px; 
+            font-size: 1.2em; font-weight: bold; color: var(--color-text-primary); z-index: 5;
+        }
+        .gauge-title { 
+            position: absolute; bottom: 25px; 
+            font-size: 0.75em; color: var(--color-text-secondary); text-transform: uppercase; z-index: 5;
+        }
+
+        .map-panel { 
+            min-height: 150px; padding: 0; display: flex; flex-direction: column; 
+            overflow: hidden; position: relative; 
+        }
+        .map-panel h3 {
+            padding: 15px 20px 10px 20px;
+            border-bottom: none;
+            background-color: var(--color-panel);
+            border-radius: 12px 12px 0 0;
+            position: relative;
+            z-index: 1010; 
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        #logistics-map {
+            height: 100%; flex-grow: 1;
+            background-color: #0c1120; 
+            border-radius: 0 0 12px 12px;
+            position: relative; margin-top: -1px; overflow: hidden;
+        }
+        
+        /* FLIGHT FILTER TOGGLE */
+        .map-controls { display: flex; align-items: center; gap: 10px; }
+        .traffic-toggle {
+            font-size: 0.8em; color: var(--color-text-secondary); 
+            display: flex; align-items: center; gap: 5px; cursor: pointer;
+            background: var(--color-input-bg); padding: 5px 8px; border-radius: 4px;
+            border: 1px solid var(--color-border);
+            /* Initially visible as default is Air */
+            display: flex; 
+        }
+        .traffic-toggle input { cursor: pointer; }
+
+        /* Leaflet Overrides */
+        .leaflet-popup-content-wrapper, .leaflet-popup-tip {
+            background-color: var(--color-panel-accent) !important;
+            color: var(--color-text-primary) !important;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4) !important;
+            border: 1px solid var(--color-border);
+        }
+        .leaflet-asset-icon { background: none; border: none; }
+        
+        /* IMPROVED ASSET ICONS */
+        .ship-icon, .plane-icon, .truck-icon {
+            filter: drop-shadow(0 2px 5px rgba(0,0,0,0.9)); 
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
+        }
+        .ship-icon:hover, .plane-icon:hover, .truck-icon:hover {
+            transform: scale(1.2);
+            filter: drop-shadow(0 0 8px var(--color-accent-cyan));
+            z-index: 1000;
+        }
+        
+        .leaflet-risk-zone {
+            stroke: var(--color-accent-red);
+            stroke-width: 2;
+            fill: var(--color-accent-red);
+            fill-opacity: 0.2;
+            animation: pulse-red-dot 1.5s infinite;
+        }
+        @keyframes pulse-red-dot {
+            0% { fill-opacity: 0.3; stroke-width: 2; } 50% { fill-opacity: 0.7; stroke-width: 8; } 100% { fill-opacity: 0.3; stroke-width: 2; }
+        }
+        #zoom-display {
+            position: absolute; bottom: 10px; left: 10px;
+            z-index: 1001; background-color: rgba(26, 34, 56, 0.8);
+            color: var(--color-text-primary); padding: 5px 10px;
+            border-radius: 4px; font-size: 0.9em; pointer-events: none;
+        }
+
+        /* --- 4. CONTROL PANEL --- */
+        .control-panel { overflow-y: auto; } 
+        .control-group { margin-bottom: 20px; position: relative; }
+        .control-group label { display: block; margin-bottom: 8px; color: var(--color-text-secondary); font-size: 0.9em; font-weight: 500;}
+        .control-panel select { width: 100%; background: var(--color-input-bg); border: 1px solid var(--color-border); color: var(--color-text-primary); padding: 10px; border-radius: 6px; }
+
+        .vllm-toggle-group {
+            background: rgba(157, 0, 255, 0.1); 
+            border: 1px solid var(--color-vllm-purple);
+            padding: 10px; border-radius: 6px;
+            display: flex; align-items: center; gap: 10px;
+            cursor: pointer;
+        }
+        .vllm-badge {
+            background: var(--color-vllm-purple);
+            color: #fff; padding: 2px 6px; border-radius: 4px;
+            font-size: 0.7em; margin-left: auto; font-weight: bold;
+        }
+
+        .radio-group label {
+            display: flex; align-items: center; gap: 10px;
+            background: var(--color-input-bg); padding: 10px; border-radius: 6px;
+            border: 1px solid var(--color-border); cursor: pointer; margin-bottom: 8px;
+            font-size: 0.9em; color: var(--color-text-primary);
+        }
+        .radio-group input[type="radio"]:checked { background-color: var(--color-accent-cyan); border-color: var(--color-accent-cyan); }
+
+        .slider-group input[type="range"] {
+            width: 100%; appearance: none; height: 8px;
+            background: linear-gradient(90deg, var(--color-accent-cyan) var(--track-fill-percentage, 75%), var(--color-input-bg) var(--track-fill-percentage, 75%));
+            border-radius: 4px; outline: none;
+        }
+        .slider-group .value-display { float: right; color: var(--color-text-primary); }
+
+        /* Tooltips */
+        .slider-group:hover .slider-tooltip, .kpi-card-new:hover .kpi-info-tooltip { visibility: visible; opacity: 1; }
+        .slider-tooltip, .kpi-info-tooltip {
+            visibility: hidden; opacity: 0; position: absolute; z-index: 1000;
+            background: rgba(0, 0, 0, 0.9); color: #fff; padding: 8px 12px;
+            border-radius: 6px; font-size: 0.8em; border: 1px solid var(--color-accent-cyan);
+            transition: opacity 0.2s; pointer-events: none; width: 220px; text-align: left;
+        }
+        .slider-tooltip { top: -35px; left: 0; }
+        .kpi-info-tooltip { bottom: 110%; left: 50%; transform: translateX(-50%); }
+
+        .btn { width: 100%; padding: 12px; font-size: 1em; font-weight: 600; border-radius: 6px; border: none; cursor: pointer; margin-bottom: 10px; }
+        .btn-primary { background-color: var(--color-accent-cyan); color: var(--color-bg-main); }
+        .btn-primary:hover { background-color: #00B8D4; }
+
+        /* --- 5. INSIGHTS & FLOW DIAGRAM --- */
+        .insights-panel { overflow-y: auto; }
+        .panel-header { display: flex; justify-content: space-between; align-items: center; }
+        .btn-trigger-event { background: var(--color-input-bg); border: 1px solid var(--color-border); color: var(--color-accent-yellow); padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.8em; }
+        
+        .alert {
+            display: flex; justify-content: space-between; align-items: center; gap: 10px;
+            padding: 12px; border-radius: 6px; margin-bottom: 12px; 
+            border: 1px solid var(--color-border); border-left-width: 4px; font-size: 0.9em;
+            background-color: var(--color-panel-accent); 
+        }
+        .alert.critical { border-left-color: var(--color-accent-red); background-color: var(--color-panel-critical); }
+        .alert.warning { border-left-color: var(--color-accent-yellow); background: rgba(255, 195, 0, 0.2); }
+        .view-routes-btn { background: var(--color-panel); color: var(--color-accent-cyan); border: 1px solid var(--color-border); padding: 5px 10px; border-radius: 6px; cursor: pointer; font-size: 0.75em; }
+
+        .info-card { background: var(--color-input-bg); border: 1px solid var(--color-border); border-radius: 8px; padding: 15px; margin-top: 10px; font-size: 0.9em; }
+
+        /* LOGISTICS FLOW DIAGRAM */
+        .flow-container {
+            position: relative;
+            background: var(--color-input-bg);
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
+            height: 180px; 
+            margin-bottom: 20px;
+        }
+        .flow-tooltip {
+            position: fixed; 
+            background: rgba(16, 22, 42, 0.95);
+            color: #fff;
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 0.85em;
+            border: 1px solid var(--color-accent-cyan);
+            pointer-events: none;
+            z-index: 9999; 
+            white-space: pre-line;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.7);
+            display: none;
+            min-width: 200px;
+        }
+        .flow-header { font-weight: bold; border-bottom: 1px solid rgba(255,255,255,0.2); padding-bottom: 5px; margin-bottom: 5px; text-transform: uppercase; }
+        .flow-stat { display: flex; justify-content: space-between; margin-top: 3px; }
+        .flow-stat label { color: var(--color-text-secondary); }
+        .flow-stat span { font-weight: 600; }
+        .flow-path { fill: none; stroke-width: 4; stroke-linecap: round; transition: all 0.3s; cursor: pointer; }
+        .flow-path:hover { stroke-width: 7; filter: drop-shadow(0 0 8px rgba(255,255,255,0.3)); }
+        .path-risk { stroke: var(--color-accent-red); opacity: 0.9; }
+        .path-safe { stroke: var(--color-accent-green); opacity: 0.7; stroke-dasharray: 8,4; }
+        .flow-node { fill: var(--color-text-primary); stroke: var(--color-bg-main); stroke-width: 2; }
+        .flow-icon { font-family: "Segoe UI Emoji", sans-serif; font-size: 20px; user-select: none; pointer-events: none; }
+        .flow-label { fill: var(--color-text-secondary); font-size: 10px; font-weight: 500; text-anchor: middle; }
+
+
+        /* --- 6. KPI BAR --- */
+        .kpi-bar {
+            flex-shrink: 0; display: grid; grid-template-columns: repeat(5, 1fr); gap: 15px;
+            background-color: var(--color-panel); border-radius: 12px; padding: 15px 20px;
+            border: 1px solid var(--color-border); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+        }
+        .kpi-card-new { border-right: 1px solid var(--color-border); padding: 0 15px; display: flex; flex-direction: column; justify-content: center; position: relative; }
+        .kpi-card-new:last-child { border-right: none; }
+        .kpi-label { font-size: 0.85em; color: var(--color-text-secondary); text-transform: uppercase; margin-bottom: 5px; }
+        .kpi-value-new { font-size: 1.8em; font-weight: 700; color: var(--color-text-primary); }
+        .kpi-trend { font-size: 0.9em; padding: 2px 5px; border-radius: 4px; margin-left: 5px; font-weight: bold; }
+        .kpi-trend.up { color: var(--color-accent-green); background: rgba(46, 204, 113, 0.2); }
+        .kpi-trend.down { color: var(--color-accent-red); background: rgba(255, 71, 87, 0.2); }
+
+        /* --- 7. CHAT --- */
+        .chat-bar-container {
+            flex-shrink: 0; display: flex; gap: 10px; background: var(--color-panel);
+            border-radius: 12px; padding: 10px 15px; border: 1px solid var(--color-border);
+        }
+        #chat-input { flex-grow: 1; background: var(--color-input-bg); border: 1px solid var(--color-border); color: var(--color-text-primary); padding: 12px 15px; border-radius: 8px; outline: none; font-size: 1.1em; }
+        #chat-submit-btn { width: 50px; background: var(--color-accent-cyan); border: none; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+
+        /* --- 8. MODALS --- */
+        .modal-overlay {
+            display: none; position: fixed; z-index: 9999; left: 0; top: 0; width: 100%; height: 100%;
+            background-color: rgba(0,0,0,0.6); align-items: center; justify-content: center;
+        }
+        .modal-content {
+            background-color: var(--color-panel); color: var(--color-text-primary); padding: 25px; 
+            border: 1px solid var(--color-border); border-radius: 8px; width: 600px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.5); display: flex; flex-direction: column;
+        }
+        .progress-bar-container { width: 100%; height: 8px; background: var(--color-input-bg); border-radius: 4px; overflow: hidden; margin-bottom: 10px; }
+        .progress-bar-indeterminate {
+            width: 100%; height: 100%;
+            background: linear-gradient(90deg, var(--color-accent-cyan), var(--color-accent-green), var(--color-accent-cyan));
+            background-size: 200% 100%; animation: loading-progress 1.5s linear infinite;
+        }
+        @keyframes loading-progress { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+        .telemetry-grid {
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+            margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--color-border);
+        }
+        .telemetry-item { background: var(--color-input-bg); padding: 10px; border-radius: 6px; text-align: center; border: 1px solid var(--color-border); }
+        .telemetry-label { font-size: 0.75em; color: var(--color-text-secondary); text-transform: uppercase; margin-bottom: 5px; }
+        .telemetry-value { font-size: 1.1em; font-weight: bold; color: var(--color-text-primary); }
+        .telemetry-value.optimized { color: var(--color-accent-green); }
+
+        #chat-log-display { flex-grow: 1; overflow-y: auto; padding: 15px; border: 1px solid var(--color-border); background: var(--color-input-bg); border-radius: 8px; margin-bottom: 20px; max-height: 400px; }
+        .chat-message { padding: 10px 15px; border-radius: 12px; max-width: 80%; line-height: 1.5; margin-bottom: 10px; }
+        .chat-message.human { background-color: var(--color-accent-cyan); color: var(--color-bg-main); margin-left: auto; border-bottom-right-radius: 0; }
+        .chat-message.ai { background-color: var(--color-panel-accent); color: var(--color-text-primary); margin-right: auto; border-bottom-left-radius: 0; }
+
+    </style>
+</head>
+<body>
+    <div class="dashboard-wrapper">
+        <div class="dashboard-header">
+            <h1>Supply Chain Command Center</h1>
+            <button id="theme-toggle" class="theme-btn">☀️</button>
+        </div>
+
+        <div class="dashboard-grid">
+            <div class="panel control-panel">
+                <h3>AI Simulation & Presets</h3>
+                
+                <div class="control-group">
+                    <label>Infrastructure Engine</label>
+                    <label class="vllm-toggle-group">
+                        <input type="checkbox" id="optimize-engine-toggle">
+                        <span>Enable vLLM & LLM-D</span>
+                        <span class="vllm-badge">DISTRIBUTED</span>
+                    </label>
+                    <div style="font-size: 0.75em; color: var(--color-text-secondary); margin-top: 5px; padding-left: 5px;">
+                        Activates PagedAttention & Distributed Agents.
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label>Scenario Presets</label>
+                    <div class="radio-group" id="scenario-preset-group">
+                        <label><input type="radio" name="scenario-preset" value="none" checked> <span>Live Dashboard</span></label>
+                        <label><input type="radio" name="scenario-preset" value="port-strike"> <span>Preset: Port Strike LA</span></label>
+                        <label><input type="radio" name="scenario-preset" value="geopolitical"> <span>Preset: Suez Blockage</span></label>
+                    </div>
+                </div>
+
+                <!-- SLIDERS WITH TOOLTIPS -->
+                <div class="control-group slider-group">
+                    <label>Disruption Severity <span class="value-display" id="severity-value">75%</span></label>
+                    <input type="range" id="disruption-severity" min="0" max="100" value="75">
+                    <div class="slider-tooltip">Adjusts the intensity of the disruption event.</div>
+                </div>
+                <div class="control-group slider-group">
+                    <label>Consumer Sentiment <span class="value-display" id="sentiment-value">30%</span></label>
+                    <input type="range" id="consumer-sentiment" min="0" max="100" value="30">
+                    <div class="slider-tooltip">Simulates market demand strength.</div>
+                </div>
+                <div class="control-group slider-group">
+                    <label>Lead Time Variance <span class="value-display" id="variance-value">20%</span></label>
+                    <input type="range" id="lead-time-variance" min="0" max="100" value="20">
+                    <div class="slider-tooltip">Simulates supplier reliability.</div>
+                </div>
+                
+                <button id="implement-strategy" class="btn btn-primary">Run AI Simulation</button>
+            </div>
+    
+            <div class="center-content">
+                <div class="top-charts-container">
+                    <div class="panel chart-panel demand">
+                        <h3>Demand Forecast</h3>
+                        <div class="chart-container-box">
+                            <canvas id="demand-forecast-chart"></canvas>
+                        </div>
+                    </div>
+                    <div class="panel chart-panel revenue">
+                        <h3>Revenue Impact</h3>
+                        <div class="chart-container-box">
+                            <canvas id="revenue-impact-chart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <!-- GAUGES PANEL -->
+                    <div class="panel gauges-panel">
+                        <h3>System Health</h3>
+                        <div class="gauge-stack">
+                             <div class="gauge-wrapper">
+                                <canvas id="gauge-1"></canvas>
+                                <div class="gauge-label" id="g1-val">92%</div>
+                                <div class="gauge-title">Supplier Health</div>
+                             </div>
+                             <div class="gauge-wrapper">
+                                <canvas id="gauge-2"></canvas>
+                                <div class="gauge-label" id="g2-val">Low</div>
+                                <div class="gauge-title">Risk Index</div>
+                             </div>
+                        </div>
+                    </div>
+
+                </div>
+    
+                <div class="panel map-panel">
+                    <h3>
+                        Live Logistics Map
+                        <div class="map-controls">
+                            <!-- NEW TOGGLE FOR TRAFFIC (RENAMED) -->
+                            <label class="traffic-toggle">
+                                <input type="checkbox" id="show-all-flights"> Show ALL Flights
+                            </label>
+                            <!-- UPDATED SELECT ORDER: AIR -> SEA -> LAND -->
+                            <select id="map-view-selector" style="background: var(--color-input-bg); color: var(--color-text-primary); border: 1px solid var(--color-border); border-radius: 4px; padding: 5px;">
+                                <option value="airFreight" selected>Global Air Freight (Air)</option>
+                                <option value="global">Global Shipping (Sea)</option>
+                                <option value="regional">North America (Land)</option>
+                            </select>
+                        </div>
+                    </h3> 
+                    <div id="logistics-map"></div>
+                    <div id="zoom-display">Zoom: 2.0</div>
+                </div>
+            </div>
+    
+            <div class="panel insights-panel">
+                <div class="panel-header">
+                    <h3>Real-Time Alerts</h3>
+                    <button id="trigger-event-btn" class="btn-trigger-event">Trigger Event</button>
+                </div>
+                <div id="alert-feed" class="alert-feed"></div>
+                
+                <!-- VISUAL FLOW SNAPSHOT -->
+                <h3 style="margin-top: 25px;">Logistics Flow Snapshot</h3>
+                <div class="flow-container">
+                    <svg id="flow-svg" viewBox="0 0 300 180" style="width:100%; height:100%;">
+                        <!-- JS Injects Lines Here -->
+                    </svg>
+                    <div id="flow-tooltip" class="flow-tooltip"></div>
+                </div>
+
+                <h3 style="margin-top: 15px;">Asset Status Snapshot</h3>
+                <div id="map-info-card" class="info-card">
+                    <strong id="snapshot-location" style="color: var(--color-accent-cyan);">System Status</strong><br>
+                    Active Assets: <span id="info-count">--</span><br>
+                    Current Risk: <span id="info-risk">Low</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="kpi-bar">
+            <div class="kpi-card-new">
+                <div class="kpi-info-tooltip">% of orders fulfilled immediately.</div>
+                <div class="kpi-label">In-Stock Rate</div><span class="kpi-value-new" id="kpi-stock-value">--%</span><span class="kpi-trend" id="kpi-stock-trend"></span>
+            </div>
+            <div class="kpi-card-new">
+                <div class="kpi-info-tooltip">% shipments arriving on schedule.</div>
+                <div class="kpi-label">On-Time Delivery</div><span class="kpi-value-new" id="kpi-on-time-value">--%</span><span class="kpi-trend" id="kpi-on-time-trend"></span>
+            </div>
+            <div class="kpi-card-new">
+                <div class="kpi-info-tooltip">Ratio of sales to avg inventory.</div>
+                <div class="kpi-label">Inventory Turnover</div><span class="kpi-value-new" id="kpi-turnover-value">--x</span><span class="kpi-trend" id="kpi-turnover-trend"></span>
+            </div>
+            <div class="kpi-card-new">
+                <div class="kpi-info-tooltip">Revenue lost due to stockouts.</div>
+                <div class="kpi-label">Lost Sales</div><span class="kpi-value-new" id="kpi-lost-sales-value">$--M</span><span class="kpi-trend" id="kpi-lost-sales-trend"></span>
+            </div>
+            <div class="kpi-card-new">
+                <div class="kpi-info-tooltip">AI-Optimized inventory trigger.</div>
+                <div class="kpi-label">Optimal Reorder</div><span class="kpi-value-new" id="kpi-reorder-point-value">--%</span><span class="kpi-trend" id="kpi-reorder-point-trend"></span>
+            </div>
+        </div>
+
+        <div class="chat-bar-container">
+            <input type="text" id="chat-input" placeholder="Ask me anything...">
+            <button id="chat-submit-btn">➤</button>
+        </div>
+    </div>
+
+    <!-- MODALS -->
+    <div id="custom-modal" class="modal-overlay">
+        <div id="custom-modal-content" class="modal-content">
+            <p id="custom-modal-message" style="font-size: 1.1em; line-height: 1.6; white-space: pre-wrap; margin-bottom: 20px;"></p>
+            <div id="simulation-progress" class="progress-bar-container" style="display: none;"><div class="progress-bar-indeterminate"></div></div>
+            <span id="simulation-timer" style="display: none; color: var(--color-text-secondary); margin-bottom:10px;">Elapsed: 0:00s</span>
+            <div id="telemetry-section" class="telemetry-grid" style="display: none;">
+                <div class="telemetry-item"><div class="telemetry-label">KV Cache Hit Rate</div><div class="telemetry-value" id="tel-tokens">--%</div></div>
+                <div class="telemetry-item"><div class="telemetry-label">Inference Speed</div><div class="telemetry-value" id="tel-latency">--s</div></div>
+                <div class="telemetry-item"><div class="telemetry-label">Token Cost Savings</div><div class="telemetry-value" id="tel-cost">--%</div></div>
+                <!-- NEW TELEMETRY ROWS -->
+                <div class="telemetry-item"><div class="telemetry-label">Total Tokens</div><div class="telemetry-value" id="tel-total-tokens">--</div></div>
+                <div class="telemetry-item"><div class="telemetry-label">Tokens / Sec</div><div class="telemetry-value" id="tel-tps">--</div></div>
+            </div>
+            <button id="custom-modal-close" class="btn btn-primary" style="width: 100px; margin-top: 15px; align-self: flex-end;">OK</button>
+        </div>
+    </div>
+    
+    <div id="chat-modal" class="modal-overlay">
+        <div class="modal-content" style="max-width: 700px; height: 70vh;">
+            <h3 style="margin-top:0;">AI Assistant (vLLM)</h3>
+            <div id="chat-log-display"></div>
+            <button id="chat-modal-close" class="btn btn-primary" style="align-self: flex-end; width: 100px;">Close</button>
+        </div>
+    </div>
+
+    <script>
+        // --- CONSTANTS ---
+        const API_BASE_URL = "http://localhost:5001";
+        const API_STATE_URL = `${API_BASE_URL}/api/v1/state`;
+        const API_SIMULATE_URL = `${API_BASE_URL}/api/v1/simulate`;
+        const API_CHAT_URL = `${API_BASE_URL}/api/v1/chat`;
+        const API_TRIGGER_EVENT_URL = `${API_BASE_URL}/api/v1/trigger-event`;
+
+        let appState = { live: null, simulation: null };
+        let chatHistory = [];
+        let leafletMap = null;
+        let leafletLayers = { ports: L.layerGroup(), routes: L.layerGroup(), assets: L.layerGroup(), riskZones: L.layerGroup() };
+        let simulationTimerInterval = null, simulationStartTime = null;
+        let demandChart = null, revenueChart = null, gauge1 = null, gauge2 = null; 
+
+        // ICONS (Updated)
+        const planeIconPath = "M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z";
+        // New Detailed Ship Path (Top-Down)
+        const vesselIconPath = "M12 2 L18 8 V22 H6 V8 L12 2 Z M8 9 H16 V18 H8 Z";
+        // New Detailed Truck Path (Top-Down)
+        const truckIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10 2 H14 V7 H10 Z M11 7 H13 V9 H11 Z M8 9 H16 V23 H8 Z" fill="currentColor"/></svg>`;
+
+        const COLORS = { cyan: '#00E0FF', red: '#FF4757', green: '#2ECC71', yellow: '#FFC300', grid: 'rgba(255,255,255,0.2)' };
+
+        // --- MAP INIT ---
+        function initLeafletMap() {
+            if(leafletMap) return;
+            // ZOOM 2, CENTER [20, 0]
+            leafletMap = L.map('logistics-map', { zoomControl: false }).setView([20, 0], 2);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { attribution: '&copy; CARTO' }).addTo(leafletMap);
+            L.control.zoom({ position: 'topright' }).addTo(leafletMap);
+            Object.values(leafletLayers).forEach(l => l.addTo(leafletMap));
+            
+            leafletMap.on('zoomend', () => {
+                document.getElementById('zoom-display').textContent = 'Zoom: ' + leafletMap.getZoom().toFixed(1);
+            });
+        }
+
+        // --- CHART & GAUGE INIT ---
+        function initCharts() {
+            const ctxD = document.getElementById('demand-forecast-chart').getContext('2d');
+            demandChart = new Chart(ctxD, {
+                type: 'line',
+                data: { labels: [], datasets: [{ label: 'Actual', data: [], borderColor: COLORS.red }, { label: 'Forecast', data: [], borderColor: COLORS.cyan }] },
+                options: { maintainAspectRatio: false, responsive: true, scales: { x: { grid: { color: COLORS.grid } }, y: { grid: { color: COLORS.grid } } } }
+            });
+
+            const ctxR = document.getElementById('revenue-impact-chart').getContext('2d');
+            revenueChart = new Chart(ctxR, {
+                type: 'bar',
+                data: { 
+                    labels: [], 
+                    datasets: [
+                        { label: 'Revenue %', data: [], backgroundColor: [] }, 
+                        { type: 'line', label: 'Margin %', data: [], borderColor: COLORS.cyan, borderWidth: 2 }
+                    ] 
+                },
+                options: { maintainAspectRatio: false, responsive: true, scales: { x: { display: false }, y: { grid: { color: COLORS.grid } } } }
+            });
+
+            // GAUGES (Doughnuts) - Update padding for title
+            const gaugeOpt = {
+                rotation: -90,
+                circumference: 180,
+                cutout: '75%',
+                layout: { padding: { left: 10, right: 10, bottom: 50 } }, // Further increased bottom padding to 50px
+                plugins: { legend: { display: false }, tooltip: { enabled: false } }
+            };
+
+            gauge1 = new Chart(document.getElementById('gauge-1'), {
+                type: 'doughnut',
+                data: { labels: ['Val', 'Rest'], datasets: [{ data: [90, 10], backgroundColor: [COLORS.green, 'rgba(255,255,255,0.1)'], borderWidth: 0 }] },
+                options: gaugeOpt
+            });
+
+            gauge2 = new Chart(document.getElementById('gauge-2'), {
+                type: 'doughnut',
+                data: { labels: ['Val', 'Rest'], datasets: [{ data: [20, 80], backgroundColor: [COLORS.red, 'rgba(255,255,255,0.1)'], borderWidth: 0 }] },
+                options: gaugeOpt
+            });
+        }
+
+        // --- API ---
+        async function fetchAPI(url, options = {}) {
+            try {
+                const response = await fetch(url, options);
+                if (!response.ok) throw new Error(response.status);
+                return await response.json();
+            } catch (error) { console.error(error); return null; }
+        }
+
+        async function fetchLiveState() {
+            const data = await fetchAPI(API_STATE_URL);
+            if (data) { 
+                appState.live = data; 
+                // FIX: Render function called displayState to fix ReferenceError
+                if (!appState.simulation) displayState(data); 
+            }
+        }
+
+        // --- VISUAL FLOW DIAGRAM ---
+        function drawFlowLines(view) {
+            const svg = document.getElementById('flow-svg');
+            const tooltip = document.getElementById('flow-tooltip');
+            svg.innerHTML = ''; 
+
+            // Define markers first
+            const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
+            defs.innerHTML = `
+                <marker id="arrow-g" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L9,3 z" fill="${COLORS.green}" /></marker>
+                <marker id="arrow-r" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L9,3 z" fill="${COLORS.red}" /></marker>
+            `;
+            svg.appendChild(defs);
+
+            let redData = {}, greenData = {};
+            if(view === 'regional') {
+                redData = { d: "M 30 90 Q 150 20, 270 90", name: "I-80 Corridor", risk: "Snow/Strike Delay", impact: "-$1.2M", icon: "⚠️", title: "Labor Dispute Risk" };
+                greenData = { d: "M 30 90 Q 150 160, 270 90", name: "Southern Route", opt: "Reroute via I-40", save: "+$800k", title: "Optimization Plan" };
+            } else if (view === 'airFreight') {
+                redData = { d: "M 30 90 Q 150 10, 270 90", name: "Polar Route", risk: "Alaskan Storm", impact: "-$2.5M", icon: "⛈️", title: "Weather Hazard" };
+                greenData = { d: "M 30 90 Q 150 170, 270 90", name: "Pacific Track", opt: "Direct Route", save: "+$1.8M", title: "Flight Reroute" };
+            } else { 
+                redData = { d: "M 30 90 Q 150 30, 270 90", name: "Suez Route", risk: "Geopolitical Block", impact: "-$4.1M", icon: "⚓", title: "Port Blockage" };
+                greenData = { d: "M 30 90 Q 150 180, 270 90", name: "Cape Route", opt: "Go around Africa", save: "+$2.2M", title: "Vessel Diversion" };
+            }
+
+            // Draw Paths
+            const createPath = (data, type) => {
+                const p = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                p.setAttribute("d", data.d);
+                p.setAttribute("class", `flow-path path-${type}`);
+                p.setAttribute("marker-end", `url(#arrow-${type==='risk'?'r':'g'})`);
+                
+                // Mouse events using Fixed positioning to avoid cuts
+                p.addEventListener('mousemove', (e) => {
+                    tooltip.style.display = 'block';
+                    tooltip.style.left = (e.clientX + 15) + 'px';
+                    tooltip.style.top = (e.clientY + 15) + 'px';
+                    
+                    let html = `<div class="flow-header" style="color:${type==='risk'?COLORS.red:COLORS.green}">${data.title}</div>`;
+                    if (type === 'risk') {
+                        html += `<div class="flow-stat"><label>Cause:</label> <span>${data.risk}</span></div>`;
+                        html += `<div class="flow-stat"><label>Impact:</label> <span style="color:${COLORS.red}">${data.impact}</span></div>`;
+                    } else {
+                        html += `<div class="flow-stat"><label>Plan:</label> <span>${data.opt}</span></div>`;
+                        html += `<div class="flow-stat"><label>Benefit:</label> <span style="color:${COLORS.green}">${data.save}</span></div>`;
+                    }
+                    tooltip.innerHTML = html;
+                });
+                p.addEventListener('mouseleave', () => tooltip.style.display='none');
+                return p;
+            }
+
+            svg.appendChild(createPath(redData, 'risk'));
+            svg.appendChild(createPath(greenData, 'safe'));
+
+            // Nodes and Labels
+            const nodes = [{x:30, y:90, t:"Origin"}, {x:270, y:90, t:"Dest"}];
+            nodes.forEach(n => {
+                const c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                c.setAttribute("cx", n.x); c.setAttribute("cy", n.y); c.setAttribute("r", 6); c.setAttribute("class", "flow-node");
+                const t = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                t.setAttribute("x", n.x); t.setAttribute("y", n.y + 20); t.setAttribute("class", "flow-label"); t.textContent = n.t;
+                svg.appendChild(c); svg.appendChild(t);
+            });
+
+            // Icon
+            const icon = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            icon.setAttribute("x", 150); icon.setAttribute("y", 50); icon.setAttribute("text-anchor", "middle");
+            icon.setAttribute("class", "flow-icon"); icon.textContent = redData.icon;
+            svg.appendChild(icon);
+        }
+
+        // --- DISPLAY (Renamed from 'render' to 'displayState') ---
+        function displayState(data) {
+            if (!data || !data.mapData) return;
+
+            const view = document.getElementById('map-view-selector').value;
+            const mapData = data.mapData[view];
+            if (!mapData) return;
+
+            drawFlowLines(view);
+
+            // KPIs
+            const kpi = data.kpis;
+            document.getElementById('kpi-stock-value').textContent = kpi.inStock.value;
+            document.getElementById('kpi-on-time-value').textContent = kpi.onTime.value;
+            document.getElementById('kpi-turnover-value').textContent = kpi.turnover.value;
+            document.getElementById('kpi-lost-sales-value').textContent = kpi.lostSales.value;
+            document.getElementById('kpi-reorder-point-value').textContent = kpi.reorderPoint.value;
+
+            // Alerts
+            const feed = document.getElementById('alert-feed'); feed.innerHTML = '';
+            let allAlerts = [...(data.alerts.global||[]), ...(data.alerts.regional||[]), ...(data.alerts.airFreight||[])];
+            if(!allAlerts.length) allAlerts = [{type:'info', text:'System stable. No live alerts.'}];
+            allAlerts.forEach(a => {
+                const d = document.createElement('div'); d.className = `alert ${a.type}`;
+                const btn = a.action ? `<button class="view-routes-btn" onclick="handleAlertAction('${a.action.text}')">${a.action.text}</button>` : '';
+                d.innerHTML = `<div class="alert-content"><strong>${a.type.toUpperCase()}:</strong> ${a.text}</div>${btn}`;
+                feed.appendChild(d);
+            });
+
+            updateMap(mapData, view);
+            updateCharts(data.charts);
+            
+            // UPDATE GAUGES DYNAMICALLY
+            if(gauge1 && gauge2) {
+                // Parse On-Time value (e.g., "92%" -> 92)
+                let onTimeVal = parseInt(kpi.onTime.value);
+                if(isNaN(onTimeVal)) onTimeVal = 85; // fallback
+                
+                // Update Gauge 1 (Supplier Health)
+                gauge1.data.datasets[0].data = [onTimeVal, 100-onTimeVal];
+                gauge1.data.datasets[0].backgroundColor = [
+                    onTimeVal > 90 ? COLORS.green : (onTimeVal > 75 ? COLORS.yellow : COLORS.red), 
+                    'rgba(255,255,255,0.1)'
+                ];
+                gauge1.update();
+                document.getElementById('g1-val').innerText = onTimeVal + '%';
+
+                // Update Gauge 2 (Risk Index)
+                // Calculate basic risk score: (100 - OnTime) + (Slider Severity / 5)
+                let sev = parseInt(document.getElementById('disruption-severity').value) || 20;
+                let riskScore = (100 - onTimeVal) + (sev / 5);
+                if (riskScore > 100) riskScore = 100;
+                if (riskScore < 0) riskScore = 0;
+
+                gauge2.data.datasets[0].data = [riskScore, 100-riskScore];
+                gauge2.data.datasets[0].backgroundColor = [
+                    riskScore < 30 ? COLORS.green : (riskScore < 60 ? COLORS.yellow : COLORS.red),
+                    'rgba(255,255,255,0.1)'
+                ];
+                gauge2.update();
+                
+                let riskText = "Low";
+                if (riskScore > 60) riskText = "Critical";
+                else if (riskScore > 30) riskText = "Medium";
+                document.getElementById('g2-val').innerText = riskText;
+            }
+
+            // FILTER COUNT (Based on toggle state)
+            const showAll = document.getElementById('show-all-flights').checked;
+            let count = mapData.assets.length;
+            if(view === 'airFreight' && !showAll) {
+                count = mapData.assets.filter(a => a.cargo !== 'General Cargo').length;
+            }
+            document.getElementById('info-count').innerText = count;
+        }
+
+        // --- UPDATED CHARTS FUNCTION ---
+        function updateCharts(data) {
+            if(!demandChart || !revenueChart) return; 
+            
+            if(data.demand) {
+                demandChart.data.labels = data.demand.labels;
+                demandChart.data.datasets[0].data = data.demand.actual;
+                demandChart.data.datasets[1].data = data.demand.forecast;
+                demandChart.update();
+            }
+            if(data.revenue) {
+                const labels = ['Electronics', 'Apparel', 'Essentials', 'Home', 'Perishables'].slice(0, data.revenue.revenueData.length);
+                revenueChart.data.labels = labels;
+                
+                // Color mapping (Red/Green)
+                const bgColors = data.revenue.colors ? data.revenue.colors.map(c => c === 'green' ? COLORS.green : COLORS.red) : COLORS.green;
+                
+                revenueChart.data.datasets[0].data = data.revenue.revenueData;
+                revenueChart.data.datasets[0].backgroundColor = bgColors;
+                
+                if (data.revenue.marginData) {
+                    revenueChart.data.datasets[1].data = data.revenue.marginData;
+                }
+                revenueChart.update();
+            }
+        }
+
+        function updateMap(data, view) {
+            if(!leafletMap) initLeafletMap();
+            Object.values(leafletLayers).forEach(l => l.clearLayers());
+
+            // 1. Draw Routes
+            data.routes.forEach(r => {
+                let color = COLORS.cyan;
+                let dash = null;
+                let weight = 2;
+
+                if (r.color === 'yellow' || (r.id && r.id.includes('REROUTE'))) {
+                    color = COLORS.yellow;
+                    dash = '5, 5';
+                    weight = 3;
+                }
+
+                L.polyline([[r.start[1], r.start[0]], [r.end[1], r.end[0]]], { 
+                    color: color, 
+                    weight: weight, 
+                    dashArray: dash 
+                }).addTo(leafletLayers.routes);
+            });
+
+            // 2. Draw Ports
+            data.ports.forEach(p => {
+                const color = p.risk > 15 ? COLORS.red : COLORS.green;
+                L.circleMarker([p.lat, p.lng], { radius: 6, fillColor: color, fillOpacity: 1, color: '#fff', weight: 1 })
+                 .bindPopup(`<b>${p.name}</b><br>Risk: ${p.risk}%`).addTo(leafletLayers.ports);
+            });
+
+            // 3. Draw Assets (With Filtering Logic)
+            const showAll = document.getElementById('show-all-flights').checked;
+            
+            data.assets.forEach(a => {
+                // FILTER LOGIC: If view is airFreight and checkbox is unchecked, skip 'General Cargo'
+                if(view === 'airFreight' && !showAll && a.cargo === 'General Cargo') return;
+
+                let lat = a.lat, lng = a.lng, angle = a.track || 0;
+
+                // Interpolate if not live (Ships/Trucks)
+                if (!a.is_live && a.routeId) {
+                    let r = data.routes.find(x => x.id === a.routeId); 
+                    if (!r && data.routes.length > 0) r = data.routes[0]; 
+                    if (r) {
+                        lat = r.start[1] + (r.end[1] - r.start[1]) * (a.progress || 0.5);
+                        lng = r.start[0] + (r.end[0] - r.start[0]) * (a.progress || 0.5);
+                        angle = Math.atan2(r.end[1] - r.start[1], r.end[0] - r.start[0]) * 57.29 + 90;
+                    }
+                }
+
+                // --- ICON SELECTION FIX ---
+                let iconHtml = vesselIconPath; 
+                let isTruck = false;
+
+                // Priority: If it is a LIVE asset (Plane) OR the view is Air Freight, use Plane Icon
+                if(a.is_live === true || view === 'airFreight') {
+                    iconHtml = planeIconPath;
+                } else if(view === 'regional') {
+                    isTruck = true;
+                }
+                
+                let svg;
+                if (isTruck) {
+                    svg = `<div class="truck-icon" style="transform: rotate(${angle}deg); color:${COLORS.cyan};">${truckIconSvg}</div>`;
+                } else {
+                    // Ship/Plane SVG Construction
+                    svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" style="transform: rotate(${angle}deg); fill:${COLORS.cyan}; stroke:#10162A; stroke-width:1; overflow:visible;"><path d="${iconHtml}"/></svg>`;
+                }
+                
+                const icon = L.divIcon({ className: 'leaflet-asset-icon', html: svg, iconSize: [32,32] });
+
+                let popup = `<b>${a.name}</b><br>Cargo: ${a.cargo}`;
+                if(view === 'airFreight' || a.is_live) popup += `<br>Speed: ${a.speed || 'N/A'}<br>Alt: ${a.altitude_ft || 'N/A'}`;
+                if(view === 'global') popup += `<br>Containers: ${a.capacity || '--'}`;
+
+                // --- COORDINATE FIX (Handle 0 values) ---
+                if(lat !== null && lng !== null && lat !== undefined && lng !== undefined) {
+                    const m = L.marker([lat, lng], {icon: icon}).addTo(leafletLayers.assets);
+                    m.bindPopup(popup);
+                    m.on('mouseover', function(e){ this.openPopup(); });
+                    m.on('mouseout', function(e){ this.closePopup(); });
+                }
+            });
+
+            // 4. Draw Risk Zones
+            data.riskZones.forEach(z => {
+                L.circle([z.lat, z.lng], {radius: 80000, className:'leaflet-risk-zone'}).bindPopup(`<b>${z.name}</b>`).addTo(leafletLayers.riskZones);
+            });
+        }
+
+        // --- MODAL ---
+        function showCustomModal(msg, isLoading, perf) {
+            document.getElementById('custom-modal-message').textContent = msg;
+            document.getElementById('custom-modal').style.display = 'flex';
+            const prog = document.getElementById('simulation-progress');
+            const timer = document.getElementById('simulation-timer');
+            const tel = document.getElementById('telemetry-section');
+            const btn = document.getElementById('custom-modal-close');
+
+            clearInterval(simulationTimerInterval);
+            if(isLoading) {
+                prog.style.display = 'block'; timer.style.display = 'block'; tel.style.display = 'none'; btn.style.display = 'none';
+                simulationStartTime = Date.now();
+                simulationTimerInterval = setInterval(() => {
+                    const s = Math.floor((Date.now()-simulationStartTime)/1000);
+                    timer.textContent = `Elapsed: ${s}s`;
+                }, 1000);
+            } else {
+                prog.style.display = 'none'; timer.style.display = 'none'; btn.style.display = 'block';
+                if(perf) {
+                    tel.style.display = 'grid';
+                    document.getElementById('tel-tokens').textContent = perf.cacheRate;
+                    document.getElementById('tel-latency').textContent = perf.latency + 's';
+                    document.getElementById('tel-cost').textContent = perf.costSavings;
+                    // UPDATED: Populate new metrics
+                    if(perf.totalTokens) document.getElementById('tel-total-tokens').textContent = perf.totalTokens;
+                    if(perf.tokensPerSecond) document.getElementById('tel-tps').textContent = perf.tokensPerSecond;
+
+                    const isOpt = perf.mode.includes("Distributed");
+                    document.querySelectorAll('.telemetry-value').forEach(el => el.style.color = isOpt ? COLORS.green : '#E0E6F0');
+                } else {
+                    tel.style.display = 'none';
+                }
+            }
+        }
+        function hideCustomModal() { document.getElementById('custom-modal').style.display = 'none'; clearInterval(simulationTimerInterval); }
+
+        window.handleAlertAction = (msg) => alert(`Executing Action: ${msg}`);
+        
+        window.runSimulation = async () => {
+            const scenarioId = document.querySelector('input[name="scenario-preset"]:checked').value;
+            const useOptimization = document.getElementById('optimize-engine-toggle').checked;
+            
+            // Capture Slider Values
+            const severity = document.getElementById('disruption-severity').value;
+            const sentiment = document.getElementById('consumer-sentiment').value;
+            const variance = document.getElementById('lead-time-variance').value;
+
+            showCustomModal("Running AI simulation...", true);
+            const data = await fetchAPI(API_SIMULATE_URL, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    scenario: scenarioId, 
+                    optimize: useOptimization,
+                    severity: severity,
+                    sentiment: sentiment,
+                    variance: variance
+                })
+            });
+            if (data) {
+                appState.simulation = data;
+                displayState(data); // Call fixed function name
+                hideCustomModal(); 
+                showCustomModal("Simulation Complete.", false, data.performance);
+            }
+        };
+        
+        window.triggerWorldEvent = async () => {
+            const mapView = document.getElementById('map-view-selector').value;
+            showCustomModal("Triggering event...", true);
+            const data = await fetchAPI(API_TRIGGER_EVENT_URL, {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ mapView: mapView })
+            });
+            if (data) { 
+                appState.live = data; 
+                displayState(data); // Call fixed function name
+                hideCustomModal(); 
+            }
+        };
+        window.handleChat = async () => {
+            const input = document.getElementById('chat-input');
+            const query = input.value; if(!query) return;
+            input.value = "";
+            chatHistory.push({role: "human", content: query});
+            document.getElementById('chat-modal').style.display = 'flex';
+            renderChat();
+            const res = await fetchAPI(API_CHAT_URL, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ input: query, chat_history: chatHistory })
+            });
+            if(res) {
+                chatHistory.push({role: "ai", content: res.answer});
+                renderChat();
+                if(res.routeData) showCustomModal("Route calculated.", false);
+            }
+        };
+        function renderChat() {
+            const log = document.getElementById('chat-log-display'); log.innerHTML = '';
+            chatHistory.forEach(m => {
+                const d = document.createElement('div'); d.className = `chat-message ${m.role}`; d.textContent = m.content;
+                log.appendChild(d);
+            });
+            log.scrollTop = log.scrollHeight;
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initLeafletMap();
+            initCharts(); 
+            fetchLiveState();
+            setInterval(fetchLiveState, 15000);
+
+            document.getElementById('implement-strategy').addEventListener('click', window.runSimulation);
+            document.getElementById('trigger-event-btn').addEventListener('click', window.triggerWorldEvent);
+            document.getElementById('chat-submit-btn').addEventListener('click', window.handleChat);
+            document.getElementById('chat-input').addEventListener('keypress', (e) => {if(e.key==='Enter') window.handleChat()});
+            document.getElementById('custom-modal-close').addEventListener('click', hideCustomModal);
+            document.getElementById('chat-modal-close').addEventListener('click', () => document.getElementById('chat-modal').style.display='none');
+            
+            // --- ZOOM FIX IMPLEMENTED HERE ---
+            document.getElementById('map-view-selector').addEventListener('change', (e) => {
+                const v = e.target.value;
+                if(v === 'regional') leafletMap.setView([39.82, -98.57], 4);
+                else if(v === 'airFreight') leafletMap.setView([20, 0], 2); // Set Zoom 2
+                else leafletMap.setView([20, 0], 2); // Set Zoom 2
+                
+                // Toggle Visibility Logic
+                const toggle = document.querySelector('.traffic-toggle');
+                if(v === 'airFreight') toggle.style.display = 'flex';
+                else toggle.style.display = 'none';
+
+                fetchLiveState();
+            });
+
+            // --- TOGGLE EVENT LISTENER ---
+            document.getElementById('show-all-flights').addEventListener('change', () => {
+                if(appState.live) displayState(appState.live);
+            });
+            
+            document.getElementById('theme-toggle').addEventListener('click', () => {
+                document.body.classList.toggle('light-theme');
+                const isLight = document.body.classList.contains('light-theme');
+                
+                // Update Map
+                if(leafletMap) {
+                    leafletMap.eachLayer(l => { if(l._url) leafletMap.removeLayer(l); });
+                    const url = isLight 
+                        ? 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png' 
+                        : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+                    L.tileLayer(url, { attribution: '&copy; CARTO' }).addTo(leafletMap);
+                }
+                
+                // Update Chart Grids
+                const newGridColor = isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.2)';
+                const newTextColor = isLight ? '#333' : '#E0E6F0';
+                
+                [demandChart, revenueChart].forEach(c => {
+                    if(c) {
+                        if(c.options.scales.x) {
+                            c.options.scales.x.grid.color = newGridColor;
+                            c.options.scales.x.ticks.color = newTextColor;
+                        }
+                        if(c.options.scales.y) {
+                            c.options.scales.y.grid.color = newGridColor;
+                            c.options.scales.y.ticks.color = newTextColor;
+                        }
+                        c.update();
+                    }
+                });
+            });
+
+            document.querySelectorAll('input[type="range"]').forEach(el => {
+                el.addEventListener('input', (e) => e.target.previousElementSibling.querySelector('.value-display').textContent = e.target.value + '%');
+            });
+        });
+    </script>
+</body>
+</html>

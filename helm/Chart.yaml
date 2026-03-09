@@ -1,0 +1,16 @@
+apiVersion: v2
+name: example
+description: Example umbrella chart with pgvector and llama-stack
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+
+dependencies:
+  - name: pgvector
+    version: 0.5.5
+    repository: https://rh-ai-quickstart.github.io/ai-architecture-charts
+    condition: pgvector.enabled
+  - name: llama-stack
+    version: 0.6.11
+    repository: https://rh-ai-quickstart.github.io/ai-architecture-charts
+    condition: llama-stack.enabled

@@ -1,0 +1,23 @@
+global:
+  models:
+    llama-3-2-1b-instruct:
+      id: meta-llama/Llama-3.2-1B-Instruct
+      enabled: true
+
+pgvector:
+  enabled: true
+  secret:
+    create: true
+    user: postgres
+    password: password
+    dbname: blueprint
+    host: pgvector
+    port: "5432"
+
+llama-stack:
+  enabled: true
+  rawDeploymentMode: true
+  pgvector:
+    enabled: true
+  secrets: {}
+
