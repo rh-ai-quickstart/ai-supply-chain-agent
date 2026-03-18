@@ -1,0 +1,44 @@
+{{- if .Values.backend.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-backend
+spec:
+  replicas: {{ .Values.backend.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-backend
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-backend
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: backend
+          image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}"
+          imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.backend.service.port }}
+          env:
+            - name: LLAMA_STACK_URL
+              value: {{ .Values.backend.env.LLAMA_STACK_URL | quote }}
+            # PG_ prefix avoids collision with the Kubernetes-injected
+            # PGVECTOR_PORT=tcp://ip:port service-discovery variable.
+            - name: PG_HOST
+              value: {{ .Values.backend.env.PG_HOST | quote }}
+            - name: PG_PORT
+              value: {{ .Values.backend.env.PG_PORT | quote }}
+            - name: PG_USER
+              value: {{ .Values.backend.env.PG_USER | quote }}
+            - name: PG_DB
+              value: {{ .Values.backend.env.PG_DB | quote }}
+            - name: PG_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.backend.pgvectorSecretName }}
+                  key: password
+{{- end }}

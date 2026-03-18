@@ -1,0 +1,97 @@
+{{- if .Values.ingest.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}-ingest
+  annotations:
+    # Fires after every helm install / upgrade.
+    helm.sh/hook: post-install,post-upgrade
+    # Delete the previous completed Job before creating a new one so
+    # re-runs never get blocked by a leftover Completed/Failed Job object.
+    helm.sh/hook-delete-policy: before-hook-creation
+    helm.sh/hook-weight: "10"
+spec:
+  backoffLimit: 2
+  # 10-minute hard deadline — covers slow cold-starts of pgvector / llamastack.
+  activeDeadlineSeconds: 600
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-ingest
+    spec:
+      restartPolicy: OnFailure
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+
+      # ── Init containers: block until dependencies are accepting traffic ──
+      initContainers:
+
+        # 1. Wait for PGVector to accept TCP connections on port 5432.
+        - name: wait-for-pgvector
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              echo "Waiting for pgvector at {{ .Values.backend.env.PG_HOST }}:{{ .Values.backend.env.PG_PORT }} ..."
+              until nc -z {{ .Values.backend.env.PG_HOST }} {{ .Values.backend.env.PG_PORT }}; do
+                echo "  pgvector not ready — retrying in 5s"
+                sleep 5
+              done
+              echo "pgvector is up."
+
+        # 2. Wait for Llama Stack to return HTTP 200 on /v1/models.
+        - name: wait-for-llamastack
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              echo "Waiting for llamastack at {{ .Values.backend.env.LLAMA_STACK_URL }}/v1/models ..."
+              until wget -qO- {{ .Values.backend.env.LLAMA_STACK_URL }}/v1/models > /dev/null 2>&1; do
+                echo "  llamastack not ready — retrying in 5s"
+                sleep 5
+              done
+              echo "llamastack is up."
+
+      # ── Main ingest container ────────────────────────────────────────────
+      containers:
+        - name: ingest
+          # Reuses the backend image; the ingest module is baked inside it.
+          image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}"
+          imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
+          command: ["python", "-m", "ingest.main"]
+          env:
+            # ── Ingestion settings ─────────────────────────────────────────
+            - name: KNOWLEDGE_BASE_DIR
+              value: {{ .Values.ingest.knowledgeBaseDir | quote }}
+            - name: INGEST_DROP_OLD
+              value: {{ .Values.ingest.dropOld | quote }}
+            - name: INGEST_CHUNK_SIZE
+              value: {{ .Values.ingest.chunkSize | quote }}
+            - name: INGEST_CHUNK_OVERLAP
+              value: {{ .Values.ingest.chunkOverlap | quote }}
+            - name: INGEST_GLOB
+              value: {{ .Values.ingest.glob | quote }}
+            # ── Embedding service ──────────────────────────────────────────
+            - name: LLAMA_STACK_URL
+              value: {{ .Values.backend.env.LLAMA_STACK_URL | quote }}
+            - name: EMBED_MODEL
+              value: {{ .Values.backend.env.EMBED_MODEL | quote }}
+            # ── PGVector connection (PG_ prefix avoids K8s collision) ──────
+            - name: PG_HOST
+              value: {{ .Values.backend.env.PG_HOST | quote }}
+            - name: PG_PORT
+              value: {{ .Values.backend.env.PG_PORT | quote }}
+            - name: PG_USER
+              value: {{ .Values.backend.env.PG_USER | quote }}
+            - name: PG_DB
+              value: {{ .Values.backend.env.PG_DB | quote }}
+            - name: PG_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.backend.pgvectorSecretName }}
+                  key: password
+{{- end }}
