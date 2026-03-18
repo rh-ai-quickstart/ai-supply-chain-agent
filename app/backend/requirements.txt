@@ -1,0 +1,9 @@
+flask
+flask-cors
+openai
+langchain
+langchain-community
+langchain-text-splitters
+langchain-openai
+langchain-postgres
+psycopg[binary]

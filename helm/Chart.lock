@@ -4,6 +4,9 @@ dependencies:
   version: 0.5.5
 - name: llama-stack
   repository: https://rh-ai-quickstart.github.io/ai-architecture-charts
-  version: 0.6.11
-digest: sha256:c967a9bdc2d9f251eaf26d6c7f8c890eb428497f14d23569c7e1ba762ff5201a
-generated: "2026-03-06T10:16:56.839887-05:00"
+  version: 0.5.2
+- name: llm-service
+  repository: https://rh-ai-quickstart.github.io/ai-architecture-charts
+  version: 0.5.9
+digest: sha256:389579d7d949d17c2c594155a0402bdb644ed8c969cc6d3b3b2487227ec0077a
+generated: "2026-03-18T11:46:43.165714-04:00"
