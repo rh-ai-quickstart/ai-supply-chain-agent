@@ -1,0 +1,36 @@
+Logistics Routing and Transportation Optimization
+
+Route optimization is the process of determining the most cost-efficient and time-effective path for delivering goods from origin to destination. Modern logistics networks use AI and graph algorithms to solve variants of the Vehicle Routing Problem (VRP).
+
+Key Routing Concepts:
+
+1. Last-Mile Delivery
+The final leg of the delivery journey — from a distribution center to the end customer — accounts for 53% of total shipping costs. Optimizing last-mile routes through dynamic re-routing reduces cost per delivery.
+
+2. Hub-and-Spoke Model
+Freight is consolidated at central hubs and distributed outward to spokes (regional warehouses or stores). This model increases load factor and reduces per-unit shipping costs.
+
+3. Cross-Docking
+Inbound shipments are transferred directly to outbound vehicles at a terminal with minimal storage time. Cross-docking reduces warehouse handling costs and speeds delivery cycles.
+
+4. Multimodal Transportation
+Combining sea, rail, truck, and air freight optimizes cost vs. speed trade-offs. Ocean freight is 5-10x cheaper than air but adds 20-40 days transit time.
+
+5. Dynamic Re-Routing
+Real-time traffic, weather, and port congestion data feeds into routing engines to adjust delivery paths in transit. This is critical for perishable goods and just-in-time manufacturing.
+
+6. Green Routing
+Environmental regulations and ESG commitments are driving optimized routes that minimize fuel consumption and CO2 emissions, often through consolidated loads and shorter paths.
+
+Optimization Algorithms Used:
+- Dijkstra's Algorithm: Finds shortest path in a weighted graph
+- Genetic Algorithms: Evolve near-optimal solutions for large VRP instances
+- Simulated Annealing: Escapes local optima in complex routing problems
+- Machine Learning: Predicts transit times and delay probabilities using historical data
+
+Key Performance Indicators:
+- On-Time Delivery (OTD) rate: target > 95%
+- Cost per mile / cost per delivery
+- Load factor utilization: target > 85%
+- Average delivery cycle time
+- Carbon emissions per shipment

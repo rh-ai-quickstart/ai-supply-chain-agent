@@ -1,0 +1,15 @@
+{{- if and .Values.frontend.enabled .Values.frontend.route.enabled }}
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: {{ .Release.Name }}-frontend
+spec:
+  {{- if .Values.frontend.route.host }}
+  host: {{ .Values.frontend.route.host | quote }}
+  {{- end }}
+  to:
+    kind: Service
+    name: {{ .Release.Name }}-frontend
+  port:
+    targetPort: http
+{{- end }}

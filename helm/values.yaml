@@ -21,3 +21,74 @@ llama-stack:
     enabled: true
   secrets: {}
 
+llm-service:
+  enabled: true
+  device: cpu
+  secret:
+    hf_token: ""
+    enabled: true
+  models:
+    llama-3-2-1b-instruct:
+      enabled: true
+      device: cpu
+
+imagePullSecrets: []
+
+backend:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: quay.io/rh-ee-rjjohnso/backend
+    tag: v7
+    pullPolicy: Always
+  service:
+    port: 5001
+  route:
+    enabled: true
+    host: ""
+  # Name of the Secret created by the pgvector subchart that holds the
+  # database password under the key "password".
+  pgvectorSecretName: pgvector
+  env:
+    LLAMA_STACK_URL: http://llamastack:8321
+    LLAMA_STACK_MODEL: meta-llama/Llama-3.2-1B-Instruct
+    EMBED_MODEL: all-MiniLM-L6-v2
+    # PG_ prefix avoids collision with the Kubernetes service-discovery
+    # variable PGVECTOR_PORT=tcp://ip:port that is auto-injected for the
+    # pgvector Service, which would corrupt SQLAlchemy URL parsing.
+    PG_HOST: pgvector
+    PG_PORT: "5432"
+    PG_USER: postgres
+    PG_DB: blueprint
+
+ingest:
+  # Set to true to run the knowledge-base ingestion Job on every
+  # helm install / upgrade.  The Job reuses the backend image, so
+  # rebuild & push the backend image first whenever the knowledge
+  # base files change.
+  enabled: true
+  # Drop the existing collection before inserting (clean re-ingest).
+  dropOld: "true"
+  # Path inside the container where .txt files live (baked into the image).
+  knowledgeBaseDir: "ingest/knowledge_base"
+  # Chunking parameters forwarded to RecursiveCharacterTextSplitter.
+  chunkSize: "1000"
+  chunkOverlap: "200"
+  # File glob relative to knowledgeBaseDir.
+  glob: "**/*.txt"
+
+frontend:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: quay.io/rh-ee-rjjohnso/frontend
+    tag: v2
+    pullPolicy: Always
+  service:
+    port: 8080
+  route:
+    enabled: true
+    host: ""
+  env:
+    VITE_API_BASE_URL: http://backend:5001
+
