@@ -51,19 +51,3 @@ class VectorStoreClient:
     def as_retriever(self, **kwargs):
         """Return a LangChain-compatible retriever."""
         return self.vector_store.as_retriever(**kwargs)
-
-    def add_documents(self, documents: list, drop_old: bool = False) -> None:
-        """Embed and store *documents* in the vector store."""
-        if drop_old:
-            try:
-                self.vector_store.drop_tables()
-                logger.info("Dropped existing tables for collection '%s'.", _COLLECTION_NAME)
-            except Exception as exc:
-                logger.warning("Could not drop tables: %s", exc)
-
-        self.vector_store.create_tables_if_not_exists()
-        self.vector_store.create_collection()
-        logger.info("Schema and collection ready for '%s'.", _COLLECTION_NAME)
-
-        self.vector_store.add_documents(documents)
-        logger.info("Added %d documents to collection '%s'.", len(documents), _COLLECTION_NAME)
