@@ -4,7 +4,6 @@ logger = logging.getLogger(__name__)
 
 ROUTE_KEYWORDS = ["route", "routing", "truck", "trucking", "shipment path", "transit path"]
 
-# Known DC coordinates used for route lookups
 _LOCATIONS = {
     "los angeles dc": (34.05, -118.24),
     "chicago dc": (41.87, -87.62),
@@ -33,7 +32,7 @@ class RouteService:
         """Return a structured route optimisation response.
 
         Resolves origin/destination from the query text, falling back to
-        the LA → Chicago default when no known location is detected.
+        the LA -> Chicago default when no known location is detected.
         """
         lowered = user_input.lower()
 

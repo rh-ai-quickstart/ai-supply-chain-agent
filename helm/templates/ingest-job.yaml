@@ -59,22 +59,23 @@ spec:
       # ── Main ingest container ────────────────────────────────────────────
       containers:
         - name: ingest
-          # Reuses the backend image; the ingest module is baked inside it.
-          image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}"
-          imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
-          command: ["python", "-m", "ingest.main"]
+          image: "{{ .Values.ingest.image.repository }}:{{ .Values.ingest.image.tag }}"
+          imagePullPolicy: {{ .Values.ingest.image.pullPolicy }}
+          command: ["python", "main.py"]
           env:
             # ── Ingestion settings ─────────────────────────────────────────
+            - name: INGEST_STRATEGY
+              value: {{ .Values.ingest.strategy | quote }}
             - name: KNOWLEDGE_BASE_DIR
               value: {{ .Values.ingest.knowledgeBaseDir | quote }}
+            - name: INGEST_GLOB
+              value: {{ .Values.ingest.glob | quote }}
             - name: INGEST_DROP_OLD
               value: {{ .Values.ingest.dropOld | quote }}
             - name: INGEST_CHUNK_SIZE
               value: {{ .Values.ingest.chunkSize | quote }}
             - name: INGEST_CHUNK_OVERLAP
               value: {{ .Values.ingest.chunkOverlap | quote }}
-            - name: INGEST_GLOB
-              value: {{ .Values.ingest.glob | quote }}
             # ── Embedding service ──────────────────────────────────────────
             - name: LLAMA_STACK_URL
               value: {{ .Values.backend.env.LLAMA_STACK_URL | quote }}

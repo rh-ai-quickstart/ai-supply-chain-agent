@@ -1,8 +1,8 @@
 import logging
 
 from clients.vector_store_client import VectorStoreClient
-from ingest.config import IngestConfig
-from ingest.loaders.document_loader import DocumentLoader
+from config import IngestConfig
+from loaders.document_loader import DocumentLoader
 
 logger = logging.getLogger(__name__)
 

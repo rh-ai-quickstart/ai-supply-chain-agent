@@ -7,6 +7,9 @@ spec:
   {{- if .Values.frontend.route.host }}
   host: {{ .Values.frontend.route.host | quote }}
   {{- end }}
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
   to:
     kind: Service
     name: {{ .Release.Name }}-frontend
