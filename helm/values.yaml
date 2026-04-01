@@ -38,8 +38,8 @@ backend:
   enabled: true
   replicaCount: 1
   image:
-    repository: quay.io/rh-ee-rjjohnso/test
-    tag: api
+    repository: quay.io/rh-ai-quickstart/ai-supply-chain-agent-api
+    tag: latest
     pullPolicy: Always
   service:
     port: 5001
@@ -66,8 +66,8 @@ ingest:
   # helm install / upgrade.
   enabled: true
   image:
-    repository: quay.io/rh-ee-rjjohnso/test
-    tag: ingestion
+    repository: quay.io/rh-ai-quickstart/ai-supply-chain-agent-ingestion
+    tag: latest
     pullPolicy: Always
   # "langchain" — client-side chunking/embedding via LangChain + PGVector.
   # "llamastack" — server-side: uploads files to LlamaStack, which handles
@@ -88,14 +88,12 @@ frontend:
   enabled: true
   replicaCount: 1
   image:
-    repository: quay.io/rh-ee-rjjohnso/test
-    tag: frontend
+    repository: quay.io/rh-ai-quickstart/ai-supply-chain-agent-frontend
+    tag: latest
     pullPolicy: Always
   service:
     port: 8080
   route:
     enabled: true
     host: ""
-  # BACKEND_URL is auto-set in the deployment template to
-  # http://<release>-backend:<backend.service.port>
 

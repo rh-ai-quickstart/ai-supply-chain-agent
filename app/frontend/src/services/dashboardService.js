@@ -13,5 +13,5 @@ export async function runSimulation({ scenario, optimize }) {
 }
 
 export async function sendChatMessage(input, chatHistory = []) {
-  return apiGet("/api/v1/chat", { input, chat_history: chatHistory });
+  return apiPost("/api/v1/chat", { input, chat_history: chatHistory });
 }
