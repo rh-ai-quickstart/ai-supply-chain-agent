@@ -3,10 +3,10 @@
 # ============================================================
 
 # --- Registry & Image Config ---
-REGISTRY        ?= quay.io/rh-ee-rjjohnso
-BACKEND_IMAGE   ?= $(REGISTRY)/backend
-INGEST_IMAGE    ?= $(REGISTRY)/ingestion
-FRONTEND_IMAGE  ?= $(REGISTRY)/frontend
+REGISTRY        ?= quay.io/rh-ai-quickstart
+BACKEND_IMAGE   ?= $(REGISTRY)/ai-supply-chain-agent-api
+INGEST_IMAGE    ?= $(REGISTRY)/ai-supply-chain-agent-ingestion
+FRONTEND_IMAGE  ?= $(REGISTRY)/ai-supply-chain-agent-frontend
 BACKEND_TAG     ?= latest
 INGEST_TAG      ?= latest
 FRONTEND_TAG    ?= latest
@@ -18,7 +18,7 @@ NAMESPACE      ?= supply-chain-dashboard
 VALUES_FILE    ?= $(HELM_CHART)/values.yaml
 
 # --- Build Args ---
-# VITE_API_BASE_URL is set to "" in the Dockerfile; nginx proxies /api/ at runtime.
+# VITE_API_BASE_URL is set to "" in the Containerfile; nginx proxies /api/ at runtime.
 
 # --- Podman build platform ---
 BUILD_PLATFORM ?= linux/amd64
@@ -45,6 +45,7 @@ help:
 	@echo "    push-frontend      Push the frontend image"
 	@echo ""
 	@echo "  Build & Push:"
+	@echo "    build-and-push     Build and push all images (latest tag)"
 	@echo "    release            Build and push all images"
 	@echo "    release-backend    Build and push the backend image"
 	@echo "    release-ingest     Build and push the ingestion image"
@@ -75,7 +76,7 @@ help:
 	@echo "    FRONTEND_TAG       $(FRONTEND_TAG)"
 	@echo "    NAMESPACE          $(NAMESPACE)"
 	@echo "    HELM_RELEASE       $(HELM_RELEASE)"
-	@echo "    (VITE_API_BASE_URL is set to empty in Dockerfile; nginx proxies /api/)"
+	@echo "    (VITE_API_BASE_URL is set to empty in Containerfile; nginx proxies /api/)"
 	@echo ""
 
 # ============================================================
@@ -89,6 +90,7 @@ build-backend:
 	@echo ">>> Building backend image: $(BACKEND_IMAGE):$(BACKEND_TAG)"
 	podman build \
 		--platform $(BUILD_PLATFORM) \
+		-f ./app/backend/api/Containerfile \
 		-t $(BACKEND_IMAGE):$(BACKEND_TAG) \
 		./app/backend/api
 	@echo ">>> Backend image built successfully."
@@ -98,6 +100,7 @@ build-ingest:
 	@echo ">>> Building ingestion image: $(INGEST_IMAGE):$(INGEST_TAG)"
 	podman build \
 		--platform $(BUILD_PLATFORM) \
+		-f ./app/backend/ingestion/Containerfile \
 		-t $(INGEST_IMAGE):$(INGEST_TAG) \
 		./app/backend/ingestion
 	@echo ">>> Ingestion image built successfully."
@@ -107,6 +110,7 @@ build-frontend:
 	@echo ">>> Building frontend image: $(FRONTEND_IMAGE):$(FRONTEND_TAG)"
 	podman build \
 		--platform $(BUILD_PLATFORM) \
+		-f ./app/frontend/Containerfile \
 		-t $(FRONTEND_IMAGE):$(FRONTEND_TAG) \
 		./app/frontend
 	@echo ">>> Frontend image built successfully."
@@ -131,6 +135,12 @@ push-ingest:
 push-frontend:
 	@echo ">>> Pushing frontend image: $(FRONTEND_IMAGE):$(FRONTEND_TAG)"
 	podman push $(FRONTEND_IMAGE):$(FRONTEND_TAG)
+
+# ============================================================
+# Build & Push (all images with latest tag)
+# ============================================================
+.PHONY: build-and-push
+build-and-push: build push
 
 # ============================================================
 # Release (build + push) targets
