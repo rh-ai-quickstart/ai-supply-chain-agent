@@ -23,14 +23,14 @@ llama-stack:
 
 llm-service:
   enabled: true
-  device: cpu
+  device: gpu
   secret:
     hf_token: ""
     enabled: true
   models:
     llama-3-2-1b-instruct:
       enabled: true
-      device: cpu
+#      device: cpu
 
 imagePullSecrets: []
 
@@ -38,7 +38,7 @@ backend:
   enabled: true
   replicaCount: 1
   image:
-    repository: quay.io/rh-ai-quickstart/ai-supply-chain-agent-api
+    repository: quay.io/robertsandoval/supply-chain-backend
     tag: latest
     pullPolicy: Always
   service:
@@ -50,7 +50,7 @@ backend:
   # database password under the key "password".
   pgvectorSecretName: pgvector
   env:
-    LLAMA_STACK_URL: http://llamastack:8321
+    LLAMA_STACK_URL: http://llamastack.supply-chain-dashboard.svc.cluster.local:8321
     LLAMA_STACK_MODEL: meta-llama/Llama-3.2-1B-Instruct
     EMBED_MODEL: all-MiniLM-L6-v2
     # PG_ prefix avoids collision with the Kubernetes service-discovery
@@ -66,7 +66,7 @@ ingest:
   # helm install / upgrade.
   enabled: true
   image:
-    repository: quay.io/rh-ai-quickstart/ai-supply-chain-agent-ingestion
+    repository: quay.io/robertsandoval/supply-chain-ingestion
     tag: latest
     pullPolicy: Always
   # "langchain" — client-side chunking/embedding via LangChain + PGVector.
@@ -88,7 +88,7 @@ frontend:
   enabled: true
   replicaCount: 1
   image:
-    repository: quay.io/rh-ai-quickstart/ai-supply-chain-agent-frontend
+    repository: quay.io/robertsandoval/supply-chain-frontend
     tag: latest
     pullPolicy: Always
   service:
@@ -96,4 +96,6 @@ frontend:
   route:
     enabled: true
     host: ""
+  env:
+    BACKEND_URL: "http://supply-chain-dashboard-backend.supply-chain-dashboard.svc.cluster.local"
 

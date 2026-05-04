@@ -25,5 +25,5 @@ spec:
             - containerPort: {{ .Values.frontend.service.port }}
           env:
             - name: BACKEND_URL
-              value: "http://{{ .Release.Name }}-backend:{{ .Values.backend.service.port }}"
+              value: "{{ .Values.frontend.env.BACKEND_URL }}:{{ .Values.backend.service.port }}"
 {{- end }}

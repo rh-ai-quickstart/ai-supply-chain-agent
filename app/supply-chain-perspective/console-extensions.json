@@ -1,0 +1,65 @@
+[
+  {
+    "type": "console.perspective",
+    "properties": {
+      "id": "supply-chain",
+      "name": "%plugin__supply-chain-perspective~Supply Chain%",
+      "landingPageURL": { "$codeRef": "getPerspectiveLandingPageURL.getPerspectiveLandingPageURL" },
+      "icon": { "$codeRef": "PerspectiveIcon" },
+      "importRedirectURL": { "$codeRef": "getImportRedirectURL.getImportRedirectURL" }
+    }
+  },
+  {
+    "type": "console.navigation/section",
+    "properties": {
+      "id": "supply-chain-home",
+      "perspective": "supply-chain",
+      "name": "%plugin__supply-chain-perspective~Home%"
+    }
+  },
+  {
+    "type": "console.navigation/href",
+    "properties": {
+      "id": "supply-chain-dashboard",
+      "name": "%plugin__supply-chain-perspective~Dashboard%",
+      "href": "/supply-chain/dashboard",
+      "perspective": "supply-chain",
+      "section": "supply-chain-home"
+    }
+  },
+  {
+    "type": "console.navigation/href",
+    "properties": {
+      "id": "supply-chain-simulations",
+      "name": "%plugin__supply-chain-perspective~Simulations%",
+      "href": "/supply-chain/simulations",
+      "perspective": "supply-chain",
+      "section": "supply-chain-home"
+    }
+  },
+  {
+    "type": "console.page/route",
+    "properties": {
+      "exact": true,
+      "path": "/supply-chain/dashboard",
+      "component": { "$codeRef": "DashboardPage" }
+    }
+  },
+  {
+    "type": "console.page/route",
+    "properties": {
+      "exact": true,
+      "path": "/supply-chain/simulations",
+      "component": { "$codeRef": "SimulationsPage" }
+    }
+  },
+  {
+    "type": "console.page/route",
+    "properties": {
+      "exact": true,
+      "path": "/supply-chain/example",
+      "perspective": "supply-chain",
+      "component": { "$codeRef": "ExamplePage" }
+    }
+  }
+]

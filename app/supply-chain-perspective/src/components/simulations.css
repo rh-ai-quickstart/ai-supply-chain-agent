@@ -1,0 +1,23 @@
+/* Simulations page — plugin-prefixed classes, PatternFly tokens only (stylelint). */
+
+.supply-chain-perspective__simulations-root {
+  box-sizing: border-box;
+  max-width: 60rem;
+}
+
+.supply-chain-perspective__simulations-stack {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: var(--pf-t--global--spacer--lg);
+}
+
+.supply-chain-perspective__simulations-help {
+  margin-top: 0;
+  margin-bottom: var(--pf-t--global--spacer--md);
+  color: var(--pf-t--global--text--color--subtle);
+}
+
+.supply-chain-perspective__simulations-alert {
+  margin-bottom: var(--pf-t--global--spacer--md);
+}

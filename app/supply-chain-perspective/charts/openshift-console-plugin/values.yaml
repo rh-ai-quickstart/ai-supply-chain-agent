@@ -1,0 +1,60 @@
+---
+plugin:
+  name: "supply-chain-perspective"
+  description: "Supply Chain Perspective"
+  image: "quay.io/robertsandoval/supply-chain-perspective:latest"
+  imagePullPolicy: Always
+  imagePullSecrets: []
+  replicas: 1
+  port: 9001
+  securityContext:
+    enabled: true
+  podSecurityContext:
+    enabled: true
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+  containerSecurityContext:
+    enabled: true
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+  resources:
+    requests:
+      cpu: 10m
+      memory: 50Mi
+  basePath: /
+  certificateSecretName: ""
+  # Browser calls same-origin https://<plugin-route>/api/... ; nginx proxies to this Service (HTTP).
+  apiProxy:
+    enabled: true
+    serviceName: supply-chain-dashboard-backend
+    servicePort: 5001
+  serviceAccount:
+    create: true
+    annotations: {}
+    name: ""
+  patcherServiceAccount:
+    create: true
+    annotations: {}
+    name: ""
+  jobs:
+    patchConsoles:
+      enabled: true
+      image: "registry.redhat.io/openshift4/ose-tools-rhel9@sha256:ee65b244fc94d5765514c604dc0a288517dcdce68de65128d047622b6b30a618"
+      podSecurityContext:
+        enabled: true
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containerSecurityContext:
+        enabled: true
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+            - ALL
+      resources:
+        requests:
+          cpu: 10m
+          memory: 50Mi
