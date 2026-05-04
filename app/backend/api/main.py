@@ -8,6 +8,7 @@ from clients.vector_store_client import VectorStoreClient
 from services.chat_service import ChatService
 from services.dashboard_service import DashboardService
 from services.route_service import RouteService
+from services.simulations_store import append_simulation, load_all as load_simulations
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -65,6 +66,22 @@ def post_chat():
     payload = request.get_json(silent=True) or {}
     user_input = payload.get("input", "")
     return jsonify(chat_service.reply(user_input))
+
+
+@app.route("/api/v1/simulations", methods=["GET"])
+def get_simulations():
+    return jsonify({"simulations": load_simulations()})
+
+
+@app.route("/api/v1/simulations", methods=["POST"])
+def post_simulation():
+    payload = request.get_json(silent=True) or {}
+    name = (payload.get("name") or "").strip()
+    if not name:
+        return jsonify({"error": "name is required"}), 400
+    description = payload.get("description", "")
+    record = append_simulation(name, str(description))
+    return jsonify({"simulation": record}), 201
 
 
 if __name__ == "__main__":

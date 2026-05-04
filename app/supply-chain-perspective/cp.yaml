@@ -1,0 +1,25 @@
+apiVersion: console.openshift.io/v1
+kind: ConsolePlugin
+metadata:
+  annotations:
+    meta.helm.sh/release-name: supply-chain-perspective
+    meta.helm.sh/release-namespace: supply-chain-perspective
+  labels:
+    app: supply-chain-perspective
+    app.kubernetes.io/instance: supply-chain-perspective
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: supply-chain-perspective
+    app.kubernetes.io/part-of: supply-chain-perspective
+    helm.sh/chart: openshift-console-plugin-0.1.0
+  name: supply-chain-perspective
+spec:
+  backend:
+    service:
+      basePath: /
+      name: supply-chain-perspective
+      namespace: supply-chain-perspective
+      port: 9443
+    type: Service
+  displayName: Supply Chain Perspective
+  i18n:
+    loadType: Preload

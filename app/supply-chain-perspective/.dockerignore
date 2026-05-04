@@ -1,0 +1,12 @@
+# Never copy host node_modules into the Linux build (wrong OS/arch; breaks yarn under QEMU).
+node_modules
+.yarn/cache
+.yarn/install-state.gz
+
+.git
+.gitignore
+*.md
+coverage
+integration-tests
+cypress
+.devcontainer

@@ -1,0 +1,109 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "openshift-console-plugin.name" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openshift-console-plugin.labels" . | nindent 4 }}
+data:
+  nginx.conf: |
+    worker_processes auto;
+
+    pid /tmp/nginx.pid;
+
+    events {
+        worker_connections 1024;
+    }
+    error_log /dev/stdout info;
+    http {
+        include       /etc/nginx/mime.types;
+        default_type  application/octet-stream;
+
+        # Redirect temp/cache paths to locations writable by arbitrary UIDs.
+        client_body_temp_path  /tmp/client_body;
+        fastcgi_temp_path      /tmp/fastcgi_temp;
+        proxy_temp_path        /tmp/proxy_temp;
+        scgi_temp_path         /tmp/scgi_temp;
+        uwsgi_temp_path        /tmp/uwsgi_temp;
+
+        log_format main '$remote_addr - $remote_user [$time_local] "$request" '
+                        '$status $body_bytes_sent "$http_referer" '
+                        '"$http_user_agent"';
+
+        # stdout/stderr so OpenShift "Logs" / `oc logs` show traffic and errors (file paths are invisible there).
+        access_log /dev/stdout; 
+
+        sendfile        on;
+        keepalive_timeout 65;
+
+        # Hide the nginx version from response headers.
+        server_tokens off;
+
+        # Enable gzip for common asset types.
+        gzip on;
+        gzip_types text/plain text/css application/json application/javascript
+                  text/xml application/xml application/xml+rss text/javascript
+                  image/svg+xml;
+
+        server {
+            listen {{ .Values.plugin.port }} ssl;
+            server_name _;
+
+            # ── TLS configuration ────────────────────────────────
+            # Certificates are mounted at runtime from the OCP service-ca secret.
+            # The deployment mounts the secret at /var/cert (readOnly).
+            ssl_certificate     /var/cert/tls.crt;
+            ssl_certificate_key /var/cert/tls.key;
+
+            # Disable deprecated protocol versions.
+            ssl_protocols TLSv1.2 TLSv1.3;
+
+            # Prefer server cipher order; strong ciphers only (single string — nginx rejects multiple args).
+            ssl_prefer_server_ciphers on;
+            ssl_ciphers 'ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305';
+
+            # TLS session cache — improves performance on reconnects.
+            ssl_session_cache   shared:SSL:10m;
+            ssl_session_timeout 10m;
+
+            # OCSP stapling is off: service-serving certs from OpenShift usually have no OCSP URL;
+            # enabling it only produces nginx warnings ("ssl_stapling ignored").
+            ssl_stapling        off;
+            ssl_stapling_verify off;
+
+            # ── Site root ─────────────────────────────────────────
+            root  /usr/share/nginx/html;
+            index index.html;
+
+            {{- if .Values.plugin.apiProxy.enabled }}
+            # Same-origin /api/... → in-cluster HTTP backend (see values plugin.apiProxy).
+            location /api/ {
+                proxy_http_version 1.1;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+                proxy_pass http://{{ .Values.plugin.apiProxy.serviceName }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.plugin.apiProxy.servicePort }};
+            }
+            {{- end }}
+
+            # SPA fallback — send all unmatched paths to index.html.
+            location / {
+                try_files $uri $uri/ /index.html;
+            }
+
+            # Cache-bust fingerprinted static assets aggressively.
+            location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff2?)$ {
+                expires 1y;
+                add_header Cache-Control "public, immutable";
+            }
+
+            # ── Security headers ──────────────────────────────────
+            # HSTS: tell browsers to always use HTTPS for this origin.
+            add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+            add_header X-Frame-Options            "SAMEORIGIN"                         always;
+            add_header X-Content-Type-Options     "nosniff"                            always;
+            add_header Referrer-Policy            "strict-origin-when-cross-origin"    always;
+            add_header X-XSS-Protection           "1; mode=block"                     always;
+        }
+    }
