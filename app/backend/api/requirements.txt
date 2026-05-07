@@ -1,5 +1,6 @@
 flask
 flask-cors
+requests
 openai
 langchain
 langchain-community
