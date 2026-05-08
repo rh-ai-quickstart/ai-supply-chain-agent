@@ -1,0 +1,24 @@
+Analysis: 2023 US Trucking & Rail Capacity Shortage
+
+Event: A combination of a severe driver shortage (estimated 80,000 drivers) and a prolonged rail labor dispute.
+Duration: Q2-Q4 2023.
+
+Primary Impacts:
+
+National "On-Time Delivery" (Land) metrics fell to 65%.
+
+Freight costs (spot rates) for trucking surged by 45% in key lanes, especially LA-Chicago and LA-Dallas.
+
+Rail container dwell times at West Coast ports (LA/LGB) doubled, as there was no capacity to move containers inland.
+
+Major retailers (Walmart, Target) reported a 15% increase in inventory holding costs due to delayed inland transit.
+
+Secondary Impacts:
+
+Critical backlog at inland Distribution Centers (DCs) in Chicago, Dallas, and Atlanta.
+
+"Last-mile" delivery networks were overwhelmed, delaying e-commerce shipments by an average of 3-5 days.
+
+Companies that dual-sourced suppliers (e.g., using suppliers in both Mexico and Asia) had more resilience, as they could leverage cross-border trucking from Mexico.
+
+Key Takeaway: The North American land network is heavily interdependent. A failure in one mode (rail) immediately overwhelms the other (trucking). The primary bottlenecks are always the major inland hubs (Chicago, Dallas, Atlanta) and the transfer points from seaports (LA/LGB).

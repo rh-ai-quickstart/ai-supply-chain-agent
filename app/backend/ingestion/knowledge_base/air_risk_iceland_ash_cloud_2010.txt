@@ -1,0 +1,24 @@
+Analysis: 2010 Eyjafjallajökull Volcanic Ash Cloud
+
+Event: Eruption of Eyjafjallajökull volcano in Iceland.
+Duration: 8 days of primary airspace closure (April 15-23, 2010), with ongoing disruptions.
+
+Primary Impacts:
+
+Complete shutdown of most of European airspace.
+
+Over 100,000 flights were cancelled.
+
+Global air freight was paralyzed, as 48% of total air cargo was affected.
+
+Economic Impact: Estimated $1.7 billion in lost airline revenue. Industries relying on "just-in-time" (JIT) manufacturing, particularly automotive and high-tech, faced immediate part shortages.
+
+Secondary Impacts:
+
+Perishable goods (e.g., flowers from Kenya, produce from Africa) rotted in warehouses, leading to massive write-offs.
+
+Pharmaceutical shipments requiring temperature control were critically delayed.
+
+Companies pivoted to sea and land freight, but this could not compensate for the speed, causing a backlog.
+
+Key Takeaway: Air freight is highly vulnerable to "black swan" atmospheric events. A single event can sever an entire continent's primary supply corridor for high-value goods. Key air hubs (Frankfurt, London, Paris) are critical failure points.
