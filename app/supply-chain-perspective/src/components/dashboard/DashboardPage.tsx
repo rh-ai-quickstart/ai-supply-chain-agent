@@ -29,6 +29,11 @@ export default function DashboardPage() {
     chatMessages,
     chatLoading,
     chatError,
+    vectorStores,
+    vectorStoresLoading,
+    vectorStoresError,
+    selectedVectorStoreId,
+    setSelectedVectorStoreId,
     dashboardState,
     loading,
     error,
@@ -124,6 +129,11 @@ export default function DashboardPage() {
                 chatLoading={chatLoading}
                 chatError={chatError}
                 chatMessages={chatMessages}
+                vectorStores={vectorStores}
+                vectorStoresLoading={vectorStoresLoading}
+                vectorStoresError={vectorStoresError}
+                selectedVectorStoreId={selectedVectorStoreId}
+                onChangeVectorStore={setSelectedVectorStoreId}
               />
             </StackItem>
           </Stack>

@@ -6,8 +6,15 @@ CONSOLE_IMAGE=${CONSOLE_IMAGE:="quay.io/openshift/origin-console:latest"}
 CONSOLE_PORT=${CONSOLE_PORT:=9000}
 CONSOLE_IMAGE_PLATFORM=${CONSOLE_IMAGE_PLATFORM:="linux/amd64"}
 
-# Plugin metadata is declared in package.json
-PLUGIN_NAME=${npm_package_consolePlugin_name}
+# Plugin name: npm sets npm_package_consolePlugin_name when you run `npm run start-console`;
+# yarn does not, so read from package.json when unset (safe with `set -u`).
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PLUGIN_NAME="${npm_package_consolePlugin_name:-}"
+if [ -z "$PLUGIN_NAME" ]; then
+  PLUGIN_NAME="$(
+    cd "$SCRIPT_DIR" && node -p "require('./package.json').consolePlugin?.name || require('./package.json').name"
+  )"
+fi
 
 echo "Starting local OpenShift console..."
 

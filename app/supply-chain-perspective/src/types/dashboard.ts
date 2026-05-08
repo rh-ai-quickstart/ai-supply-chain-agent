@@ -1,10 +1,30 @@
+/** LlamaStack vector store summary from ``GET /api/v1/vector-stores``. */
+export interface VectorStoreSummary {
+  id: string;
+  name: string;
+  status?: string;
+  created_at?: number;
+}
+
 export type MapViewId = 'airFreight' | 'global' | 'regional';
 
 export type ChatRole = 'human' | 'ai';
 
+/** JSON-serialized OpenAI-style chat completion from the backend (includes ``usage``). */
+export type ChatCompletionPayload = Record<string, unknown>;
+
 export interface ChatMessage {
   role: ChatRole;
   content: string;
+  /** Present when the last assistant turn came from the LLM stack (tokens, model, etc.). */
+  completion?: ChatCompletionPayload | null;
+}
+
+/** Body shape for ``POST /api/v1/chat`` success responses. */
+export interface ChatApiResponse {
+  answer?: string;
+  completion?: ChatCompletionPayload | null;
+  routeData?: unknown;
 }
 
 export interface MapPort {

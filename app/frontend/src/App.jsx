@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import "./lib/chartSetup";
 import { AlertsPanel } from "./components/AlertsPanel";
 import { ChatBar } from "./components/ChatBar";
@@ -20,6 +20,7 @@ import {
   toSystemHealthMetrics,
 } from "./services/dashboardMappers";
 import {
+  getVectorStores,
   runSimulation,
   sendChatMessage,
   triggerWorldEvent,
@@ -34,7 +35,41 @@ function App() {
   const [chatMessages, setChatMessages] = useState([]);
   const [chatLoading, setChatLoading] = useState(false);
   const [chatError, setChatError] = useState("");
+  const [vectorStores, setVectorStores] = useState([]);
+  const [vectorStoresLoading, setVectorStoresLoading] = useState(false);
+  const [vectorStoresError, setVectorStoresError] = useState("");
+  const [selectedVectorStoreId, setSelectedVectorStoreId] = useState("");
   const { dashboardState, loading, error, setDashboardState } = useDashboardState();
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setVectorStoresLoading(true);
+      setVectorStoresError("");
+      try {
+        const res = await getVectorStores();
+        if (!cancelled) {
+          setVectorStores(Array.isArray(res.vector_stores) ? res.vector_stores : []);
+          if (res.error) {
+            setVectorStoresError(res.error);
+          }
+        }
+      } catch {
+        if (!cancelled) {
+          setVectorStoresError("Unable to load vector stores from LlamaStack.");
+          setVectorStores([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setVectorStoresLoading(false);
+        }
+      }
+    };
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleRunScenario = async ({ scenario, optimize }) => {
     setSimulationError("");
@@ -74,9 +109,10 @@ function App() {
     setChatError("");
     setChatLoading(true);
     try {
-      const result = await sendChatMessage(question, nextHistory);
+      const result = await sendChatMessage(question, nextHistory, selectedVectorStoreId.trim() || undefined);
       const answer = result?.answer ?? "No response from assistant.";
-      setChatMessages((current) => [...current, { role: "ai", content: answer }]);
+      const completion = result?.completion ?? null;
+      setChatMessages((current) => [...current, { role: "ai", content: answer, completion }]);
     } catch {
       setChatError("Failed to send chat request.");
     } finally {
@@ -113,6 +149,8 @@ function App() {
             onTriggerEvent={handleTriggerEvent}
             simulationLoading={simulationLoading}
             simulationError={simulationError}
+            vectorStores={vectorStores}
+            setSelectedVectorStoreId={setSelectedVectorStoreId}
           />
 
           <section className="center-content">
@@ -141,6 +179,11 @@ function App() {
           chatLoading={chatLoading}
           chatError={chatError}
           chatMessages={chatMessages}
+          vectorStores={vectorStores}
+          vectorStoresLoading={vectorStoresLoading}
+          vectorStoresError={vectorStoresError}
+          selectedVectorStoreId={selectedVectorStoreId}
+          onChangeVectorStore={setSelectedVectorStoreId}
         />
       </div>
     </div>

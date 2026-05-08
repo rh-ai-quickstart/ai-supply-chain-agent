@@ -47,20 +47,26 @@ class ChatService:
         lowered = (latest or "").lower()
 
         if any(keyword in lowered for keyword in _GUARDRAIL_KEYWORDS):
-            return {"answer": _GUARDRAIL_RESPONSE}
+            return {"answer": _GUARDRAIL_RESPONSE, "completion": None}
 
         if self.route_service.is_route_query(latest):
-            return self.route_service.get_optimized_route(latest)
+            out = dict(self.route_service.get_optimized_route(latest))
+            out.setdefault("completion", None)
+            return out
 
         context = self._retrieve_context(latest, vector_store_id=vector_store_id)
         conversation = self._map_chat_history(history)
-        answer = self.llama_stack_client.ask(
+        llm_result = self.llama_stack_client.ask(
             latest,
             context=context,
             conversation_messages=conversation,
         )
+        answer = llm_result.get("answer", "")
         logger.info("ChatService: answer: %s", answer)
-        return {"answer": answer}
+        return {
+            "answer": answer,
+            "completion": llm_result.get("completion"),
+        }
 
     @staticmethod
     def _latest_user_text(history: list[dict[str, Any]], fallback: str) -> str:

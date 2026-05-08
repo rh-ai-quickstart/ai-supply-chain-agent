@@ -39,26 +39,34 @@ class LlamaStackClient:
             self.model,
         )
 
+    @staticmethod
+    def _completion_to_json(completion: Any) -> dict[str, Any]:
+        """Serialize an OpenAI ``ChatCompletion`` (or similar) for API responses."""
+        if completion is None:
+            return {}
+        try:
+            dumped = completion.model_dump(mode="json")
+            return dumped if isinstance(dumped, dict) else {"value": dumped}
+        except Exception as exc:
+            logger.warning("LlamaStackClient: could not model_dump completion: %s", exc)
+            return {"serialization_error": str(exc)}
+
     def ask(
         self,
         user_input: str,
         context: str = "",
         conversation_messages: list[dict] | None = None,
-    ) -> str:
-        """Send *user_input* to the LLM and return the text response.
+    ) -> dict[str, Any]:
+        """Call the chat completion API.
 
-        Args:
-            user_input: The user's latest question or message (also used when
-                *conversation_messages* is empty).
-            context:    Optional RAG context retrieved from the vector store.
-                        When provided it is injected as a system message before
-                        the user turn so the model can ground its answer.
-            conversation_messages: Optional OpenAI-style turns (``user`` /
-                ``assistant``) built from prior chat, including the latest user
-                message when applicable.
+        Returns a dict with ``answer`` (assistant text) and ``completion`` (full
+        JSON-serializable completion payload from the stack, including ``usage``).
         """
         if not self.base_url:
-            return "Something went wrong. There is no endpoint configured."
+            return {
+                "answer": "Something went wrong. There is no endpoint configured.",
+                "completion": None,
+            }
 
         messages: list[dict] = [{"role": "system", "content": SYSTEM_PROMPT}]
 
@@ -84,10 +92,17 @@ class LlamaStackClient:
                 timeout=self._timeout,
             )
             logger.info("LlamaStackClient: completion: %s", completion)
-            return completion.choices[0].message.content or "Darn! Something went wrong."
+            text = completion.choices[0].message.content or "Darn! Something went wrong."
+            return {
+                "answer": text,
+                "completion": self._completion_to_json(completion),
+            }
         except Exception as exc:
             logger.error("Llama Stack request failed: %s", exc)
-            return f"Darn! Something went wrong: {exc}"
+            return {
+                "answer": f"Darn! Something went wrong: {exc}",
+                "completion": None,
+            }
 
     def list_vector_stores(self, limit: int = 100) -> list[dict[str, Any]]:
         """Return vector stores from LlamaStack (OpenAI-compatible ``/vector_stores``)."""
