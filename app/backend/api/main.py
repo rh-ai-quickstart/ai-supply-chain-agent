@@ -65,7 +65,26 @@ def post_simulate():
 def post_chat():
     payload = request.get_json(silent=True) or {}
     user_input = payload.get("input", "")
-    return jsonify(chat_service.reply(user_input))
+    chat_history = payload.get("chat_history") or []
+    raw_vs = payload.get("vector_store_id") or payload.get("vectorStoreId") or ""
+    vector_store_id = str(raw_vs).strip() or None
+    return jsonify(
+        chat_service.reply(
+            user_input,
+            chat_history=chat_history,
+            vector_store_id=vector_store_id,
+        )
+    )
+
+@app.route("/api/v1/vector_stores", methods=["GET"])
+def get_vector_stores():
+    """List LlamaStack vector stores (hyphen and underscore paths both supported)."""
+    try:
+        stores = chat_service.list_vector_stores()
+        return jsonify({"vector_stores": stores})
+    except Exception as exc:
+        logger.warning("vector_stores.list failed: %s", exc)
+        return jsonify({"vector_stores": [], "error": str(exc)})
 
 
 @app.route("/api/v1/simulations", methods=["GET"])
