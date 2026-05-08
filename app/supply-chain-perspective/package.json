@@ -87,6 +87,7 @@
     "exposedModules": {
       "ExamplePage": "./components/ExamplePage",
       "SimulationsPage": "./components/SimulationsPage",
+      "KnowledgeBasesPage": "./components/KnowledgeBasesPage",
       "DashboardPage": "./components/dashboard/DashboardPage",
       "PerspectiveIcon": "./components/PerspectiveIcon",
       "getPerspectiveLandingPageURL": "./components/perspective-utils",

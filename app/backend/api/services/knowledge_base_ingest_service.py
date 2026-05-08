@@ -19,9 +19,8 @@ _MAX_FILES = 32
 
 def _vector_store_slug(display_name: str) -> str:
     slug = re.sub(r"[^a-zA-Z0-9_.-]+", "-", (display_name or "").strip())[:48].strip("-_.")
-    if not slug:
-        slug = "kb"
-    return f"{slug}-{uuid.uuid4().hex[:8]}"
+    
+    return slug
 
 
 def ingest_uploaded_files(

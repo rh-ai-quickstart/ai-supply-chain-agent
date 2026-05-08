@@ -84,7 +84,7 @@ class KnowledgeBaseManager:
             # Create vector store with unique name using LlamaStack's OpenAI-compatible API
             # Note: In llama-stack 0.3.3+, provider_id must be specified in extra_body
             # to associate the vector store with the pgvector provider
-            vector_store_name = f"{kb_name}-kb-{uuid.uuid4().hex[:8]}"
+            vector_store_name = kb_name
             vector_store = self._llama_client.vector_stores.create(
                 name=vector_store_name, extra_body={"provider_id": "pgvector"}
             )

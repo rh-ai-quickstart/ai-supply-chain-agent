@@ -31,6 +31,14 @@ except Exception as _exc:
         _exc,
     )
 
+def list_vector_stores_safe(chat_service: Any) -> tuple[list[dict[str, Any]], Optional[str]]:
+    """Return ``(stores, error_message)``. On failure, ``stores`` is empty and ``error_message`` is set."""
+    try:
+        return (chat_service.list_vector_stores(), None)
+    except Exception as exc:
+        logger.warning("list_vector_stores failed: %s", exc)
+        return ([], str(exc))
+
 chat_service = ChatService(
     LlamaStackClient(),
     RouteService(),
@@ -80,7 +88,7 @@ def post_chat():
 
 @app.route("/api/v1/knowledge-bases", methods=["GET"])
 def get_knowledge_bases():
-    """List knowledge bases registered from the UI (demo JSON catalog)."""
+    """UI-upload catalog only. Merge with ``GET /api/v1/vector_stores`` in the client (same source as chat)."""
     return jsonify({"knowledge_bases": load_knowledge_bases()})
 
 
@@ -101,13 +109,16 @@ def post_knowledge_bases():
 
 @app.route("/api/v1/vector_stores", methods=["GET"])
 def get_vector_stores():
-    """List LlamaStack vector stores (hyphen and underscore paths both supported)."""
+    """List LlamaStack vector stores (same listing the chat knowledge-base picker uses)."""
     try:
-        stores = chat_service.list_vector_stores()
-        return jsonify({"vector_stores": stores})
+        stores, err = list_vector_stores_safe(chat_service)
+        body: dict = {"vector_stores": stores}
+        if err:
+            body["error"] = err
+        return jsonify(body)
     except Exception as exc:
         logger.warning("vector_stores.list failed: %s", exc)
-        return jsonify({"vector_stores": [], "error": str(exc)})
+        return jsonify({"vector_stores": [], "error": str(exc)}), 500
 
 
 @app.route("/api/v1/simulations", methods=["GET"])

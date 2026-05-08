@@ -1,6 +1,5 @@
 import logging
 import random
-import time
 
 from clients.opensky_client import OpenSkyClient
 from services.supply_chain_state_builder import (
@@ -64,7 +63,6 @@ class DashboardService:
                 )
 
         if optimize:
-            time.sleep(0.5)
             total_tokens = random.randint(3500, 4200)
             tps = random.randint(110, 140)
             result["performance"] = {
@@ -76,7 +74,6 @@ class DashboardService:
                 "tokensPerSecond": f"{tps} t/s",
             }
         else:
-            time.sleep(2.5)
             total_tokens = random.randint(3500, 4200)
             tps = random.randint(12, 25)
             result["performance"] = {

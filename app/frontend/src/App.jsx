@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import "./lib/chartSetup";
 import { AlertsPanel } from "./components/AlertsPanel";
 import { ChatBar } from "./components/ChatBar";
 import { DashboardHeader } from "./components/DashboardHeader";
+import { KnowledgeBasesPage } from "./components/KnowledgeBasesPage";
 import { DemandChartPanel } from "./components/DemandChartPanel";
 import { KpiBar } from "./components/KpiBar";
 import { LogisticsMapPanel } from "./components/LogisticsMapPanel";
@@ -26,6 +27,14 @@ import {
   triggerWorldEvent,
 } from "./services/dashboardService";
 
+function viewFromHash() {
+  const raw = window.location.hash.replace(/^#/, "");
+  if (raw === "/knowledge-bases" || raw === "knowledge-bases") {
+    return "knowledge-bases";
+  }
+  return "dashboard";
+}
+
 function App() {
   const [isLightTheme, setIsLightTheme] = useState(false);
   const [mapView, setMapView] = useState("airFreight");
@@ -39,37 +48,39 @@ function App() {
   const [vectorStoresLoading, setVectorStoresLoading] = useState(false);
   const [vectorStoresError, setVectorStoresError] = useState("");
   const [selectedVectorStoreId, setSelectedVectorStoreId] = useState("");
+  const [activeView, setActiveView] = useState(viewFromHash);
   const { dashboardState, loading, error, setDashboardState } = useDashboardState();
 
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setVectorStoresLoading(true);
-      setVectorStoresError("");
-      try {
-        const res = await getVectorStores();
-        if (!cancelled) {
-          setVectorStores(Array.isArray(res.vector_stores) ? res.vector_stores : []);
-          if (res.error) {
-            setVectorStoresError(res.error);
-          }
-        }
-      } catch {
-        if (!cancelled) {
-          setVectorStoresError("Unable to load vector stores from LlamaStack.");
-          setVectorStores([]);
-        }
-      } finally {
-        if (!cancelled) {
-          setVectorStoresLoading(false);
-        }
+  const reloadVectorStores = useCallback(async () => {
+    setVectorStoresLoading(true);
+    setVectorStoresError("");
+    try {
+      const res = await getVectorStores();
+      setVectorStores(Array.isArray(res.vector_stores) ? res.vector_stores : []);
+      if (res.error) {
+        setVectorStoresError(res.error);
       }
-    };
-    void load();
-    return () => {
-      cancelled = true;
-    };
+    } catch {
+      setVectorStoresError("Unable to load vector stores from LlamaStack.");
+      setVectorStores([]);
+    } finally {
+      setVectorStoresLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    void reloadVectorStores();
+  }, [reloadVectorStores]);
+
+  useEffect(() => {
+    const onHashChange = () => setActiveView(viewFromHash());
+    window.addEventListener("hashchange", onHashChange);
+    return () => window.removeEventListener("hashchange", onHashChange);
+  }, []);
+
+  const navigate = (view) => {
+    window.location.hash = view === "knowledge-bases" ? "#/knowledge-bases" : "#/";
+  };
 
   const handleRunScenario = async ({ scenario, optimize }) => {
     setSimulationError("");
@@ -136,55 +147,65 @@ function App() {
 
   return (
     <div className={`dashboard-root ${isLightTheme ? "light-theme" : ""}`}>
-      <div className="dashboard-wrapper">
+      <div
+        className={`dashboard-wrapper${activeView === "knowledge-bases" ? " dashboard-wrapper--kb" : ""}`}
+      >
         <DashboardHeader
           isLightTheme={isLightTheme}
           onToggleTheme={() => setIsLightTheme((value) => !value)}
+          activeView={activeView}
+          onNavigate={navigate}
         />
 
-        <main className="dashboard-grid">
-          <SimulationPanel
-            mapView={mapView}
-            onRunScenario={handleRunScenario}
-            onTriggerEvent={handleTriggerEvent}
-            simulationLoading={simulationLoading}
-            simulationError={simulationError}
-            vectorStores={vectorStores}
-            setSelectedVectorStoreId={setSelectedVectorStoreId}
-          />
+        {activeView === "dashboard" ? (
+          <>
+            <main className="dashboard-grid">
+              <SimulationPanel
+                mapView={mapView}
+                onRunScenario={handleRunScenario}
+                onTriggerEvent={handleTriggerEvent}
+                simulationLoading={simulationLoading}
+                simulationError={simulationError}
+                vectorStores={vectorStores}
+                setSelectedVectorStoreId={setSelectedVectorStoreId}
+              />
 
-          <section className="center-content">
-            <div className="top-charts-container">
-              <DemandChartPanel data={demandData} />
-              <RevenueChartPanel data={revenueData} />
-              <SystemHealthPanel health={systemHealth} />
-            </div>
+              <section className="center-content">
+                <div className="top-charts-container">
+                  <DemandChartPanel data={demandData} />
+                  <RevenueChartPanel data={revenueData} />
+                  <SystemHealthPanel health={systemHealth} />
+                </div>
 
-            <LogisticsMapPanel
-              mapView={mapView}
-              onChangeMapView={setMapView}
-              selectedMapData={selectedMapData}
-              assetCounts={assetCounts}
+                <LogisticsMapPanel
+                  mapView={mapView}
+                  onChangeMapView={setMapView}
+                  selectedMapData={selectedMapData}
+                  assetCounts={assetCounts}
+                />
+              </section>
+
+              <AlertsPanel loading={loading} error={error} alerts={alerts} />
+            </main>
+
+            <KpiBar kpis={kpis} />
+            <ChatBar
+              chatInput={chatInput}
+              onChangeChatInput={setChatInput}
+              onSubmitChat={handleSubmitChat}
+              chatLoading={chatLoading}
+              chatError={chatError}
+              chatMessages={chatMessages}
+              vectorStores={vectorStores}
+              vectorStoresLoading={vectorStoresLoading}
+              vectorStoresError={vectorStoresError}
+              selectedVectorStoreId={selectedVectorStoreId}
+              onChangeVectorStore={setSelectedVectorStoreId}
             />
-          </section>
-
-          <AlertsPanel loading={loading} error={error} alerts={alerts} />
-        </main>
-
-        <KpiBar kpis={kpis} />
-        <ChatBar
-          chatInput={chatInput}
-          onChangeChatInput={setChatInput}
-          onSubmitChat={handleSubmitChat}
-          chatLoading={chatLoading}
-          chatError={chatError}
-          chatMessages={chatMessages}
-          vectorStores={vectorStores}
-          vectorStoresLoading={vectorStoresLoading}
-          vectorStoresError={vectorStoresError}
-          selectedVectorStoreId={selectedVectorStoreId}
-          onChangeVectorStore={setSelectedVectorStoreId}
-        />
+          </>
+        ) : (
+          <KnowledgeBasesPage onKnowledgeBaseCreated={reloadVectorStores} />
+        )}
       </div>
     </div>
   );

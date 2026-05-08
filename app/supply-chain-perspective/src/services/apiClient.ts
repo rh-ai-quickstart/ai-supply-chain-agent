@@ -1,4 +1,6 @@
-import { consoleFetchJSON } from '@openshift-console/dynamic-plugin-sdk';
+import { consoleFetch, consoleFetchJSON } from '@openshift-console/dynamic-plugin-sdk';
+
+declare const __SUPPLY_CHAIN_PLUGIN_HTTP_BASE__: string;
 
 /**
  * Base URL for backend HTTP calls.
@@ -51,6 +53,40 @@ export async function apiPost<T>(path: string, payload: unknown): Promise<T> {
   });
   if (!response.ok) {
     throw new Error(`Request failed: ${response.status}`);
+  }
+  return response.json() as Promise<T>;
+}
+
+/** Multipart POST (e.g. file uploads). Uses ``consoleFetch`` in-cluster so CSRF headers are set. */
+export async function apiPostFormData<T>(path: string, formData: FormData): Promise<T> {
+  const url = resolveRequestUrl(path);
+  const parseError = async (response: Response): Promise<Error> => {
+    const text = await response.text();
+    try {
+      const body = JSON.parse(text) as { error?: string };
+      if (body?.error) {
+        return new Error(body.error);
+      }
+    } catch {
+      /* not JSON */
+    }
+    return new Error(text || `Request failed: ${response.status}`);
+  };
+
+  if (usesConsoleProxy()) {
+    const response = await consoleFetch(url, { method: 'POST', body: formData });
+    if (!response.ok) {
+      throw await parseError(response);
+    }
+    return response.json() as Promise<T>;
+  }
+  const response = await fetch(url, {
+    method: 'POST',
+    body: formData,
+    credentials: 'same-origin',
+  });
+  if (!response.ok) {
+    throw await parseError(response);
   }
   return response.json() as Promise<T>;
 }
