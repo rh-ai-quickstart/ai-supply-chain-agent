@@ -1,3 +1,4 @@
+import io
 import logging
 import os
 from typing import Any
@@ -153,3 +154,35 @@ class LlamaStackClient:
                 exc,
             )
             return ""
+
+    def create_vector_store(self, name: str) -> str:
+        """Create a LlamaStack vector store; returns the server-assigned id."""
+        provider = os.getenv("VECTOR_STORE_PROVIDER", "pgvector")
+        vector_store = self._client.vector_stores.create(
+            name=name,
+            extra_body={"provider_id": provider},
+        )
+        logger.info("LlamaStackClient: created vector store id=%s name=%s", vector_store.id, name)
+        return str(vector_store.id)
+
+    def upload_file_bytes(self, filename: str, content: bytes) -> str:
+        """Upload file bytes to LlamaStack; returns file id."""
+        buffer = io.BytesIO(content)
+        response = self._client.files.create(
+            file=(filename, buffer),
+            purpose="assistants",
+        )
+        logger.info("LlamaStackClient: uploaded file id=%s name=%s", response.id, filename)
+        return str(response.id)
+
+    def attach_file_to_vector_store(self, vector_store_id: str, file_id: str) -> None:
+        """Attach an uploaded file to a vector store (triggers server-side chunk/embed)."""
+        self._client.vector_stores.files.create(
+            vector_store_id=vector_store_id,
+            file_id=file_id,
+        )
+        logger.info(
+            "LlamaStackClient: attached file_id=%s to vector_store_id=%s",
+            file_id,
+            vector_store_id,
+        )

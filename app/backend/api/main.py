@@ -7,6 +7,8 @@ from clients.llama_stack_client import LlamaStackClient
 from clients.vector_store_client import VectorStoreClient
 from services.chat_service import ChatService
 from services.dashboard_service import DashboardService
+from services.knowledge_base_ingest_service import ingest_uploaded_files
+from services.knowledge_bases_store import load_all as load_knowledge_bases
 from services.route_service import RouteService
 from services.simulations_store import append_simulation, load_all as load_simulations
 
@@ -75,6 +77,27 @@ def post_chat():
             vector_store_id=vector_store_id,
         )
     )
+
+@app.route("/api/v1/knowledge-bases", methods=["GET"])
+def get_knowledge_bases():
+    """List knowledge bases registered from the UI (demo JSON catalog)."""
+    return jsonify({"knowledge_bases": load_knowledge_bases()})
+
+
+@app.route("/api/v1/knowledge-bases", methods=["POST"])
+def post_knowledge_bases():
+    """Multipart: ``name`` (text) + ``files`` (one or more uploads) → LlamaStack vector store."""
+    name = (request.form.get("name") or "").strip()
+    uploads = request.files.getlist("files")
+    pairs: list[tuple[str, bytes]] = []
+    for storage in uploads:
+        if storage and storage.filename:
+            pairs.append((storage.filename, storage.read()))
+    result = ingest_uploaded_files(chat_service.llama_stack_client, name, pairs)
+    if not result.get("ok"):
+        return jsonify(result), 400
+    return jsonify(result), 201
+
 
 @app.route("/api/v1/vector_stores", methods=["GET"])
 def get_vector_stores():
