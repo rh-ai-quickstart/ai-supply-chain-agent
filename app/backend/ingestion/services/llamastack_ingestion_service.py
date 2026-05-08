@@ -1,4 +1,5 @@
 import logging
+import re
 import uuid
 from pathlib import Path
 
@@ -6,6 +7,12 @@ from clients.llamastack_vector_store_client import LlamaStackVectorStoreClient
 from config import IngestConfig
 
 logger = logging.getLogger(__name__)
+
+
+def _vector_store_name_for_file(file_path: Path) -> str:
+    """Build a LlamaStack vector store name from the file stem (sanitized, unique per run)."""
+    stem = file_path.stem
+    return stem
 
 
 class LlamaStackIngestionService:
@@ -46,23 +53,31 @@ class LlamaStackIngestionService:
 
         logger.info("Found %d file(s) in '%s'", len(files), kb_dir)
 
-        store_name = f"supply-chain-kb-{uuid.uuid4().hex[:8]}"
-        vector_store_id = self._client.create_vector_store(store_name)
-
         uploaded = 0
-        for file_path in files:
+        for file_path in sorted(files):
+            store_name = _vector_store_name_for_file(file_path)
             try:
+                vector_store_id = self._client.create_vector_store(store_name)
                 file_id = self._client.upload_file(str(file_path))
                 self._client.attach_file_to_store(vector_store_id, file_id)
                 uploaded += 1
+                logger.info(
+                    "Ingested '%s' into vector store '%s' (%s)",
+                    file_path.name,
+                    store_name,
+                    vector_store_id,
+                )
             except Exception as exc:
-                logger.error("Failed to ingest '%s': %s", file_path, exc)
+                logger.error(
+                    "Failed to ingest '%s' (store name '%s'): %s",
+                    file_path,
+                    store_name,
+                    exc,
+                )
 
         logger.info(
-            "Pipeline finished — %d/%d file(s) ingested into store '%s' (%s)",
+            "Pipeline finished — %d/%d file(s) ingested (one vector store per file, named from filename).",
             uploaded,
             len(files),
-            store_name,
-            vector_store_id,
         )
         return uploaded
