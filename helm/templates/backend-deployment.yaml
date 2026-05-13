@@ -26,6 +26,10 @@ spec:
           env:
             - name: LLAMA_STACK_URL
               value: {{ .Values.backend.env.LLAMA_STACK_URL | quote }}
+            - name: LLAMA_STACK_MODEL
+              value: {{ .Values.backend.env.LLAMA_STACK_MODEL | default "meta-llama/Llama-3.2-1B-Instruct" | quote }}
+            - name: EMBED_MODEL
+              value: {{ .Values.backend.env.EMBED_MODEL | default "all-MiniLM-L6-v2" | quote }}
             # PG_ prefix avoids collision with the Kubernetes-injected
             # PGVECTOR_PORT=tcp://ip:port service-discovery variable.
             - name: PG_HOST

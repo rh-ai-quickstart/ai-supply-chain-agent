@@ -38,6 +38,16 @@
     }
   },
   {
+    "type": "console.navigation/href",
+    "properties": {
+      "id": "supply-chain-knowledge-bases",
+      "name": "%plugin__supply-chain-perspective~Knowledge bases%",
+      "href": "/supply-chain/knowledge-bases",
+      "perspective": "supply-chain",
+      "section": "supply-chain-home"
+    }
+  },
+  {
     "type": "console.page/route",
     "properties": {
       "exact": true,
@@ -51,6 +61,14 @@
       "exact": true,
       "path": "/supply-chain/simulations",
       "component": { "$codeRef": "SimulationsPage" }
+    }
+  },
+  {
+    "type": "console.page/route",
+    "properties": {
+      "exact": true,
+      "path": "/supply-chain/knowledge-bases",
+      "component": { "$codeRef": "KnowledgeBasesPage" }
     }
   },
   {

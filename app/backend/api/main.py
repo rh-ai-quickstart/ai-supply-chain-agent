@@ -7,6 +7,8 @@ from clients.llama_stack_client import LlamaStackClient
 from clients.vector_store_client import VectorStoreClient
 from services.chat_service import ChatService
 from services.dashboard_service import DashboardService
+from services.knowledge_base_ingest_service import ingest_uploaded_files
+from services.knowledge_bases_store import load_all as load_knowledge_bases
 from services.route_service import RouteService
 from services.simulations_store import append_simulation, load_all as load_simulations
 
@@ -28,6 +30,14 @@ except Exception as _exc:
         "Chat will proceed without RAG context.",
         _exc,
     )
+
+def list_vector_stores_safe(chat_service: Any) -> tuple[list[dict[str, Any]], Optional[str]]:
+    """Return ``(stores, error_message)``. On failure, ``stores`` is empty and ``error_message`` is set."""
+    try:
+        return (chat_service.list_vector_stores(), None)
+    except Exception as exc:
+        logger.warning("list_vector_stores failed: %s", exc)
+        return ([], str(exc))
 
 chat_service = ChatService(
     LlamaStackClient(),
@@ -65,7 +75,50 @@ def post_simulate():
 def post_chat():
     payload = request.get_json(silent=True) or {}
     user_input = payload.get("input", "")
-    return jsonify(chat_service.reply(user_input))
+    chat_history = payload.get("chat_history") or []
+    raw_vs = payload.get("vector_store_id") or payload.get("vectorStoreId") or ""
+    vector_store_id = str(raw_vs).strip() or None
+    return jsonify(
+        chat_service.reply(
+            user_input,
+            chat_history=chat_history,
+            vector_store_id=vector_store_id,
+        )
+    )
+
+@app.route("/api/v1/knowledge-bases", methods=["GET"])
+def get_knowledge_bases():
+    """UI-upload catalog only. Merge with ``GET /api/v1/vector_stores`` in the client (same source as chat)."""
+    return jsonify({"knowledge_bases": load_knowledge_bases()})
+
+
+@app.route("/api/v1/knowledge-bases", methods=["POST"])
+def post_knowledge_bases():
+    """Multipart: ``name`` (text) + ``files`` (one or more uploads) → LlamaStack vector store."""
+    name = (request.form.get("name") or "").strip()
+    uploads = request.files.getlist("files")
+    pairs: list[tuple[str, bytes]] = []
+    for storage in uploads:
+        if storage and storage.filename:
+            pairs.append((storage.filename, storage.read()))
+    result = ingest_uploaded_files(chat_service.llama_stack_client, name, pairs)
+    if not result.get("ok"):
+        return jsonify(result), 400
+    return jsonify(result), 201
+
+
+@app.route("/api/v1/vector_stores", methods=["GET"])
+def get_vector_stores():
+    """List LlamaStack vector stores (same listing the chat knowledge-base picker uses)."""
+    try:
+        stores, err = list_vector_stores_safe(chat_service)
+        body: dict = {"vector_stores": stores}
+        if err:
+            body["error"] = err
+        return jsonify(body)
+    except Exception as exc:
+        logger.warning("vector_stores.list failed: %s", exc)
+        return jsonify({"vector_stores": [], "error": str(exc)}), 500
 
 
 @app.route("/api/v1/simulations", methods=["GET"])

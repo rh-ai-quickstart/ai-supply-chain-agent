@@ -1,8 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { ChatMessage, DashboardState, MapViewId } from '../../types/dashboard';
+import type {
+  ChatMessage,
+  DashboardState,
+  MapViewId,
+  VectorStoreSummary,
+} from '../../types/dashboard';
 import {
   fetchDashboardState,
+  fetchVectorStores,
   postAssistantMessage,
   postSimulation,
   postTriggerWorldEvent,
@@ -29,6 +35,10 @@ export function useDashboardController() {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatLoading, setChatLoading] = useState(false);
   const [chatError, setChatError] = useState('');
+  const [vectorStores, setVectorStores] = useState<VectorStoreSummary[]>([]);
+  const [vectorStoresLoading, setVectorStoresLoading] = useState(false);
+  const [vectorStoresError, setVectorStoresError] = useState('');
+  const [selectedVectorStoreId, setSelectedVectorStoreId] = useState('');
   const [dashboardState, setDashboardState] = useState<DashboardState | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -62,6 +72,36 @@ export function useDashboardController() {
     return () => {
       cancelled = true;
       window.clearInterval(timerId);
+    };
+  }, [t]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadStores = async () => {
+      setVectorStoresLoading(true);
+      setVectorStoresError('');
+      try {
+        const res = await fetchVectorStores();
+        if (!cancelled) {
+          setVectorStores(Array.isArray(res.vector_stores) ? res.vector_stores : []);
+          if (res.error) {
+            setVectorStoresError(res.error);
+          }
+        }
+      } catch {
+        if (!cancelled) {
+          setVectorStoresError(t('Unable to load vector stores from LlamaStack.'));
+          setVectorStores([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setVectorStoresLoading(false);
+        }
+      }
+    };
+    void loadStores();
+    return () => {
+      cancelled = true;
     };
   }, [t]);
 
@@ -109,15 +149,23 @@ export function useDashboardController() {
     setChatError('');
     setChatLoading(true);
     try {
-      const result = await postAssistantMessage(question);
+      const result = await postAssistantMessage(
+        question,
+        nextHistory,
+        selectedVectorStoreId.trim() || undefined,
+      );
       const answer: string = result?.answer ?? t('No response from assistant.');
-      setChatMessages((current) => [...current, { role: 'ai' as const, content: answer }]);
+      const completion = result?.completion ?? null;
+      setChatMessages((current) => [
+        ...current,
+        { role: 'ai' as const, content: answer, completion },
+      ]);
     } catch {
       setChatError(t('Failed to send chat request.'));
     } finally {
       setChatLoading(false);
     }
-  }, [chatInput, chatLoading, chatMessages, t]);
+  }, [chatInput, chatLoading, chatMessages, selectedVectorStoreId, t]);
 
   const kpis = useMemo(() => getKpis(dashboardState), [dashboardState]);
   const alerts = useMemo(() => getFlattenedAlerts(dashboardState), [dashboardState]);
@@ -145,6 +193,11 @@ export function useDashboardController() {
     chatMessages,
     chatLoading,
     chatError,
+    vectorStores,
+    vectorStoresLoading,
+    vectorStoresError,
+    selectedVectorStoreId,
+    setSelectedVectorStoreId,
     dashboardState,
     loading,
     error,

@@ -178,47 +178,323 @@
   background-color: var(--pf-t--global--color--status--danger--default);
 }
 
-.supply-chain-perspective__dashboard-chat-card {
-  min-height: 0;
-}
-
-.supply-chain-perspective__dashboard-chat-history {
+.supply-chain-perspective__dashboard-chat-modal-inner {
   box-sizing: border-box;
-  display: grid;
-  gap: var(--pf-t--global--spacer--xs);
-  min-height: 5rem;
-  max-height: 11.25rem;
-  overflow-y: auto;
-  margin-bottom: var(--pf-t--global--spacer--sm);
-  padding: var(--pf-t--global--spacer--sm);
-  border: var(--pf-t--global--border--width--regular) solid
-    var(--pf-t--global--border--color--default);
-  border-radius: var(--pf-t--global--border--radius--medium);
-  background-color: var(--pf-t--global--background-color--control--default);
+  display: flex;
+  flex-direction: column;
+  gap: var(--pf-t--global--spacer--md);
+  padding: var(--pf-t--global--spacer--md);
 }
 
-.supply-chain-perspective__dashboard-chat-msg {
-  font-size: var(--pf-t--global--font--size--body--default);
-  line-height: var(--pf-t--global--font--line-height--body);
-}
-
-.supply-chain-perspective__dashboard-chat-msg--human {
-  color: var(--pf-t--global--text--color--regular);
-}
-
-.supply-chain-perspective__dashboard-chat-msg--ai {
-  color: var(--pf-t--global--color--brand--default);
-}
-
-.supply-chain-perspective__dashboard-chat-error {
-  margin-bottom: var(--pf-t--global--spacer--sm);
-}
-
-.supply-chain-perspective__dashboard-chat-form {
+/* Legacy-style bottom chat bar (SupplyChainDashboard.html) */
+.supply-chain-perspective__dashboard-chat-bar-container {
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
   gap: var(--pf-t--global--spacer--sm);
+  padding: var(--pf-t--global--spacer--sm) var(--pf-t--global--spacer--md);
+  border: var(--pf-t--global--border--width--regular) solid
+    var(--pf-t--global--border--color--default);
+  border-radius: var(--pf-t--global--border--radius--large);
+  background-color: var(--pf-t--global--background-color--secondary--default);
+}
+
+.supply-chain-perspective__dashboard-chat-bar-preview {
+  box-sizing: border-box;
+  display: flex;
+  max-height: 10.5rem;
+  flex-direction: column;
+  gap: var(--pf-t--global--spacer--xs);
+  padding: var(--pf-t--global--spacer--sm);
+  overflow: hidden auto;
+  border-radius: var(--pf-t--global--border--radius--medium);
+  background-color: var(--pf-t--global--background-color--primary--default);
+}
+
+.supply-chain-perspective__dashboard-chat-bar-row {
+  box-sizing: border-box;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--pf-t--global--spacer--sm);
+}
+
+.supply-chain-perspective__dashboard-chat-vector-row {
+  box-sizing: border-box;
+  display: flex;
+  width: 100%;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--pf-t--global--spacer--sm);
+  padding-bottom: var(--pf-t--global--spacer--sm);
+  border-bottom: var(--pf-t--global--border--width--regular) solid
+    var(--pf-t--global--border--color--default);
+}
+
+.supply-chain-perspective__dashboard-chat-vector-label {
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  align-self: center;
+  font-size: var(--pf-t--global--font--size--body--small);
+  color: var(--pf-t--global--text--color--subtle);
+  white-space: nowrap;
+}
+
+.supply-chain-perspective__dashboard-chat-vector-select {
+  box-sizing: border-box;
+  flex: 1 1 10rem;
+  min-width: 8rem;
+  padding: var(--pf-t--global--spacer--xs) var(--pf-t--global--spacer--sm);
+  border: var(--pf-t--global--border--width--regular) solid
+    var(--pf-t--global--border--color--default);
+  border-radius: var(--pf-t--global--border--radius--medium);
+  background-color: var(--pf-t--global--background-color--control--default);
+  color: var(--pf-t--global--text--color--regular);
+}
+
+.supply-chain-perspective__dashboard-chat-vector-row .supply-chain-perspective__dashboard-chat-vector-select {
+  flex: 1 1 12rem;
+  max-width: none;
+}
+
+.supply-chain-perspective__dashboard-chat-vector-error {
+  flex: 1 0 100%;
+  font-size: var(--pf-t--global--font--size--body--small);
+  color: var(--pf-t--global--color--status--danger--default);
+}
+
+.supply-chain-perspective__dashboard-chat-bar-input {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
+.supply-chain-perspective__dashboard-chat-send-btn {
+  flex-shrink: 0;
+  min-width: 3.125rem;
+}
+
+.supply-chain-perspective__dashboard-chat-modal-log {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: var(--pf-t--global--spacer--sm);
+  max-height: min(55vh, 22rem);
+  overflow: hidden auto;
+  padding: var(--pf-t--global--spacer--md);
+  border: none;
+  border-radius: var(--pf-t--global--border--radius--medium);
+  background-color: var(--pf-t--global--background-color--primary--default);
+}
+
+.supply-chain-perspective__dashboard-chat-modal-composer {
+  box-sizing: border-box;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--pf-t--global--spacer--sm);
+  padding-top: var(--pf-t--global--spacer--xs);
+  border-top: var(--pf-t--global--border--width--regular) solid
+    var(--pf-t--global--border--color--default);
+}
+
+.supply-chain-perspective__dashboard-chat-modal-composer-input {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
+.supply-chain-perspective__dashboard-chat-bubble {
+  box-sizing: border-box;
+  max-width: min(36rem, 92%);
+  padding: var(--pf-t--global--spacer--sm) var(--pf-t--global--spacer--md);
+  border-radius: var(--pf-t--global--border--radius--large);
+  font-size: var(--pf-t--global--font--size--body--default);
+  line-height: var(--pf-t--global--font--line-height--body);
+  overflow-wrap: anywhere;
+}
+
+.supply-chain-perspective__dashboard-chat-bubble--compact {
+  max-width: 100%;
+  padding: var(--pf-t--global--spacer--xs) var(--pf-t--global--spacer--sm);
+  font-size: var(--pf-t--global--font--size--body--small);
+}
+
+.supply-chain-perspective__dashboard-chat-bubble--human {
+  align-self: flex-end;
+  margin-left: auto;
+  border-bottom-right-radius: 0;
+  background-color: var(--pf-t--global--color--brand--default);
+  color: var(--pf-t--global--text--color--on-brand--default);
+  border: var(--pf-t--global--border--width--regular) solid
+    var(--pf-t--global--color--brand--default);
+}
+
+.supply-chain-perspective__dashboard-chat-bubble--ai {
+  align-self: flex-start;
+  margin-right: auto;
+  border-bottom-left-radius: 0;
+  background-color: var(--pf-t--global--background-color--secondary--default);
+  color: var(--pf-t--global--text--color--regular);
+  border: var(--pf-t--global--border--width--regular) solid
+    var(--pf-t--global--border--color--default);
+}
+
+.supply-chain-perspective__dashboard-chat-completion-meta {
+  margin-top: var(--pf-t--global--spacer--sm);
+  padding-top: var(--pf-t--global--spacer--xs);
+  border-top: var(--pf-t--global--border--width--regular) solid
+    var(--pf-t--global--border--color--default);
+}
+
+.supply-chain-perspective__dashboard-chat-completion-summary {
+  margin: 0 0 var(--pf-t--global--spacer--xs);
+  font-size: var(--pf-t--global--font--size--body--small);
+  color: var(--pf-t--global--text--color--subtle);
+}
+
+.supply-chain-perspective__dashboard-chat-completion-details {
+  margin-top: var(--pf-t--global--spacer--xs);
+  font-size: var(--pf-t--global--font--size--body--small);
+}
+
+.supply-chain-perspective__dashboard-chat-completion-details summary {
+  cursor: pointer;
+  color: var(--pf-t--global--link--color--default);
+}
+
+.supply-chain-perspective__dashboard-chat-completion-details pre {
+  margin: var(--pf-t--global--spacer--sm) 0 0;
+  max-height: 16rem;
+  overflow: auto;
+  padding: var(--pf-t--global--spacer--sm);
+  font-size: var(--pf-t--global--font--size--body--small);
+  background: var(--pf-t--global--background-color--200);
+  border-radius: var(--pf-t--global--border--radius--300);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.supply-chain-perspective__dashboard-root--light
+  .supply-chain-perspective__dashboard-chat-bubble--human {
+  background-color: var(--pf-t--global--color--brand--default);
+  color: var(--pf-t--global--text--color--on-brand--default);
+}
+
+/* Markdown inside AI bubbles (react-markdown output) */
+.supply-chain-perspective__dashboard-chat-md {
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.supply-chain-perspective__dashboard-chat-md > *:first-child {
+  margin-top: 0;
+}
+
+.supply-chain-perspective__dashboard-chat-md > *:last-child {
+  margin-bottom: 0;
+}
+
+.supply-chain-perspective__dashboard-chat-md p {
+  margin: 0 0 var(--pf-t--global--spacer--sm);
+}
+
+.supply-chain-perspective__dashboard-chat-md ul,
+.supply-chain-perspective__dashboard-chat-md ol {
+  margin: 0 0 var(--pf-t--global--spacer--sm);
+  padding-left: var(--pf-t--global--spacer--xl);
+}
+
+.supply-chain-perspective__dashboard-chat-md li {
+  margin-bottom: var(--pf-t--global--spacer--xs);
+}
+
+.supply-chain-perspective__dashboard-chat-md li:last-child {
+  margin-bottom: 0;
+}
+
+.supply-chain-perspective__dashboard-chat-md strong {
+  font-weight: var(--pf-t--global--font--weight--heading--bold);
+}
+
+.supply-chain-perspective__dashboard-chat-md em {
+  font-style: italic;
+}
+
+.supply-chain-perspective__dashboard-chat-md h1,
+.supply-chain-perspective__dashboard-chat-md h2,
+.supply-chain-perspective__dashboard-chat-md h3 {
+  margin: var(--pf-t--global--spacer--md) 0 var(--pf-t--global--spacer--sm);
+  font-size: var(--pf-t--global--font--size--heading--h4);
+  font-weight: var(--pf-t--global--font--weight--heading--bold);
+  line-height: var(--pf-t--global--font--line-height--heading);
+}
+
+.supply-chain-perspective__dashboard-chat-md--compact h1,
+.supply-chain-perspective__dashboard-chat-md--compact h2,
+.supply-chain-perspective__dashboard-chat-md--compact h3 {
+  margin-top: var(--pf-t--global--spacer--sm);
+  margin-bottom: var(--pf-t--global--spacer--xs);
+  font-size: var(--pf-t--global--font--size--body--default);
+}
+
+.supply-chain-perspective__dashboard-chat-md h1:first-child,
+.supply-chain-perspective__dashboard-chat-md h2:first-child,
+.supply-chain-perspective__dashboard-chat-md h3:first-child {
+  margin-top: 0;
+}
+
+.supply-chain-perspective__dashboard-chat-md code {
+  padding: 0.125rem var(--pf-t--global--spacer--xs);
+  border-radius: var(--pf-t--global--border--radius--small);
+  background-color: var(--pf-t--global--background-color--control--default);
+  font-family: var(--pf-t--global--font--family--mono);
+  font-size: var(--pf-t--global--font--size--body--small);
+}
+
+.supply-chain-perspective__dashboard-chat-md pre {
+  margin: 0 0 var(--pf-t--global--spacer--sm);
+  padding: var(--pf-t--global--spacer--sm);
+  overflow: auto;
+  border-radius: var(--pf-t--global--border--radius--medium);
+  background-color: var(--pf-t--global--background-color--control--default);
+  font-family: var(--pf-t--global--font--family--mono);
+  font-size: var(--pf-t--global--font--size--body--small);
+  line-height: var(--pf-t--global--font--line-height--body);
+}
+
+.supply-chain-perspective__dashboard-chat-md pre code {
+  padding: 0;
+  background-color: transparent;
+  font-size: inherit;
+}
+
+.supply-chain-perspective__dashboard-chat-md blockquote {
+  margin: 0 0 var(--pf-t--global--spacer--sm);
+  padding: var(--pf-t--global--spacer--xs) var(--pf-t--global--spacer--sm);
+  border-left: var(--pf-t--global--border--width--regular) solid
+    var(--pf-t--global--border--color--brand--default);
+  color: var(--pf-t--global--text--color--subtle);
+}
+
+.supply-chain-perspective__dashboard-chat-md a {
+  color: var(--pf-t--global--link--color--default);
+  text-decoration: underline;
+}
+
+.supply-chain-perspective__dashboard-chat-md hr {
+  margin: var(--pf-t--global--spacer--sm) 0;
+  border: none;
+  border-top: var(--pf-t--global--border--width--regular) solid
+    var(--pf-t--global--border--color--default);
+}
+
+.supply-chain-perspective__dashboard-chat-md--compact p {
+  margin-bottom: var(--pf-t--global--spacer--xs);
+}
+
+.supply-chain-perspective__dashboard-chat-md--compact ul,
+.supply-chain-perspective__dashboard-chat-md--compact ol {
+  margin-bottom: var(--pf-t--global--spacer--xs);
+  padding-left: var(--pf-t--global--spacer--lg);
 }
 
 @media (width <= 75rem) {

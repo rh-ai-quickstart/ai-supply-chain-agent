@@ -17,8 +17,7 @@ class IngestConfig:
     strategy: IngestionStrategy = field(default=IngestionStrategy.LANGCHAIN)
     knowledge_base_dir: str = field(default="knowledge_base")
     glob: str = field(default="**/*.txt")
-
-    # --- langchain strategy only ---
+    
     chunk_size: int = field(default=1000)
     chunk_overlap: int = field(default=200)
     drop_old: bool = field(default=True)

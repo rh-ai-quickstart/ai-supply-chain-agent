@@ -23,14 +23,14 @@ llama-stack:
 
 llm-service:
   enabled: true
-  device: gpu
+  device: cpu
   secret:
     hf_token: ""
     enabled: true
   models:
     llama-3-2-1b-instruct:
       enabled: true
-#      device: cpu
+      device: cpu
 
 imagePullSecrets: []
 
@@ -38,8 +38,8 @@ backend:
   enabled: true
   replicaCount: 1
   image:
-    repository: quay.io/robertsandoval/supply-chain-backend
-    tag: latest
+    repository: quay.io/rh-ai-quickstart/ai-supply-chain-agent-backend
+    tag: lastest
     pullPolicy: Always
   service:
     port: 5001
@@ -66,13 +66,13 @@ ingest:
   # helm install / upgrade.
   enabled: true
   image:
-    repository: quay.io/robertsandoval/supply-chain-ingestion
+    repository: quay.io/rh-ai-quickstart/ai-supply-chain-agent-ingestion
     tag: latest
     pullPolicy: Always
   # "langchain" — client-side chunking/embedding via LangChain + PGVector.
   # "llamastack" — server-side: uploads files to LlamaStack, which handles
   #                chunking, embedding, and storage internally.
-  strategy: "langchain"
+  strategy: "llamastack" # LlamaStack is the default strategy
   # Path inside the container where .txt files live (baked into the image).
   knowledgeBaseDir: "knowledge_base"
   # File glob relative to knowledgeBaseDir.
@@ -88,7 +88,7 @@ frontend:
   enabled: true
   replicaCount: 1
   image:
-    repository: quay.io/robertsandoval/supply-chain-frontend
+    repository: quay.io/rh-ai-quickstart/ai-supply-chain-agent-frontend
     tag: latest
     pullPolicy: Always
   service:
