@@ -151,6 +151,19 @@ body,
   border: 1px solid var(--color-border);
 }
 
+.leaflet-asset-icon.map-asset-marker {
+  background: none !important;
+  border: none !important;
+}
+
+.map-truck-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+}
+
 .map-counts {
   margin-top: 8px;
 }

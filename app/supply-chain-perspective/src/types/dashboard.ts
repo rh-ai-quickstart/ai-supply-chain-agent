@@ -41,6 +41,11 @@ export interface MapAsset {
   lng?: number;
   cargo?: string;
   speed?: string;
+  /** Live ADS-B style aircraft from OpenSky; drives plane icon in map UIs. */
+  is_live?: boolean;
+  /** Degrees; used to rotate plane / ship / truck marker. */
+  track?: number;
+  altitude_ft?: number;
 }
 
 export interface MapLayerData {

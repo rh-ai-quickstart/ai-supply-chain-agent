@@ -1,4 +1,5 @@
-import { CircleMarker, MapContainer, Popup, TileLayer } from "react-leaflet";
+import { CircleMarker, MapContainer, Marker, Popup, TileLayer } from "react-leaflet";
+import { createAssetDivIcon } from "../utils/mapAssetIcons";
 
 export function LogisticsMapPanel({
   mapView,
@@ -44,23 +45,15 @@ export function LogisticsMapPanel({
             if (typeof asset.lat !== "number" || typeof asset.lng !== "number") {
               return null;
             }
-            const assetColor =
+            const fill =
               mapView === "airFreight"
                 ? "#00E0FF"
                 : mapView === "global"
                   ? "#FFC300"
                   : "#9D00FF";
+            const icon = createAssetDivIcon(mapView, asset, { fill, stroke: "#10162a" });
             return (
-              <CircleMarker
-                key={asset.id ?? `${asset.name}-${index}`}
-                center={[asset.lat, asset.lng]}
-                radius={4}
-                pathOptions={{
-                  color: assetColor,
-                  fillColor: assetColor,
-                  fillOpacity: 0.95,
-                }}
-              >
+              <Marker key={asset.id ?? `${asset.name}-${index}`} position={[asset.lat, asset.lng]} icon={icon}>
                 <Popup>
                   <strong>{asset.name}</strong>
                   <br />
@@ -72,7 +65,7 @@ export function LogisticsMapPanel({
                     </>
                   ) : null}
                 </Popup>
-              </CircleMarker>
+              </Marker>
             );
           })}
         </MapContainer>
