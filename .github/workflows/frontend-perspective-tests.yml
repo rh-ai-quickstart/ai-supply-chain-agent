@@ -1,0 +1,62 @@
+name: Frontend and perspective unit tests
+
+on:
+  push:
+    branches: [main, master, dev]
+    paths:
+      - "app/frontend/**"
+      - "app/supply-chain-perspective/**"
+      - ".github/workflows/frontend-perspective-tests.yml"
+  pull_request:
+    branches: [main, master]
+    paths:
+      - "app/frontend/**"
+      - "app/supply-chain-perspective/**"
+      - ".github/workflows/frontend-perspective-tests.yml"
+  workflow_dispatch:
+
+jobs:
+  frontend-unit:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app/frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: app/frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Vitest (React dashboard)
+        run: npm test
+
+  perspective-unit:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app/supply-chain-perspective
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: yarn
+          cache-dependency-path: app/supply-chain-perspective/yarn.lock
+
+      - name: Enable Yarn
+        run: corepack enable
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Vitest (console plugin)
+        run: yarn test
