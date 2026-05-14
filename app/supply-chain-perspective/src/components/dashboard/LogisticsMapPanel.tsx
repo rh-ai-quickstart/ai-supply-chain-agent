@@ -1,9 +1,10 @@
 import 'leaflet/dist/leaflet.css';
 import { useMemo } from 'react';
 import { Card, CardBody, CardTitle } from '@patternfly/react-core';
-import { CircleMarker, MapContainer, Popup, TileLayer } from 'react-leaflet';
+import { CircleMarker, MapContainer, Marker, Popup, TileLayer } from 'react-leaflet';
 import { useTranslation } from 'react-i18next';
-import type { MapLayerData, MapViewId } from '../../types/dashboard';
+import type { MapAsset, MapLayerData, MapViewId } from '../../types/dashboard';
+import { createAssetDivIcon } from '../../utils/mapAssetIcons';
 import { readSemanticToken } from './mapTokens';
 
 export interface LogisticsMapPanelProps {
@@ -34,6 +35,8 @@ export function LogisticsMapPanel({
 
   const assetStroke =
     mapView === 'airFreight' ? palette.air : mapView === 'global' ? palette.sea : palette.land;
+
+  const assetIconStroke = readSemanticToken('--pf-t--global--text--color--regular', '#10162a');
 
   const handleSelectChange = (value: string) => {
     onChangeMapView(value as MapViewId);
@@ -89,16 +92,13 @@ export function LogisticsMapPanel({
               if (typeof asset.lat !== 'number' || typeof asset.lng !== 'number') {
                 return null;
               }
+              const a = asset as MapAsset;
+              const icon = createAssetDivIcon(mapView, a, { fill: assetStroke, stroke: assetIconStroke });
               return (
-                <CircleMarker
+                <Marker
                   key={asset.id ?? `${asset.name ?? 'asset'}-${index}`}
-                  center={[asset.lat, asset.lng]}
-                  radius={4}
-                  pathOptions={{
-                    color: assetStroke,
-                    fillColor: assetStroke,
-                    fillOpacity: 0.95,
-                  }}
+                  position={[asset.lat, asset.lng]}
+                  icon={icon}
                 >
                   <Popup>
                     <strong>{asset.name}</strong>
@@ -111,7 +111,7 @@ export function LogisticsMapPanel({
                       </>
                     ) : null}
                   </Popup>
-                </CircleMarker>
+                </Marker>
               );
             })}
           </MapContainer>

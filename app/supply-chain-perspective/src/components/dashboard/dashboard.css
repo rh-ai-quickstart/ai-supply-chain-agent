@@ -96,6 +96,20 @@
   height: 100%;
 }
 
+/* DivIcon assets (plane / vessel / truck); Leaflet defaults add a white tile border */
+.leaflet-asset-icon {
+  background: none !important;
+  border: none !important;
+}
+
+.supply-chain-perspective__map-truck-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+}
+
 .supply-chain-perspective__dashboard-map-counts {
   margin-top: var(--pf-t--global--spacer--sm);
 }
