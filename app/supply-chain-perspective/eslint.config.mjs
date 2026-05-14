@@ -47,6 +47,15 @@ export default tseslint.config(
     }
   },
   {
+    files: ['src/**/*.test.{ts,tsx}', 'src/test/**/*.ts'],
+    languageOptions: {
+      globals: {
+        ...globals.browser,
+        ...(globals.vitest ?? {}),
+      },
+    },
+  },
+  {
     files: ['integration-tests/**/*.{ts,tsx,js}'],
     ...cypress.configs.recommended,
     languageOptions: {
