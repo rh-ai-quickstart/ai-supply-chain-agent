@@ -1,4 +1,8 @@
 {{- if .Values.frontend.enabled }}
+{{- $backendUpstream := .Values.frontend.apiProxyUpstream }}
+{{- if not $backendUpstream }}
+{{- $backendUpstream = printf "http://%s-backend:%v" .Release.Name .Values.backend.service.port }}
+{{- end }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -23,4 +27,7 @@ spec:
           imagePullPolicy: {{ .Values.frontend.image.pullPolicy }}
           ports:
             - containerPort: {{ .Values.frontend.service.port }}
+          env: # Used because the frontend is built with Vite and needs to know the backend upstream URL
+            - name: BACKEND_UPSTREAM
+              value: {{ $backendUpstream | quote }}
 {{- end }}

@@ -94,7 +94,7 @@ Set at minimum:
 |-------|-------------|
 | `backend.image.repository` / `tag` | Backend container image |
 | `frontend.image.repository` / `tag` | Frontend container image |
-| `frontend.clusterId` / `frontend.openshiftAppsDomain` | Cluster DNS used when building the frontend (`make build-frontend`) |
+| `frontend.apiProxyUpstream` | Optional nginx `/api` proxy target (default: in-cluster `http://<release>-backend:<port>`) |
 | `ingest.image.repository` / `tag` | Ingestion job image |
 | `backend.env.LLAMA_STACK_MODEL` / `EMBED_MODEL` | LLM and embedding model identifiers |
 | `pgvector.secret.*` | PostgreSQL credentials (or use subchart defaults for demos) |
@@ -104,7 +104,7 @@ Point image repositories at a registry you can push to (defaults use `quay.io/rh
 
 ### 3. Build and push images
 
-Build all application images (reads `frontend.clusterId` and `frontend.openshiftAppsDomain` from your values file for the frontend API URL):
+Build all application images:
 
 ```bash
 make build
@@ -304,7 +304,7 @@ app/
         ├── hooks/
         │   └── useDashboardState.js   # Polls /api/v1/state every 15 s
         └── services/
-            ├── apiClient.js           # fetch wrappers (VITE_API_BASE_URL)
+            ├── apiClient.js           # same-origin fetch to /api/... (nginx or Vite proxy)
             ├── dashboardService.js    # API call helpers
             └── dashboardMappers.js    # Backend state → UI data shapes
 ```
@@ -348,7 +348,8 @@ app/
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `VITE_API_BASE_URL` | Backend base URL (set at build time) | `http://backend:5001` |
+| `BACKEND_UPSTREAM` | nginx `/api` proxy target (set on the frontend pod at runtime) | `http://<release>-backend:5001` |
+| `VITE_DEV_API_PROXY_TARGET` | Local `npm run dev` proxy target for `/api` | `http://127.0.0.1:5001` |
 
 **Perspective plugin (build-time)**
 

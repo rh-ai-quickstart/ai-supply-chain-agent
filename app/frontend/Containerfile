@@ -7,14 +7,6 @@ RUN npm ci
 
 COPY . ./
 
-# Set via: make build-frontend (reads helm/values.yaml frontend.clusterId / openshiftAppsDomain)
-ARG CLUSTER_ID
-ARG RELEASE_NAME
-ARG NAMESPACE
-ARG OPENSHIFT_APPS_DOMAIN
-
-ENV VITE_API_BASE_URL=https://${RELEASE_NAME}-backend-${NAMESPACE}.apps.${CLUSTER_ID}.${OPENSHIFT_APPS_DOMAIN}
-
 RUN npm run build
 
 FROM docker.io/nginxinc/nginx-unprivileged:stable-alpine

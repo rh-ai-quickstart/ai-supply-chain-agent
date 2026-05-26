@@ -96,8 +96,6 @@ frontend:
   route:
     enabled: true
     host: ""
-  # Configure the API URL baked into the frontend image (only file to edit; then make build-frontend).
-  # Resolves to: https://<release>-backend-<namespace>.apps.<clusterId>.<openshiftAppsDomain>
-  clusterId: ai-dev02
-  openshiftAppsDomain: kni.syseng.devcluster.openshift.com
+  # Optional full URL for nginx /api proxy (default: http://<release>-backend:<backend.service.port>)
+  apiProxyUpstream: ""
 

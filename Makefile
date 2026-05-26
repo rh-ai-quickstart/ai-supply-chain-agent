@@ -82,7 +82,7 @@ help:
 	@echo "    PERSPECTIVE_API_BASE_URL  $(if $(PERSPECTIVE_API_BASE_URL),$(PERSPECTIVE_API_BASE_URL),(empty — same-origin /api/))"
 	@echo "    NAMESPACE          $(NAMESPACE)"
 	@echo "    HELM_RELEASE       $(HELM_RELEASE)"
-	@echo "    VALUES_FILE        $(VALUES_FILE)  (frontend.clusterId, frontend.openshiftAppsDomain)"
+	@echo "    VALUES_FILE        $(VALUES_FILE)  (frontend.apiProxyUpstream)"
 	@echo ""
 
 # ============================================================
@@ -114,19 +114,8 @@ build-ingest:
 .PHONY: build-frontend
 build-frontend:
 	@set -eu; \
-	cluster_id=$$(awk '/^frontend:/{f=1} f && /^  clusterId:/{gsub(/"/,""); print $$2; exit}' $(VALUES_FILE)); \
-	apps_domain=$$(awk '/^frontend:/{f=1} f && /^  openshiftAppsDomain:/{gsub(/"/,""); print $$2; exit}' $(VALUES_FILE)); \
-	test -n "$$cluster_id" || { echo "ERROR: set frontend.clusterId in $(VALUES_FILE)"; exit 1; }; \
-	test -n "$$apps_domain" || { echo "ERROR: set frontend.openshiftAppsDomain in $(VALUES_FILE)"; exit 1; }; \
-	api_url="https://$(HELM_RELEASE)-backend-$(NAMESPACE).apps.$${cluster_id}.$${apps_domain}"; \
-	echo ">>> Building frontend image: $(FRONTEND_IMAGE):$(FRONTEND_TAG)"; \
-	echo ">>> VITE_API_BASE_URL=$${api_url} (from $(VALUES_FILE))"; \
 	podman build \
 		--platform $(BUILD_PLATFORM) \
-		--build-arg CLUSTER_ID=$${cluster_id} \
-		--build-arg RELEASE_NAME=$(HELM_RELEASE) \
-		--build-arg NAMESPACE=$(NAMESPACE) \
-		--build-arg OPENSHIFT_APPS_DOMAIN=$${apps_domain} \
 		-f ./app/frontend/Containerfile \
 		-t $(FRONTEND_IMAGE):$(FRONTEND_TAG) \
 		./app/frontend; \
