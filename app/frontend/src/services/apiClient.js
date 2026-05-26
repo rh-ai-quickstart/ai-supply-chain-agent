@@ -1,12 +1,7 @@
-/** Baked in at image build from CLUSTER_ID (see Containerfile / Makefile). */
-const API_BASE_URL = String(import.meta.env.VITE_API_BASE_URL || "http://localhost:5001").replace(
-  /\/$/,
-  "",
-);
+/** Same-origin /api/... — proxied by nginx in cluster or Vite dev server locally. */
 
 function apiUrl(path) {
-  const normalized = path.startsWith("/") ? path : `/${path}`;
-  return `${API_BASE_URL}${normalized}`;
+  return path.startsWith("/") ? path : `/${path}`;
 }
 
 export async function apiGet(path) {

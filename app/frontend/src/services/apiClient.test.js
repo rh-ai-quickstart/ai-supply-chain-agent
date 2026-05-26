@@ -18,7 +18,7 @@ describe("apiClient", () => {
         json: () => Promise.resolve({ ok: true }),
       });
       await expect(apiGet("/api/v1/state")).resolves.toEqual({ ok: true });
-      expect(globalThis.fetch).toHaveBeenCalledWith("http://localhost:5001/api/v1/state");
+      expect(globalThis.fetch).toHaveBeenCalledWith("/api/v1/state");
     });
   });
 
@@ -30,7 +30,7 @@ describe("apiClient", () => {
       });
       await expect(apiPost("/api/v1/chat", { input: "hi" })).resolves.toEqual({ id: 1 });
       expect(globalThis.fetch).toHaveBeenCalledWith(
-        "http://localhost:5001/api/v1/chat",
+        "/api/v1/chat",
         expect.objectContaining({
           method: "POST",
           headers: { "Content-Type": "application/json" },
