@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiGet, apiPost, apiPostFormData } from './apiClient';
 import { consoleFetch, consoleFetchJSON } from '@openshift-console/dynamic-plugin-sdk';
 
-const jsonPost = (consoleFetchJSON as { post: ReturnType<typeof vi.fn> }).post;
+const jsonPost = (consoleFetchJSON as unknown as { post: ReturnType<typeof vi.fn> }).post;
 
 describe('apiClient (console proxy)', () => {
   beforeEach(() => {
