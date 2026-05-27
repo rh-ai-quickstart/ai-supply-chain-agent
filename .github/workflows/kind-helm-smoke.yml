@@ -12,6 +12,7 @@ on:
       - "app/supply-chain-perspective/**"
       - "helm/**"
       - "scripts/ci/**"
+      - "tests/e2e_ui/**"
       - "Makefile"
       - ".github/actions/kind/**"
       - ".github/workflows/kind-helm-smoke.yml"
@@ -23,6 +24,7 @@ on:
       - "app/supply-chain-perspective/**"
       - "helm/**"
       - "scripts/ci/**"
+      - "tests/e2e_ui/**"
       - "Makefile"
       - ".github/actions/kind/**"
       - ".github/workflows/kind-helm-smoke.yml"
@@ -37,7 +39,7 @@ env:
 
 jobs:
   kind-helm-smoke:
-    name: Helm lint, Kind deploy, and API verify
+    name: Helm lint, Kind deploy, API and UI verify
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -60,9 +62,34 @@ jobs:
           registry: localhost:5001
           run_builtin_smoke: "false"
 
-      - name: Verify deployment and API behavior
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Playwright UI test dependencies
+        run: make e2e-ui-install
+
+      - name: Verify deployment, API, and UI (Playwright)
         shell: bash
-        run: bash ./scripts/ci/kind-verify-deployment.sh
+        run: RUN_UI_E2E=1 bash ./scripts/ci/kind-verify-deployment.sh
         env:
           NAMESPACE: ${{ env.KIND_NAMESPACE }}
           HELM_RELEASE: ${{ env.HELM_RELEASE }}
+          SKIP_MODEL_TESTS: "false"
+
+      - name: Upload Playwright test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-test-results
+          path: |
+            test-results/
+            playwright-report/
+
+      - name: Upload Playwright screenshots on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-screenshots
+          path: test-results/

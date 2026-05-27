@@ -25,7 +25,104 @@ Key capabilities:
 
 ### Architecture diagrams
 
-<!-- TODO: add architecture diagram — put images in docs/images/ -->
+The quickstart runs on OpenShift as a Helm umbrella chart (`supply-chain-dashboard`). Operators reach the dashboard through a standalone Route or, optionally, the OpenShift Console **Supply Chain** perspective. The Flask backend drives UI state, simulations, and RAG chat; Llama Stack and PGVector provide inference and retrieval.
+
+#### Deployment (OpenShift)
+
+```mermaid
+flowchart TB
+  subgraph users["Operators"]
+    U1["Browser — standalone dashboard"]
+    U2["OpenShift Console — Supply Chain perspective<br/>(optional, cluster-admin install)"]
+  end
+
+  subgraph ocp["OpenShift cluster"]
+    subgraph ns["Namespace: supply-chain-dashboard"]
+      subgraph routes["Routes"]
+        R_FE["supply-chain-dashboard-frontend"]
+        R_BE["supply-chain-dashboard-backend"]
+        R_PLUG["perspective plugin Route<br/>(optional)"]
+      end
+
+      FE["Frontend<br/>React + nginx :8080<br/>polls /api/v1/state"]
+      PLUG["Console plugin<br/>PatternFly UI :9001"]
+      BE["Backend<br/>Flask API :5001"]
+
+      subgraph jobs["Jobs"]
+        ING["Ingest Job<br/>chunk .txt → embeddings"]
+      end
+
+      subgraph data["Data & AI (Helm subcharts)"]
+        PG[("PGVector<br/>PostgreSQL + pgvector")]
+        LS["Llama Stack<br/>:8321"]
+        LLM["LLM service<br/>Llama 3.2 1B"]
+      end
+    end
+  end
+
+  subgraph external["External"]
+    HF["Hugging Face<br/>model weights"]
+  end
+
+  U1 --> R_FE --> FE
+  U2 --> R_PLUG --> PLUG
+  FE -->|"same-origin /api/* proxy"| BE
+  PLUG -->|"/api/* proxy"| BE
+  U1 -.->|"direct API (curl, tools)"| R_BE
+  R_BE --> BE
+
+  BE -->|"RAG similarity search"| PG
+  BE -->|"chat, vector stores, ingest API"| LS
+  LS --> LLM
+  LLM --> HF
+
+  ING -->|"llamastack or langchain strategy"| LS
+  ING -.->|"langchain path"| PG
+
+  classDef user fill:#e8f4fc,stroke:#1a73e8,color:#111
+  classDef app fill:#f3e8fd,stroke:#7c3aed,color:#111
+  classDef data fill:#ecfdf5,stroke:#059669,color:#111
+  classDef route fill:#fff7ed,stroke:#ea580c,color:#111
+  class U1,U2 user
+  class FE,PLUG,BE,ING app
+  class PG,LS,LLM data
+  class R_FE,R_BE,R_PLUG route
+```
+
+#### RAG chat and dashboard refresh
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant UI as Frontend or Console plugin
+  participant BE as Backend (Flask)
+  participant PG as PGVector
+  participant LS as Llama Stack
+  participant LLM as LLM service
+
+  Note over UI,LLM: Dashboard — every 15s
+  UI->>BE: GET /api/v1/state
+  BE-->>UI: KPIs, charts, map, alerts
+
+  Note over UI,LLM: Simulation
+  UI->>BE: POST /api/v1/simulate
+  BE-->>UI: Updated state + analysis
+
+  Note over UI,LLM: RAG chat
+  UI->>BE: POST /api/v1/chat
+  alt Off-topic prompt
+    BE-->>UI: Guardrail reply
+  else Route optimization question
+    BE-->>UI: Route narrative + routeData
+  else RAG path
+    BE->>PG: Similarity search (context chunks)
+    BE->>LS: Chat completion (augmented prompt)
+    LS->>LLM: Inference
+    LLM-->>LS: Tokens
+    LS-->>BE: Completion
+    BE-->>UI: Markdown answer
+  end
+```
 
 ## Requirements
 

@@ -92,4 +92,17 @@ PROXY_STATE=$(curl -sf "http://127.0.0.1:${FRONTEND_PF_PORT}/api/v1/state")
 echo "${PROXY_STATE}" | grep -q 'kpis' || fail "frontend /api proxy failed: ${PROXY_STATE}"
 log "PASS frontend GET /api/v1/state (nginx same-origin proxy)"
 
+if [[ "${RUN_UI_E2E:-}" == "1" || "${RUN_UI_E2E:-}" == "true" ]]; then
+  log "Running Playwright UI E2E tests"
+  if ! python -m pytest --version >/dev/null 2>&1; then
+    fail "pytest not found; install with: make e2e-ui-install"
+  fi
+  export SUPPLY_CHAIN_UI_ENDPOINT="http://127.0.0.1:${FRONTEND_PF_PORT}"
+  export BACKEND_HEALTH_URL="http://127.0.0.1:${BACKEND_PF_PORT}/healthz"
+  export SKIP_MODEL_TESTS="${SKIP_MODEL_TESTS:-false}"
+  python -m pytest tests/e2e_ui/ -v --tb=short --browser chromium \
+    || fail "Playwright UI E2E tests failed"
+  log "PASS Playwright UI E2E"
+fi
+
 log "All Kind deployment verification checks passed."

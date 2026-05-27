@@ -75,6 +75,11 @@ help:
 	@echo "    kind-push-images   Push kind-build-images to REGISTRY"
 	@echo "    k8s-namespace      Create/set kubectl namespace (NAMESPACE)"
 	@echo "    kind-verify          Post-deploy checks (port-forward + curl; Kind cluster must be up)"
+	@echo "    kind-verify-e2e      kind-verify + Playwright UI tests (RUN_UI_E2E=1)"
+	@echo ""
+	@echo "  E2E UI (Playwright):"
+	@echo "    e2e-ui-install       Install pytest-playwright and Chromium"
+	@echo "    e2e-ui               Run browser E2E tests (needs SUPPLY_CHAIN_UI_ENDPOINT)"
 	@echo ""
 	@echo "  Ingest:"
 	@echo "    ingest             Run the knowledge-base ingestion Job on OpenShift"
@@ -281,6 +286,20 @@ k8s-namespace:
 .PHONY: kind-verify
 kind-verify:
 	@bash ./scripts/ci/kind-verify-deployment.sh
+
+.PHONY: kind-verify-e2e
+kind-verify-e2e: e2e-ui-install
+	@RUN_UI_E2E=1 bash ./scripts/ci/kind-verify-deployment.sh
+
+.PHONY: e2e-ui-install
+e2e-ui-install:
+	@echo ">>> Installing Playwright UI test dependencies"
+	pip install -r tests/e2e_ui/requirements.txt
+	playwright install chromium
+
+.PHONY: e2e-ui
+e2e-ui: e2e-ui-install
+	@python -m pytest tests/e2e_ui/ -v --tb=short --browser chromium
 
 .PHONY: helm-install-kind
 helm-install-kind: helm-deps k8s-namespace
