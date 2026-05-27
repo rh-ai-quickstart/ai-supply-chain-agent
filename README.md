@@ -38,12 +38,17 @@ Key capabilities:
 | RAM | 32 GB |
 | Storage | 50 GB (model weights + PGVector data) |
 
+**Important:** The app can be deployed on clusters without a GPU and run the LLM in CPU mode. This is the default set up in helm/values.yaml  
+**Important:** IF deploying this in AWS in CPU Mode: Intances must support AVX-512 instruction set. Testing was done using m6i instance types.  
+
+For setting up GPU infrastructure in AWS please see [AWS Setup](./infra/prereqs/ocp-gpu-setup/README.md)  
+
 ### Minimum software requirements
 
 | Component | Tested version |
 |-----------|---------------|
-| OpenShift | 4.16+ |
-| OpenShift AI | 2.13+ |
+| OpenShift | 4.21+ |
+| OpenShift AI | 3.4+ |
 | Helm | 3.14+ |
 | Llama Stack | compatible with `llama-stack` subchart in `helm/` (from [ai-architecture-charts](https://github.com/rh-ai-quickstart/ai-architecture-charts)) |
 | Python | 3.12 |
@@ -108,30 +113,8 @@ Everything else in `helm/values.yaml` works with the chart defaults (images, PGV
 | `pgvector.secret.*` | Non-demo database credentials |
 | `llm-service.device` / `models.*.device` | GPU inference instead of CPU |
 
-### 3. Build and push images
 
-Build all application images:
-
-```bash
-make build
-```
-
-Or build and push in one step (after `make login` to your registry):
-
-```bash
-make release REGISTRY=quay.io/<your-org>
-```
-
-Individual images:
-
-```bash
-make build-backend build-ingest build-frontend
-make push-backend push-ingest push-frontend
-```
-
-Override tags or registry as needed, e.g. `make build-backend BACKEND_TAG=v1 REGISTRY=quay.io/myorg`.
-
-### 4. Install Helm dependencies
+### 3. Install Helm dependencies
 
 ```bash
 helm dependency update ./helm
@@ -143,7 +126,7 @@ helm dependency update ./helm
 make helm-deps
 ```
 
-### 5. Deploy the application
+### 4. Deploy the application
 
 **Helm (install or upgrade):**
 
@@ -179,7 +162,7 @@ The umbrella chart in `helm/` deploys:
 - **Llama Stack** + **LLM service** — inference (subcharts)
 - **Ingest Job** — optional post-install job (`ingest.enabled`) that loads the knowledge base
 
-### 6. Access the dashboard
+### 5. Access the dashboard
 
 After pods are ready:
 
@@ -203,7 +186,7 @@ make ingest-status
 make ingest-logs
 ```
 
-### 7. (Optional) Deploy the OpenShift Console perspective
+### 6. (Optional) Deploy the OpenShift Console perspective
 
 The Supply Chain perspective is a separate console dynamic plugin. It requires **cluster-admin** to install because the Helm chart creates a `ConsolePlugin` and patches the console operator to enable the plugin cluster-wide.
 
@@ -238,6 +221,29 @@ helm upgrade --install supply-chain-perspective \
 ```
 
 In the OpenShift Console, select the **Supply Chain** perspective. See `app/supply-chain-perspective/README.md` for local console development.
+
+### 7. (Optional) Build and push images
+
+Build all application images (reads `frontend.clusterId` and `frontend.openshiftAppsDomain` from your values file for the frontend API URL):
+
+```bash
+make build
+```
+
+Or build and push in one step (after `make login` to your registry):
+
+```bash
+make release REGISTRY=quay.io/<your-org>
+```
+
+Individual images:
+
+```bash
+make build-backend build-ingest build-frontend
+make push-backend push-ingest push-frontend
+```
+
+Override tags or registry as needed, e.g. `make build-backend BACKEND_TAG=v1 REGISTRY=quay.io/myorg`.
 
 ### Delete
 
