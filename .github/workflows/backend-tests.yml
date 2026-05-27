@@ -7,7 +7,7 @@ on:
       - "app/backend/**"
       - ".github/workflows/backend-tests.yml"
   pull_request:
-    branches: [main, master]
+    branches: [main, master, development]
     paths:
       - "app/backend/**"
       - ".github/workflows/backend-tests.yml"
