@@ -88,19 +88,25 @@ cd ai-supply-chain-agent
 
 ### 2. Edit values
 
-Set at minimum:
+**Only required change:** set your Hugging Face token in `helm/values.yaml` so the `llm-service` subchart can pull gated models (for example `meta-llama/Llama-3.2-1B-Instruct`):
 
-| Value | Description |
-|-------|-------------|
-| `backend.image.repository` / `tag` | Backend container image |
-| `frontend.image.repository` / `tag` | Frontend container image |
-| `frontend.apiProxyUpstream` | Optional nginx `/api` proxy target (default: in-cluster `http://<release>-backend:<port>`) |
-| `ingest.image.repository` / `tag` | Ingestion job image |
-| `backend.env.LLAMA_STACK_MODEL` / `EMBED_MODEL` | LLM and embedding model identifiers |
-| `pgvector.secret.*` | PostgreSQL credentials (or use subchart defaults for demos) |
-| `llm-service.secret.hf_token` | Hugging Face token when pulling gated models |
+```yaml
+llm-service:
+  secret:
+    hf_token: "<your-hf-token>"
+```
 
-Point image repositories at a registry you can push to (defaults use `quay.io/rh-ai-quickstart/...`).
+Create a token at [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens) with read access to the models you use.
+
+Everything else in `helm/values.yaml` works with the chart defaults (images, PGVector demo credentials, in-cluster API proxy, Llama Stack URLs). Override those only when you use a custom registry, namespace layout, or GPU settings.
+
+| Optional override | When you need it |
+|-------------------|------------------|
+| `backend.image.repository` / `tag`, `frontend.image.*`, `ingest.image.*` | Images built and pushed to your own registry (defaults: `quay.io/rh-ai-quickstart/...`) |
+| `frontend.apiProxyUpstream` | Backend Service is not `http://<release>-backend:<port>` in the release namespace |
+| `backend.env.LLAMA_STACK_MODEL` / `EMBED_MODEL` | Different model or embedding IDs |
+| `pgvector.secret.*` | Non-demo database credentials |
+| `llm-service.device` / `models.*.device` | GPU inference instead of CPU |
 
 ### 3. Build and push images
 
@@ -320,6 +326,8 @@ app/
 | `POST` | `/api/v1/chat` | RAG-augmented chat with the LLM |
 
 ### Environment variables
+
+**Helm (`helm/values.yaml`)** — the only value you must set before deploy is `llm-service.secret.hf_token` (Hugging Face token for gated models). Other keys below are set by the chart or optional overrides.
 
 **Backend**
 

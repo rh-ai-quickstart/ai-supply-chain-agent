@@ -1,0 +1,51 @@
+suite: ingest job
+templates:
+  - templates/ingest-job.yaml
+release:
+  name: supply-chain-dashboard
+tests:
+  - it: renders post-install hook job with ingest env
+    set:
+      ingest.enabled: true
+      ingest.strategy: llamastack
+      ingest.knowledgeBaseDir: knowledge_base
+      ingest.dropOld: "true"
+      backend.pgvectorSecretName: pgvector
+      backend.env.LLAMA_STACK_URL: "http://llamastack:8321"
+      backend.env.EMBED_MODEL: "all-MiniLM-L6-v2"
+      backend.env.PG_HOST: pgvector
+      backend.env.PG_PORT: "5432"
+      backend.env.PG_USER: postgres
+      backend.env.PG_DB: blueprint
+    asserts:
+      - isKind:
+          of: Job
+      - equal:
+          path: metadata.name
+          value: supply-chain-dashboard-ingest
+      - equal:
+          path: metadata.annotations["helm.sh/hook"]
+          value: post-install,post-upgrade
+      - equal:
+          path: spec.template.spec.containers[0].name
+          value: ingest
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: INGEST_STRATEGY
+            value: llamastack
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: PG_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: pgvector
+                key: password
+
+  - it: does not render when ingest is disabled
+    set:
+      ingest.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0

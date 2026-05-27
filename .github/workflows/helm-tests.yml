@@ -1,0 +1,32 @@
+name: Helm tests
+
+on:
+  push:
+    branches: [main, master, development]
+    paths:
+      - "helm/**"
+      - "Makefile"
+      - ".github/workflows/helm-tests.yml"
+  pull_request:
+    branches: [main, master, development]
+    paths:
+      - "helm/**"
+      - "Makefile"
+      - ".github/workflows/helm-tests.yml"
+  workflow_dispatch:
+
+jobs:
+  helm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.14.4
+
+      - name: Install helm-unittest plugin
+        run: helm plugin install https://github.com/helm-unittest/helm-unittest
+
+      - name: Lint and unit test chart
+        run: make helm-test

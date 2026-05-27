@@ -1,0 +1,50 @@
+suite: frontend deployment
+templates:
+  - templates/frontend-deployment.yaml
+release:
+  name: supply-chain-dashboard
+  namespace: supply-chain-dashboard
+tests:
+  - it: renders with default BACKEND_UPSTREAM from release name and backend port
+    set:
+      frontend.enabled: true
+      backend.service.port: 5001
+      frontend.apiProxyUpstream: ""
+    asserts:
+      - isKind:
+          of: Deployment
+      - equal:
+          path: metadata.name
+          value: supply-chain-dashboard-frontend
+      - equal:
+          path: spec.selector.matchLabels.app
+          value: supply-chain-dashboard-frontend
+      - equal:
+          path: spec.template.spec.containers[0].name
+          value: frontend
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: "quay.io/rh-ai-quickstart/ai-supply-chain-agent-frontend:latest"
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: BACKEND_UPSTREAM
+            value: "http://supply-chain-dashboard-backend:5001"
+
+  - it: honors frontend.apiProxyUpstream override
+    set:
+      frontend.enabled: true
+      frontend.apiProxyUpstream: "http://custom-backend.example.svc.cluster.local:5001"
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: BACKEND_UPSTREAM
+            value: "http://custom-backend.example.svc.cluster.local:5001"
+
+  - it: does not render when frontend is disabled
+    set:
+      frontend.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0

@@ -57,6 +57,8 @@ help:
 	@echo ""
 	@echo "  Helm:"
 	@echo "    helm-deps          Update Helm chart dependencies"
+	@echo "    helm-lint          Lint the Helm chart"
+	@echo "    helm-test          Run Helm unit tests (helm-unittest)"
 	@echo "    helm-render        Render chart templates to stdout (dry-run)"
 	@echo "    helm-install       Install the Helm release"
 	@echo "    helm-upgrade       Upgrade an existing Helm release"
@@ -82,7 +84,7 @@ help:
 	@echo "    PERSPECTIVE_API_BASE_URL  $(if $(PERSPECTIVE_API_BASE_URL),$(PERSPECTIVE_API_BASE_URL),(empty — same-origin /api/))"
 	@echo "    NAMESPACE          $(NAMESPACE)"
 	@echo "    HELM_RELEASE       $(HELM_RELEASE)"
-	@echo "    VALUES_FILE        $(VALUES_FILE)  (frontend.apiProxyUpstream)"
+	@echo "    VALUES_FILE        $(VALUES_FILE)  (set llm-service.secret.hf_token before deploy)"
 	@echo ""
 
 # ============================================================
@@ -198,6 +200,26 @@ login:
 helm-deps:
 	@echo ">>> Updating Helm dependencies in $(HELM_CHART)"
 	helm dependency update $(HELM_CHART)
+
+.PHONY: helm-lint
+helm-lint: helm-deps
+	@echo ">>> Linting Helm chart: $(HELM_CHART)"
+	helm lint $(HELM_CHART) -f $(VALUES_FILE)
+
+.PHONY: helm-template
+helm-install-perspective: helm-deps
+	@echo ">>> Installing Helm release: $(HELM_RELEASE) in namespace: $(NAMESPACE)"
+	oc get namespace $(NAMESPACE) 2>/dev/null || oc new-project $(NAMESPACE)
+	helm install $(HELM_RELEASE) $(HELM_CHART) \
+		--namespace $(NAMESPACE) \
+		-f $(VALUES_FILE) \
+		--wait \
+		--timeout 10m
+
+.PHONY: helm-test
+helm-test: helm-deps
+	@echo ">>> Running Helm unit tests: $(HELM_CHART)"
+	helm unittest $(HELM_CHART)
 
 .PHONY: helm-render
 helm-render: helm-deps
