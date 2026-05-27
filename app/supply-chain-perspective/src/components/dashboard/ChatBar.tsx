@@ -6,6 +6,14 @@ import type { ChatCompletionPayload, ChatMessage, VectorStoreSummary } from '../
 import { formatCompletionSummary } from './chatCompletionMeta';
 import { ChatMarkdownBody } from './ChatMarkdownBody';
 
+function safeJsonStringify(value: unknown): string {
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
+  }
+}
+
 /** Thread row for the chat log (includes optional stack ``completion`` on AI turns). */
 type ChatBarMessage = ChatMessage & { completion?: ChatCompletionPayload | null };
 
@@ -47,12 +55,24 @@ export function ChatBar({
   const [isChatModalOpen, setIsChatModalOpen] = useState(false);
   const logEndRef = useRef<HTMLDivElement | null>(null);
   const modalInputRef = useRef<HTMLInputElement | null>(null);
+  const wasChatLoadingRef = useRef(false);
 
   useEffect(() => {
-    if (isChatModalOpen && logEndRef.current) {
-      logEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    if (!isChatModalOpen || !logEndRef.current) {
+      return;
     }
+    logEndRef.current.scrollIntoView?.({ behavior: 'smooth', block: 'end' });
   }, [chatMessages, chatLoading, isChatModalOpen]);
+
+  useEffect(() => {
+    if (wasChatLoadingRef.current && !chatLoading) {
+      const last = chatMessages[chatMessages.length - 1];
+      if (last?.role === 'ai') {
+        setIsChatModalOpen(true);
+      }
+    }
+    wasChatLoadingRef.current = chatLoading;
+  }, [chatMessages, chatLoading]);
 
   useEffect(() => {
     if (isChatModalOpen) {
@@ -152,7 +172,7 @@ export function ChatBar({
                       {!compact ? (
                         <details className="supply-chain-perspective__dashboard-chat-completion-details">
                           <summary>{t('Response details')}</summary>
-                          <pre>{JSON.stringify(message.completion, null, 2)}</pre>
+                          <pre>{safeJsonStringify(message.completion)}</pre>
                         </details>
                       ) : null}
                     </div>

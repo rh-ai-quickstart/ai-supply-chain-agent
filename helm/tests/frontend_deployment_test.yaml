@@ -30,6 +30,11 @@ tests:
           content:
             name: BACKEND_UPSTREAM
             value: "http://supply-chain-dashboard-backend:5001"
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: API_PROXY_READ_TIMEOUT
+            value: "300s"
 
   - it: honors frontend.apiProxyUpstream override
     set:

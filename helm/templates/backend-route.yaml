@@ -3,6 +3,8 @@ apiVersion: route.openshift.io/v1
 kind: Route
 metadata:
   name: {{ .Release.Name }}-backend
+  annotations:
+    haproxy.router.openshift.io/timeout: {{ .Values.backend.route.timeout | quote }}
 spec:
   {{- if .Values.backend.route.host }}
   host: {{ .Values.backend.route.host | quote }}

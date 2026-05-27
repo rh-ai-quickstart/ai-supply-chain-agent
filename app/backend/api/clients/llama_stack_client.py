@@ -15,11 +15,30 @@ SYSTEM_PROMPT = (
     "If asked about unrelated topics, politely redirect to supply chain matters."
 )
 
+# Default matches frontend nginx proxy_read_timeout (300s) for slow CPU/GPU inference.
+_DEFAULT_TIMEOUT_SECONDS = 300
+
+
+def timeout_seconds_from_env(default: int = _DEFAULT_TIMEOUT_SECONDS) -> int:
+    """Read ``LLAMA_STACK_TIMEOUT_SECONDS`` (integer seconds)."""
+    raw = os.getenv("LLAMA_STACK_TIMEOUT_SECONDS", "").strip()
+    if not raw:
+        return default
+    try:
+        return max(1, int(raw))
+    except ValueError:
+        logger.warning(
+            "Invalid LLAMA_STACK_TIMEOUT_SECONDS=%r; using default %s",
+            raw,
+            default,
+        )
+        return default
+
 
 class LlamaStackClient:
     """OpenAI-compatible client pointed at a Llama Stack server."""
 
-    def __init__(self, timeout_seconds: int = 30):
+    def __init__(self, timeout_seconds: int | None = None):
         self.base_url = os.getenv(
             "LLAMA_STACK_URL", "http://llamastack:8321"
         ).rstrip("/") + "/v1/openai/v1"
@@ -27,17 +46,23 @@ class LlamaStackClient:
             "LLAMA_STACK_MODEL",
             "meta-llama/Llama-3.2-1B-Instruct",
         )
-        self._timeout = timeout_seconds
+        self._timeout = (
+            timeout_seconds
+            if timeout_seconds is not None
+            else timeout_seconds_from_env()
+        )
 
         self._client = OpenAI(
             api_key="not-required",
             base_url=self.base_url,
+            timeout=self._timeout,
         )
         logger.info(
-            "LlamaStackClient: base_url=%s model=%s (set LLAMA_STACK_MODEL to match "
-            "a model id served by this stack, e.g. remote-llm from Helm global.models)",
+            "LlamaStackClient: base_url=%s model=%s timeout=%ss "
+            "(LLAMA_STACK_TIMEOUT_SECONDS for slow inference)",
             self.base_url,
             self.model,
+            self._timeout,
         )
 
     @staticmethod
@@ -89,7 +114,7 @@ class LlamaStackClient:
             completion = self._client.chat.completions.create(
                 model=self.model,
                 messages=messages,
-                temperature=0.0,
+                temperature=0.1,
                 timeout=self._timeout,
             )
             logger.info("LlamaStackClient: completion: %s", completion)

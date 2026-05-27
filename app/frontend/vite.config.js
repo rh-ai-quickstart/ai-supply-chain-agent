@@ -9,6 +9,9 @@ export default defineConfig({
       '/api': {
         target: process.env.VITE_DEV_API_PROXY_TARGET || 'http://127.0.0.1:5001',
         changeOrigin: true,
+        // Match cluster nginx proxy timeouts for long LLM chat requests.
+        timeout: 300_000,
+        proxyTimeout: 300_000,
       },
     },
   },

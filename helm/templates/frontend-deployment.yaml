@@ -27,7 +27,13 @@ spec:
           imagePullPolicy: {{ .Values.frontend.image.pullPolicy }}
           ports:
             - containerPort: {{ .Values.frontend.service.port }}
-          env: # Used because the frontend is built with Vite and needs to know the backend upstream URL
+          env:
             - name: BACKEND_UPSTREAM
               value: {{ $backendUpstream | quote }}
+            - name: API_PROXY_CONNECT_TIMEOUT
+              value: {{ .Values.frontend.apiProxy.connectTimeout | quote }}
+            - name: API_PROXY_SEND_TIMEOUT
+              value: {{ .Values.frontend.apiProxy.sendTimeout | quote }}
+            - name: API_PROXY_READ_TIMEOUT
+              value: {{ .Values.frontend.apiProxy.readTimeout | quote }}
 {{- end }}

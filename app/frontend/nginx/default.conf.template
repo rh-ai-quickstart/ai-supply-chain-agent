@@ -6,15 +6,32 @@ server {
     index index.html;
 
     # Same-origin API proxy: browser calls /api/...; nginx forwards to the backend Service.
-    # BACKEND_UPSTREAM is substituted at container start (see helm frontend-deployment).
+    # BACKEND_UPSTREAM and API_PROXY_* timeouts are substituted at container start (helm frontend-deployment).
+    #
+    # LLM chat and ingestion can exceed default proxy/router limits (60s nginx, ~30s OpenShift Route).
+    # Longer timeouts avoid 504/499 when the client or router closes before the backend responds.
     location /api/ {
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_pass ${BACKEND_UPSTREAM};
+        proxy_set_header Connection "";
+
+        proxy_connect_timeout ${API_PROXY_CONNECT_TIMEOUT};
+        proxy_send_timeout ${API_PROXY_SEND_TIMEOUT};
+        proxy_read_timeout ${API_PROXY_READ_TIMEOUT};
+        send_timeout ${API_PROXY_SEND_TIMEOUT};
+        client_body_timeout ${API_PROXY_SEND_TIMEOUT};
+
         client_max_body_size 50m;
+
+        proxy_buffering on;
+        proxy_buffer_size 16k;
+        proxy_buffers 8 32k;
+        proxy_busy_buffers_size 64k;
+
+        proxy_pass ${BACKEND_UPSTREAM};
     }
 
     location / {

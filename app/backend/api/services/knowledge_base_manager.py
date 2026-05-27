@@ -19,11 +19,7 @@ class KnowledgeBaseManager:
             logger.debug(
                 "Connecting to LlamaStack client for knowledge base operations"
             )
-            self._llama_client =  LlamaStackClient(
-                timeout_seconds=30,
-                base_url=os.getenv("LLAMA_STACK_URL", "http://llamastack:8321"),
-                model=os.getenv("LLAMA_STACK_MODEL", "meta-llama/Llama-3.2-1B-Instruct"),
-            )
+            self._llama_client = LlamaStackClient()
         else:
             logger.debug("Already connected to LlamaStack client")
 

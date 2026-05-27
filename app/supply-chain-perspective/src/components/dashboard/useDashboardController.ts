@@ -143,23 +143,29 @@ export function useDashboardController() {
       return;
     }
 
-    const nextHistory: ChatMessage[] = [...chatMessages, { role: 'human', content: question }];
-    setChatMessages(nextHistory);
+    const humanMessage: ChatMessage = { role: 'human', content: question };
+    const historyForApi: ChatMessage[] = [...chatMessages, humanMessage];
+
+    setChatMessages(historyForApi);
     setChatInput('');
     setChatError('');
     setChatLoading(true);
     try {
       const result = await postAssistantMessage(
         question,
-        nextHistory,
+        historyForApi,
         selectedVectorStoreId.trim() || undefined,
       );
-      const answer: string = result?.answer ?? t('No response from assistant.');
-      const completion = result?.completion ?? null;
-      setChatMessages((current) => [
-        ...current,
-        { role: 'ai' as const, content: answer, completion },
-      ]);
+      const answer =
+        typeof result?.answer === 'string' && result.answer.trim()
+          ? result.answer
+          : t('No response from assistant.');
+      const aiMessage: ChatMessage = {
+        role: 'ai',
+        content: answer,
+        completion: result?.completion ?? null,
+      };
+      setChatMessages([...historyForApi, aiMessage]);
     } catch {
       setChatError(t('Failed to send chat request.'));
     } finally {

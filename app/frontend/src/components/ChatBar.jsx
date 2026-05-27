@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { formatCompletionSummary } from "../utils/chatCompletionMeta.js";
+import { safeJsonStringify } from "../utils/safeJsonStringify.js";
 import { ChatMarkdownBody } from "./ChatMarkdownBody.jsx";
 
 function messageBubbleClassName(role, compact) {
@@ -23,12 +24,25 @@ export function ChatBar({
   const [isChatModalOpen, setIsChatModalOpen] = useState(false);
   const logEndRef = useRef(null);
   const modalInputRef = useRef(null);
+  const wasChatLoadingRef = useRef(false);
 
   useEffect(() => {
-    if (isChatModalOpen && logEndRef.current) {
-      logEndRef.current.scrollIntoView({ behavior: "smooth", block: "end" });
+    if (!isChatModalOpen || !logEndRef.current) {
+      return;
     }
+    logEndRef.current.scrollIntoView?.({ behavior: "smooth", block: "end" });
   }, [chatMessages, chatLoading, isChatModalOpen]);
+
+  // When a slow reply finishes, surface the modal once (user can dismiss it afterward).
+  useEffect(() => {
+    if (wasChatLoadingRef.current && !chatLoading) {
+      const last = chatMessages[chatMessages.length - 1];
+      if (last?.role === "ai") {
+        setIsChatModalOpen(true);
+      }
+    }
+    wasChatLoadingRef.current = chatLoading;
+  }, [chatMessages, chatLoading]);
 
   useEffect(() => {
     if (isChatModalOpen) {
@@ -110,7 +124,7 @@ export function ChatBar({
                       {!compact ? (
                         <details className="chat-completion-details">
                           <summary>Response details</summary>
-                          <pre>{JSON.stringify(message.completion, null, 2)}</pre>
+                          <pre>{safeJsonStringify(message.completion)}</pre>
                         </details>
                       ) : null}
                     </div>

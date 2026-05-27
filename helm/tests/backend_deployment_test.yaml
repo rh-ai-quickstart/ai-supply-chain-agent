@@ -30,6 +30,11 @@ tests:
       - contains:
           path: spec.template.spec.containers[0].env
           content:
+            name: LLAMA_STACK_TIMEOUT_SECONDS
+            value: "300"
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
             name: PG_HOST
             value: pgvector
       - contains:
