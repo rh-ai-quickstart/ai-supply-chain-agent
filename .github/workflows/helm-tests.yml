@@ -34,10 +34,11 @@ jobs:
 
       - uses: azure/setup-helm@v4
         with:
-          version: v3.14.4
+          version: v3.19.4
 
+      # Pin 1.0.3: newer plugin releases use platformHooks (Helm >= 3.18 only).
       - name: Install helm-unittest plugin
-        run: helm plugin install https://github.com/helm-unittest/helm-unittest
+        run: helm plugin install https://github.com/helm-unittest/helm-unittest --version 1.0.3
 
       - name: Lint and unit test chart
         run: make helm-test
