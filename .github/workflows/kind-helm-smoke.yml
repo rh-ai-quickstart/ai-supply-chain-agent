@@ -1,17 +1,30 @@
 name: Kind Helm smoke
 
+# Helm unittest, Kind deploy, and API verification (replaces separate helm-tests workflow).
 on:
   workflow_dispatch:
   pull_request:
-    branches: [main, master, dev]
+    types: [opened, synchronize, reopened]
+    branches: [main, master, development]
     paths:
       - "app/backend/**"
       - "app/frontend/**"
+      - "app/supply-chain-perspective/**"
       - "helm/**"
       - "scripts/ci/**"
       - "Makefile"
       - ".github/actions/kind/**"
-      - ".github/actions/prepare-runner/**"
+      - ".github/workflows/kind-helm-smoke.yml"
+  push:
+    branches: [main, master, development]
+    paths:
+      - "app/backend/**"
+      - "app/frontend/**"
+      - "app/supply-chain-perspective/**"
+      - "helm/**"
+      - "scripts/ci/**"
+      - "Makefile"
+      - ".github/actions/kind/**"
       - ".github/workflows/kind-helm-smoke.yml"
 
 concurrency:
@@ -20,18 +33,36 @@ concurrency:
 
 env:
   KIND_NAMESPACE: supply-chain-dashboard
+  HELM_RELEASE: supply-chain-dashboard
 
 jobs:
   kind-helm-smoke:
+    name: Helm lint, Kind deploy, and API verify
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Prepare runner
-        uses: ./.github/actions/prepare-runner
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.19.4
 
-      - name: Kind cluster and Helm deploy
+      - name: Install helm-unittest plugin
+        run: helm plugin install https://github.com/helm-unittest/helm-unittest --version 1.0.3
+
+      - name: Helm chart lint and unit tests
+        run: make helm-test
+
+      - name: Deploy chart on Kind
         uses: ./.github/actions/kind
         with:
           namespace: ${{ env.KIND_NAMESPACE }}
+          helm_release: ${{ env.HELM_RELEASE }}
           registry: localhost:5001
+          run_builtin_smoke: "false"
+
+      - name: Verify deployment and API behavior
+        shell: bash
+        run: bash ./scripts/ci/kind-verify-deployment.sh
+        env:
+          NAMESPACE: ${{ env.KIND_NAMESPACE }}
+          HELM_RELEASE: ${{ env.HELM_RELEASE }}

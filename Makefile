@@ -24,8 +24,18 @@ VALUES_FILE    ?= $(HELM_CHART)/values.yaml
 # --- Podman build platform ---
 BUILD_PLATFORM ?= linux/amd64
 CONTAINER_CLI  ?= podman
+# Podman only: e.g. PUSH_EXTRA_ARGS=--tls-verify=false for Kind local registry. Never passed to docker push.
 PUSH_EXTRA_ARGS ?=
 KIND_VALUES_FILE ?= $(HELM_CHART)/values-kind.yaml
+
+# $(1) = image ref (evaluated at recipe time so CONTAINER_CLI from the command line is respected)
+define container_push
+	@if [ "$(CONTAINER_CLI)" = "podman" ]; then \
+		$(CONTAINER_CLI) push $(PUSH_EXTRA_ARGS) $(1); \
+	else \
+		$(CONTAINER_CLI) push $(1); \
+	fi
+endef
 HELM_EXTRA_ARGS ?=
 
 # ============================================================
@@ -74,6 +84,7 @@ help:
 	@echo "    kind-build-images  Build backend, ingest, and frontend for REGISTRY (default localhost:5001)"
 	@echo "    kind-push-images   Push kind-build-images to REGISTRY"
 	@echo "    k8s-namespace      Create/set kubectl namespace (NAMESPACE)"
+	@echo "    kind-verify          Post-deploy checks (port-forward + curl; Kind cluster must be up)"
 	@echo ""
 	@echo "  Ingest:"
 	@echo "    ingest             Run the knowledge-base ingestion Job on OpenShift"
@@ -154,22 +165,22 @@ push: push-backend push-ingest push-frontend push-perspective
 .PHONY: push-backend
 push-backend:
 	@echo ">>> Pushing backend image: $(BACKEND_IMAGE):$(BACKEND_TAG)"
-	$(CONTAINER_CLI) push $(PUSH_EXTRA_ARGS) $(BACKEND_IMAGE):$(BACKEND_TAG)
+	$(call container_push,$(BACKEND_IMAGE):$(BACKEND_TAG))
 
 .PHONY: push-ingest
 push-ingest:
 	@echo ">>> Pushing ingestion image: $(INGEST_IMAGE):$(INGEST_TAG)"
-	$(CONTAINER_CLI) push $(PUSH_EXTRA_ARGS) $(INGEST_IMAGE):$(INGEST_TAG)
+	$(call container_push,$(INGEST_IMAGE):$(INGEST_TAG))
 
 .PHONY: push-frontend
 push-frontend:
 	@echo ">>> Pushing frontend image: $(FRONTEND_IMAGE):$(FRONTEND_TAG)"
-	$(CONTAINER_CLI) push $(PUSH_EXTRA_ARGS) $(FRONTEND_IMAGE):$(FRONTEND_TAG)
+	$(call container_push,$(FRONTEND_IMAGE):$(FRONTEND_TAG))
 
 .PHONY: push-perspective
 push-perspective:
 	@echo ">>> Pushing perspective image: $(PERSPECTIVE_IMAGE):$(PERSPECTIVE_TAG)"
-	$(CONTAINER_CLI) push $(PUSH_EXTRA_ARGS) $(PERSPECTIVE_IMAGE):$(PERSPECTIVE_TAG)
+	$(call container_push,$(PERSPECTIVE_IMAGE):$(PERSPECTIVE_TAG))
 
 # ============================================================
 # Build & Push (all images with latest tag)
@@ -277,6 +288,10 @@ k8s-namespace:
 	@kubectl create namespace $(NAMESPACE) --dry-run=client -o yaml | kubectl apply -f -
 	@kubectl config set-context --current --namespace=$(NAMESPACE)
 
+.PHONY: kind-verify
+kind-verify:
+	@bash ./scripts/ci/kind-verify-deployment.sh
+
 .PHONY: helm-install-kind
 helm-install-kind: helm-deps k8s-namespace
 	@echo ">>> Installing $(HELM_RELEASE) on Kind/Kubernetes (namespace: $(NAMESPACE), registry: $(REGISTRY))"
@@ -382,3 +397,4 @@ clean:
 	-podman rmi $(FRONTEND_IMAGE):$(FRONTEND_TAG) 2>/dev/null
 	-podman rmi $(PERSPECTIVE_IMAGE):$(PERSPECTIVE_TAG) 2>/dev/null
 	@echo ">>> Done."
+

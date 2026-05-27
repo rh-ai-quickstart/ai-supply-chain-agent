@@ -26,6 +26,10 @@ inputs:
     description: Wait for backend and frontend Deployments to become Available
     required: false
     default: "true"
+  run_builtin_smoke:
+    description: Run minimal /healthz check in this action (disable if the workflow runs kind-verify-deployment.sh)
+    required: false
+    default: "false"
   hf_token:
     description: Optional Hugging Face token (only needed if you enable llm-service via helm_extra_args)
     required: false
@@ -45,8 +49,18 @@ runs:
         go install sigs.k8s.io/kind@v0.30.0
         echo "$(go env GOPATH)/bin" >> "${GITHUB_PATH}"
 
+    - name: Install Podman
+      shell: bash
+      run: |
+        sudo apt-get update -qq
+        sudo apt-get install -y podman
+        podman version
+        podman info
+
     - name: Create Kind cluster with local registry
       shell: bash
+      env:
+        USE_PODMAN: "1"
       run: bash ./scripts/ci/kind-with-registry.sh
 
     - name: Install Helm
@@ -61,12 +75,12 @@ runs:
     - name: Build app images
       if: inputs.skip_image_build != 'true'
       shell: bash
-      run: make kind-build-images REGISTRY=${{ inputs.registry }} CONTAINER_CLI=docker
+      run: make kind-build-images REGISTRY=${{ inputs.registry }} CONTAINER_CLI=podman
 
     - name: Push app images to local registry
       if: inputs.skip_image_build != 'true'
       shell: bash
-      run: make kind-push-images REGISTRY=${{ inputs.registry }} CONTAINER_CLI=docker PUSH_EXTRA_ARGS=--tls-verify=false
+      run: make kind-push-images REGISTRY=${{ inputs.registry }} CONTAINER_CLI=podman PUSH_EXTRA_ARGS=--tls-verify=false
 
     - name: Create namespace
       shell: bash
@@ -102,7 +116,7 @@ runs:
           --timeout=300s
 
     - name: Smoke test backend /healthz
-      if: inputs.wait_for_rollout == 'true'
+      if: inputs.wait_for_rollout == 'true' && inputs.run_builtin_smoke == 'true'
       shell: bash
       run: |
         set -euo pipefail

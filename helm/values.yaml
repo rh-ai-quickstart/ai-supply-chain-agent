@@ -97,4 +97,3 @@ frontend:
   route:
     enabled: true
     host: "" # Set the host for the frontend route, this is done dynamically in the frontend deployment template.
-

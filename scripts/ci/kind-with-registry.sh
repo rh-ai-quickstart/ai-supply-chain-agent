@@ -1,13 +1,24 @@
 #!/bin/sh
 # Local Kind cluster + registry mirror (localhost:5001).
-# Adapted from it-self-service-agent; uses docker on GHA, podman locally if docker is absent.
+# Set USE_PODMAN=1 for Podman (GHA and local). Otherwise uses docker, or podman if docker is absent.
 set -o errexit
 
-if ! command -v docker >/dev/null 2>&1; then
-  echo "docker not installed, trying podman"
+use_podman() {
+  [ "${USE_PODMAN:-0}" = "1" ] || ! command -v docker >/dev/null 2>&1
+}
+
+if use_podman; then
+  if ! command -v podman >/dev/null 2>&1; then
+    echo "podman is required but not installed" >&2
+    exit 1
+  fi
+  echo "Using Podman for Kind and the local registry (KIND_EXPERIMENTAL_PROVIDER=podman)"
+  export KIND_EXPERIMENTAL_PROVIDER=podman
   docker() {
     podman "$@"
   }
+else
+  echo "Using Docker for Kind and the local registry"
 fi
 
 reg_name='kind-registry'
@@ -35,8 +46,9 @@ for node in $(kind get nodes); do
 EOF
 done
 
-if [ "$(docker inspect -f='{{json .NetworkSettings.Networks.kind}}' "${reg_name}")" = 'null' ]; then
-  docker network connect "kind" "${reg_name}"
+if [ "$(docker inspect -f='{{json .NetworkSettings.Networks.kind}}' "${reg_name}" 2>/dev/null || true)" = 'null' ] || \
+   [ "$(docker inspect -f='{{json .NetworkSettings.Networks.kind}}' "${reg_name}" 2>/dev/null || true)" = '' ]; then
+  docker network connect kind "${reg_name}" 2>/dev/null || true
 fi
 
 cat <<EOF | kubectl apply -f -

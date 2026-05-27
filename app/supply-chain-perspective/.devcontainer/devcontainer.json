@@ -10,7 +10,7 @@
   "portsAttributes": {
     "9000": {
       "label": "Console"
-    },
+    }, 
     "9001": {
       "label": "Plugin static files",
       "onAutoForward": "silent"
