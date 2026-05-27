@@ -1,17 +1,30 @@
 name: Kind Helm smoke
 
+# Helm unittest, Kind deploy, and API verification (replaces separate helm-tests workflow).
 on:
   workflow_dispatch:
   pull_request:
-    branches: [main, master, dev]
+    types: [opened, synchronize, reopened]
+    branches: [main, master, development]
     paths:
       - "app/backend/**"
       - "app/frontend/**"
+      - "app/supply-chain-perspective/**"
       - "helm/**"
       - "scripts/ci/**"
       - "Makefile"
       - ".github/actions/kind/**"
-      - ".github/actions/prepare-runner/**"
+      - ".github/workflows/kind-helm-smoke.yml"
+  push:
+    branches: [main, master, development]
+    paths:
+      - "app/backend/**"
+      - "app/frontend/**"
+      - "app/supply-chain-perspective/**"
+      - "helm/**"
+      - "scripts/ci/**"
+      - "Makefile"
+      - ".github/actions/kind/**"
       - ".github/workflows/kind-helm-smoke.yml"
 
 concurrency:
@@ -20,9 +33,11 @@ concurrency:
 
 env:
   KIND_NAMESPACE: supply-chain-dashboard
+  HELM_RELEASE: supply-chain-dashboard
 
 jobs:
   kind-helm-smoke:
+    name: Helm lint, Kind deploy, and API verify
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

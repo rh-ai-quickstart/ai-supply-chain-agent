@@ -24,8 +24,18 @@ VALUES_FILE    ?= $(HELM_CHART)/values.yaml
 # --- Podman ---
 BUILD_PLATFORM ?= linux/amd64
 CONTAINER_CLI  ?= podman
+# Podman only: e.g. PUSH_EXTRA_ARGS=--tls-verify=false for Kind local registry. Never passed to docker push.
 PUSH_EXTRA_ARGS ?=
 KIND_VALUES_FILE ?= $(HELM_CHART)/values-kind.yaml
+
+# $(1) = image ref (evaluated at recipe time so CONTAINER_CLI from the command line is respected)
+define container_push
+	@if [ "$(CONTAINER_CLI)" = "podman" ]; then \
+		$(CONTAINER_CLI) push $(PUSH_EXTRA_ARGS) $(1); \
+	else \
+		$(CONTAINER_CLI) push $(1); \
+	fi
+endef
 HELM_EXTRA_ARGS ?=
 
 # ============================================================
@@ -74,6 +84,7 @@ help:
 	@echo "    kind-build-images  Build backend, ingest, and frontend for REGISTRY (default localhost:5001)"
 	@echo "    kind-push-images   Push kind-build-images to REGISTRY"
 	@echo "    k8s-namespace      Create/set kubectl namespace (NAMESPACE)"
+	@echo "    kind-verify          Post-deploy checks (port-forward + curl; Kind cluster must be up)"
 	@echo ""
 	@echo "  Ingest:"
 	@echo "    ingest             Run the knowledge-base ingestion Job on OpenShift"
