@@ -1,0 +1,32 @@
+# Kind / plain Kubernetes CI overrides (use with: make helm-install-kind)
+# - No OpenShift Routes
+# - Lighter stack (no Llama Stack / llm-service pull in CI by default)
+# - Images pulled from the local registry (see REGISTRY=localhost:5001)
+
+pgvector:
+  enabled: true
+
+llama-stack:
+  enabled: false
+
+llm-service:
+  enabled: false
+
+backend:
+  route:
+    enabled: false
+  image:
+    pullPolicy: IfNotPresent
+  env:
+    LLAMA_STACK_URL: http://llamastack:8321
+
+frontend:
+  route:
+    enabled: false
+  image:
+    pullPolicy: IfNotPresent
+
+ingest:
+  enabled: false
+  image:
+    pullPolicy: IfNotPresent

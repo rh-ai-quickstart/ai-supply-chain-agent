@@ -23,14 +23,15 @@ llama-stack:
 
 llm-service:
   enabled: true
-  device: cpu
+  device: cpu # Change to gpu (Change #models.llama-3-2-1b-instruct.device to gpu if you change this)
   secret:
+    # Required: set your Hugging Face token (https://huggingface.co/settings/tokens) for gated models.
     hf_token: ""
     enabled: true
   models:
     llama-3-2-1b-instruct:
       enabled: true
-      device: cpu
+      device: cpu # Change to gpu for better performance
 
 imagePullSecrets: []
 
@@ -46,7 +47,7 @@ backend:
   route:
     enabled: true
     host: ""
-  # Name of the Secret created by the pgvector subchart that holds the
+  # Name of the Secret created by the pgvector sub-chart that holds the
   # database password under the key "password".
   pgvectorSecretName: pgvector
   env:
@@ -95,9 +96,5 @@ frontend:
     port: 8080
   route:
     enabled: true
-    host: ""
-  # Configure the API URL baked into the frontend image (only file to edit; then make build-frontend).
-  # Resolves to: https://<release>-backend-<namespace>.apps.<clusterId>.<openshiftAppsDomain>
-  clusterId: ai-dev02
-  openshiftAppsDomain: kni.syseng.devcluster.openshift.com
+    host: "" # Set the host for the frontend route, this is done dynamically in the frontend deployment template.
 

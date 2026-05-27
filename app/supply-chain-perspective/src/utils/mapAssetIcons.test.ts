@@ -1,8 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createAssetDivIcon, PLANE_ICON_PATH } from './mapAssetIcons';
 
+type DivIconMockOpts = {
+  html?: string;
+  [key: string]: unknown;
+};
+
 const { divIcon } = vi.hoisted(() => {
-  const fn = vi.fn((opts: unknown) => ({ ...(opts as object), _kind: 'divIcon' as const }));
+  const fn = vi.fn((opts: DivIconMockOpts) => ({ ...(opts as object), _kind: 'divIcon' as const }));
   return { divIcon: fn };
 });
 
@@ -17,7 +22,8 @@ describe('createAssetDivIcon', () => {
 
   it('uses plane path for air freight', () => {
     createAssetDivIcon('airFreight', { lat: 0, lng: 0 }, { fill: '#fff', stroke: '#000' });
-    expect(divIcon.mock.calls[0][0].html as string).toContain(PLANE_ICON_PATH);
+    const html = (divIcon.mock.calls[0][0] as DivIconMockOpts).html;
+    expect(typeof html === 'string' && html.includes(PLANE_ICON_PATH)).toBe(true);
   });
 
   it('uses truck markup for regional non-live assets', () => {
@@ -26,7 +32,7 @@ describe('createAssetDivIcon', () => {
       { lat: 1, lng: 2, is_live: false },
       { fill: '#abc', stroke: '#111' },
     );
-    const html = divIcon.mock.calls[0][0].html as string;
-    expect(html).toContain('supply-chain-perspective__map-truck-icon');
+    const html = (divIcon.mock.calls[0][0] as DivIconMockOpts).html;
+    expect(typeof html === 'string' && html.includes('supply-chain-perspective__map-truck-icon')).toBe(true);
   });
 });

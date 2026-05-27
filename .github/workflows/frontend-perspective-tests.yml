@@ -2,13 +2,13 @@ name: Frontend and perspective unit tests
 
 on:
   push:
-    branches: [main, master, dev]
+    branches: [main, master, development]
     paths:
       - "app/frontend/**"
       - "app/supply-chain-perspective/**"
       - ".github/workflows/frontend-perspective-tests.yml"
   pull_request:
-    branches: [main, master]
+    branches: [main, master, development]
     paths:
       - "app/frontend/**"
       - "app/supply-chain-perspective/**"

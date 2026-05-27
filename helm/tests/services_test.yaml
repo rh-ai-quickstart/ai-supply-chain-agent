@@ -1,0 +1,45 @@
+suite: frontend service
+templates:
+  - templates/frontend-service.yaml
+release:
+  name: supply-chain-dashboard
+tests:
+  - it: renders frontend service on configured port
+    set:
+      frontend.enabled: true
+      frontend.service.port: 8080
+    asserts:
+      - isKind:
+          of: Service
+      - equal:
+          path: metadata.name
+          value: supply-chain-dashboard-frontend
+      - equal:
+          path: spec.ports[0].port
+          value: 8080
+      - equal:
+          path: spec.selector.app
+          value: supply-chain-dashboard-frontend
+---
+suite: backend service
+templates:
+  - templates/backend-service.yaml
+release:
+  name: supply-chain-dashboard
+tests:
+  - it: renders backend service on configured port
+    set:
+      backend.enabled: true
+      backend.service.port: 5001
+    asserts:
+      - isKind:
+          of: Service
+      - equal:
+          path: metadata.name
+          value: supply-chain-dashboard-backend
+      - equal:
+          path: spec.ports[0].port
+          value: 5001
+      - equal:
+          path: spec.selector.app
+          value: supply-chain-dashboard-backend

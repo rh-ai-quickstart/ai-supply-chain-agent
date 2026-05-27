@@ -1,0 +1,37 @@
+name: Kind Helm smoke
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main, master, dev]
+    paths:
+      - "app/backend/**"
+      - "app/frontend/**"
+      - "helm/**"
+      - "scripts/ci/**"
+      - "Makefile"
+      - ".github/actions/kind/**"
+      - ".github/actions/prepare-runner/**"
+      - ".github/workflows/kind-helm-smoke.yml"
+
+concurrency:
+  group: kind-helm-smoke-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  KIND_NAMESPACE: supply-chain-dashboard
+
+jobs:
+  kind-helm-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepare runner
+        uses: ./.github/actions/prepare-runner
+
+      - name: Kind cluster and Helm deploy
+        uses: ./.github/actions/kind
+        with:
+          namespace: ${{ env.KIND_NAMESPACE }}
+          registry: localhost:5001

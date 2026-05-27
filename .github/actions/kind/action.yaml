@@ -1,0 +1,122 @@
+name: Kind cluster and Helm deploy
+description: Create a Kind cluster with a local registry and install the supply-chain Helm chart
+
+inputs:
+  namespace:
+    description: Kubernetes namespace for the release
+    required: false
+    default: supply-chain-dashboard
+  helm_release:
+    description: Helm release name
+    required: false
+    default: supply-chain-dashboard
+  registry:
+    description: Local registry host:port (Kind registry mirror)
+    required: false
+    default: localhost:5001
+  helm_extra_args:
+    description: Extra arguments passed to helm upgrade --install
+    required: false
+    default: ""
+  skip_image_build:
+    description: Skip building and pushing app images (use tags already in the local registry)
+    required: false
+    default: "false"
+  wait_for_rollout:
+    description: Wait for backend and frontend Deployments to become Available
+    required: false
+    default: "true"
+  hf_token:
+    description: Optional Hugging Face token (only needed if you enable llm-service via helm_extra_args)
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Install Go (Kind CLI)
+      uses: actions/setup-go@v5
+      with:
+        go-version: "1.22.x"
+
+    - name: Install Kind
+      shell: bash
+      run: |
+        go install sigs.k8s.io/kind@v0.30.0
+        echo "$(go env GOPATH)/bin" >> "${GITHUB_PATH}"
+
+    - name: Create Kind cluster with local registry
+      shell: bash
+      run: bash ./scripts/ci/kind-with-registry.sh
+
+    - name: Install Helm
+      uses: azure/setup-helm@v4
+      with:
+        version: v3.19.4
+
+    - name: Helm dependencies
+      shell: bash
+      run: make helm-deps
+
+    - name: Build app images
+      if: inputs.skip_image_build != 'true'
+      shell: bash
+      run: make kind-build-images REGISTRY=${{ inputs.registry }} CONTAINER_CLI=docker
+
+    - name: Push app images to local registry
+      if: inputs.skip_image_build != 'true'
+      shell: bash
+      run: make kind-push-images REGISTRY=${{ inputs.registry }} CONTAINER_CLI=docker PUSH_EXTRA_ARGS=--tls-verify=false
+
+    - name: Create namespace
+      shell: bash
+      run: make k8s-namespace NAMESPACE=${{ inputs.namespace }}
+
+    - name: Helm install (Kind values)
+      shell: bash
+      env:
+        HF_TOKEN: ${{ inputs.hf_token }}
+      run: |
+        set -euo pipefail
+        EXTRA="${{ inputs.helm_extra_args }}"
+        if [ -n "${HF_TOKEN}" ]; then
+          EXTRA="${EXTRA} --set llm-service.secret.hf_token=${HF_TOKEN}"
+        fi
+        make helm-install-kind \
+          NAMESPACE=${{ inputs.namespace }} \
+          HELM_RELEASE=${{ inputs.helm_release }} \
+          REGISTRY=${{ inputs.registry }} \
+          HELM_EXTRA_ARGS="${EXTRA}"
+
+    - name: Wait for app deployments
+      if: inputs.wait_for_rollout == 'true'
+      shell: bash
+      run: |
+        kubectl wait --namespace "${{ inputs.namespace }}" \
+          --for=condition=available \
+          "deployment/${{ inputs.helm_release }}-backend" \
+          --timeout=300s
+        kubectl wait --namespace "${{ inputs.namespace }}" \
+          --for=condition=available \
+          "deployment/${{ inputs.helm_release }}-frontend" \
+          --timeout=300s
+
+    - name: Smoke test backend /healthz
+      if: inputs.wait_for_rollout == 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+        kubectl port-forward -n "${{ inputs.namespace }}" \
+          "svc/${{ inputs.helm_release }}-backend" 15001:5001 >/tmp/pf.log 2>&1 &
+        PF_PID=$!
+        trap 'kill "${PF_PID}" 2>/dev/null || true' EXIT
+        for _ in $(seq 1 30); do
+          if curl -sf http://127.0.0.1:15001/healthz | grep -q '"ok"'; then
+            echo "Backend healthz OK"
+            exit 0
+          fi
+          sleep 2
+        done
+        echo "Backend /healthz did not become ready"
+        cat /tmp/pf.log || true
+        exit 1

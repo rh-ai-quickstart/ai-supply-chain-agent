@@ -11,6 +11,7 @@ This chart deploys:
 - Helm 3.x
 - OpenShift CLI (`oc`)
 - Access to a cluster namespace/project
+- A [Hugging Face token](https://huggingface.co/settings/tokens) with access to the configured models — this is the **only value you must set** in `values.yaml` (`llm-service.secret.hf_token`) before install
 
 ## Install
 
