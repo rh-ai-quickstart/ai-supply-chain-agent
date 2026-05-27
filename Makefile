@@ -21,21 +21,11 @@ HELM_RELEASE   ?= supply-chain-dashboard
 NAMESPACE      ?= supply-chain-dashboard
 VALUES_FILE    ?= $(HELM_CHART)/values.yaml
 
-# --- Podman build platform ---
+# --- Podman ---
 BUILD_PLATFORM ?= linux/amd64
-CONTAINER_CLI  ?= podman
-# Podman only: e.g. PUSH_EXTRA_ARGS=--tls-verify=false for Kind local registry. Never passed to docker push.
+# Optional on push, e.g. PUSH_EXTRA_ARGS=--tls-verify=false for Kind (localhost:5001)
 PUSH_EXTRA_ARGS ?=
 KIND_VALUES_FILE ?= $(HELM_CHART)/values-kind.yaml
-
-# $(1) = image ref (evaluated at recipe time so CONTAINER_CLI from the command line is respected)
-define container_push
-	@if [ "$(CONTAINER_CLI)" = "podman" ]; then \
-		$(CONTAINER_CLI) push $(PUSH_EXTRA_ARGS) $(1); \
-	else \
-		$(CONTAINER_CLI) push $(1); \
-	fi
-endef
 HELM_EXTRA_ARGS ?=
 
 # ============================================================
@@ -117,7 +107,7 @@ build: build-backend build-ingest build-frontend build-perspective
 .PHONY: build-backend
 build-backend:
 	@echo ">>> Building backend image: $(BACKEND_IMAGE):$(BACKEND_TAG)"
-	$(CONTAINER_CLI) build \
+	podman build \
 		--platform $(BUILD_PLATFORM) \
 		-f ./app/backend/api/Containerfile \
 		-t $(BACKEND_IMAGE):$(BACKEND_TAG) \
@@ -127,7 +117,7 @@ build-backend:
 .PHONY: build-ingest
 build-ingest:
 	@echo ">>> Building ingestion image: $(INGEST_IMAGE):$(INGEST_TAG)"
-	$(CONTAINER_CLI) build \
+	podman build \
 		--platform $(BUILD_PLATFORM) \
 		-f ./app/backend/ingestion/Containerfile \
 		-t $(INGEST_IMAGE):$(INGEST_TAG) \
@@ -137,7 +127,7 @@ build-ingest:
 .PHONY: build-frontend
 build-frontend:
 	@set -eu; \
-	$(CONTAINER_CLI) build \
+	podman build \
 		--platform $(BUILD_PLATFORM) \
 		-f ./app/frontend/Containerfile \
 		-t $(FRONTEND_IMAGE):$(FRONTEND_TAG) \
@@ -148,7 +138,7 @@ build-frontend:
 build-perspective:
 	@echo ">>> Building perspective image: $(PERSPECTIVE_IMAGE):$(PERSPECTIVE_TAG)"
 	@echo ">>> SUPPLY_CHAIN_API_BASE_URL=$(PERSPECTIVE_API_BASE_URL) (empty = same-origin /api/ proxy)"
-	$(CONTAINER_CLI) build \
+	podman build \
 		--platform $(BUILD_PLATFORM) \
 		--build-arg SUPPLY_CHAIN_API_BASE_URL=$(PERSPECTIVE_API_BASE_URL) \
 		-f ./app/supply-chain-perspective/Containerfile \
@@ -165,22 +155,22 @@ push: push-backend push-ingest push-frontend push-perspective
 .PHONY: push-backend
 push-backend:
 	@echo ">>> Pushing backend image: $(BACKEND_IMAGE):$(BACKEND_TAG)"
-	$(call container_push,$(BACKEND_IMAGE):$(BACKEND_TAG))
+	podman push $(PUSH_EXTRA_ARGS) $(BACKEND_IMAGE):$(BACKEND_TAG)
 
 .PHONY: push-ingest
 push-ingest:
 	@echo ">>> Pushing ingestion image: $(INGEST_IMAGE):$(INGEST_TAG)"
-	$(call container_push,$(INGEST_IMAGE):$(INGEST_TAG))
+	podman push $(PUSH_EXTRA_ARGS) $(INGEST_IMAGE):$(INGEST_TAG)
 
 .PHONY: push-frontend
 push-frontend:
 	@echo ">>> Pushing frontend image: $(FRONTEND_IMAGE):$(FRONTEND_TAG)"
-	$(call container_push,$(FRONTEND_IMAGE):$(FRONTEND_TAG))
+	podman push $(PUSH_EXTRA_ARGS) $(FRONTEND_IMAGE):$(FRONTEND_TAG)
 
 .PHONY: push-perspective
 push-perspective:
 	@echo ">>> Pushing perspective image: $(PERSPECTIVE_IMAGE):$(PERSPECTIVE_TAG)"
-	$(call container_push,$(PERSPECTIVE_IMAGE):$(PERSPECTIVE_TAG))
+	podman push $(PUSH_EXTRA_ARGS) $(PERSPECTIVE_IMAGE):$(PERSPECTIVE_TAG)
 
 # ============================================================
 # Build & Push (all images with latest tag)

@@ -75,12 +75,12 @@ runs:
     - name: Build app images
       if: inputs.skip_image_build != 'true'
       shell: bash
-      run: make kind-build-images REGISTRY=${{ inputs.registry }} CONTAINER_CLI=podman
+      run: make kind-build-images REGISTRY=${{ inputs.registry }}
 
     - name: Push app images to local registry
       if: inputs.skip_image_build != 'true'
       shell: bash
-      run: make kind-push-images REGISTRY=${{ inputs.registry }} CONTAINER_CLI=podman PUSH_EXTRA_ARGS=--tls-verify=false
+      run: make kind-push-images REGISTRY=${{ inputs.registry }} PUSH_EXTRA_ARGS=--tls-verify=false
 
     - name: Create namespace
       shell: bash
