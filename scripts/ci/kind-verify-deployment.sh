@@ -6,9 +6,23 @@ NAMESPACE="${NAMESPACE:-supply-chain-dashboard}"
 HELM_RELEASE="${HELM_RELEASE:-supply-chain-dashboard}"
 BACKEND_PF_PORT="${BACKEND_PF_PORT:-15001}"
 FRONTEND_PF_PORT="${FRONTEND_PF_PORT:-18080}"
+CURL_MAX_TIME="${CURL_MAX_TIME:-120}"
 
 log() { echo ">>> $*"; }
 fail() { echo "ERROR: $*" >&2; exit 1; }
+
+# Avoid `echo … | grep -q` under pipefail (grep -q closes the pipe → SIGPIPE → false failure).
+body_contains() {
+  local needle="$1"
+  local body="$2"
+  [[ "${body}" == *"${needle}"* ]]
+}
+
+body_contains_ci() {
+  local needle="${1,,}"
+  local body="${2,,}"
+  [[ "${body}" == *"${needle}"* ]]
+}
 
 cleanup() {
   for pid in "${BACKEND_PF_PID:-}" "${FRONTEND_PF_PID:-}"; do
@@ -24,7 +38,27 @@ wait_for_url() {
   local attempts="${2:-30}"
   local i
   for i in $(seq 1 "${attempts}"); do
-    if curl -sf "${url}" >/dev/null 2>&1; then
+    if curl -sf --max-time "${CURL_MAX_TIME}" "${url}" >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 2
+  done
+  return 1
+}
+
+curl_body() {
+  local url="$1"
+  curl -sf --max-time "${CURL_MAX_TIME}" "${url}"
+}
+
+# /api/v1/state calls OpenSky (8s timeout) on cold start; retry until kpis appear.
+wait_for_dashboard_state() {
+  local url="$1"
+  local attempts="${2:-30}"
+  local i body
+  for i in $(seq 1 "${attempts}"); do
+    if body=$(curl_body "${url}" 2>/dev/null) && body_contains "kpis" "${body}"; then
+      echo "${body}"
       return 0
     fi
     sleep 2
@@ -56,25 +90,25 @@ BACKEND_PF_PID=$!
 wait_for_url "http://127.0.0.1:${BACKEND_PF_PORT}/healthz" 30 \
   || fail "backend /healthz not ready (see /tmp/kind-pf-backend.log)"
 
-HEALTH=$(curl -sf "http://127.0.0.1:${BACKEND_PF_PORT}/healthz")
-echo "${HEALTH}" | grep -q '"ok"' || fail "unexpected /healthz body: ${HEALTH}"
+HEALTH=$(curl_body "http://127.0.0.1:${BACKEND_PF_PORT}/healthz")
+body_contains '"ok"' "${HEALTH}" || fail "unexpected /healthz body: ${HEALTH}"
 log "PASS backend GET /healthz"
 
-STATE=$(curl -sf "http://127.0.0.1:${BACKEND_PF_PORT}/api/v1/state")
-echo "${STATE}" | grep -q 'kpis' || fail "GET /api/v1/state missing kpis key"
+STATE=$(wait_for_dashboard_state "http://127.0.0.1:${BACKEND_PF_PORT}/api/v1/state" 30) \
+  || fail "GET /api/v1/state not ready or missing kpis (OpenSky may be slow; see backend logs)"
 log "PASS backend GET /api/v1/state"
 
-GUARD=$(curl -sf -X POST "http://127.0.0.1:${BACKEND_PF_PORT}/api/v1/chat" \
+GUARD=$(curl -sf --max-time "${CURL_MAX_TIME}" -X POST "http://127.0.0.1:${BACKEND_PF_PORT}/api/v1/chat" \
   -H 'Content-Type: application/json' \
   -d '{"input":"Where is the best pizza?","chat_history":[]}')
-echo "${GUARD}" | grep -q 'answer' || fail "POST /api/v1/chat (guardrail) missing answer"
-echo "${GUARD}" | grep -qi 'supply chain' || fail "guardrail response unexpected: ${GUARD}"
+body_contains 'answer' "${GUARD}" || fail "POST /api/v1/chat (guardrail) missing answer"
+body_contains_ci 'supply chain' "${GUARD}" || fail "guardrail response unexpected: ${GUARD}"
 log "PASS backend POST /api/v1/chat (off-topic guardrail)"
 
-ROUTE=$(curl -sf -X POST "http://127.0.0.1:${BACKEND_PF_PORT}/api/v1/chat" \
+ROUTE=$(curl -sf --max-time "${CURL_MAX_TIME}" -X POST "http://127.0.0.1:${BACKEND_PF_PORT}/api/v1/chat" \
   -H 'Content-Type: application/json' \
   -d '{"input":"Find the best truck route","chat_history":[]}')
-echo "${ROUTE}" | grep -q 'routeData' || fail "route chat response missing routeData: ${ROUTE}"
+body_contains 'routeData' "${ROUTE}" || fail "route chat response missing routeData: ${ROUTE}"
 log "PASS backend POST /api/v1/chat (route optimization)"
 
 log "Port-forward frontend Service"
@@ -84,12 +118,12 @@ FRONTEND_PF_PID=$!
 wait_for_url "http://127.0.0.1:${FRONTEND_PF_PORT}/" 30 \
   || fail "frontend / not ready (see /tmp/kind-pf-frontend.log)"
 
-INDEX=$(curl -sf "http://127.0.0.1:${FRONTEND_PF_PORT}/")
-echo "${INDEX}" | grep -qi '<html' || fail "frontend index does not look like HTML"
+INDEX=$(curl_body "http://127.0.0.1:${FRONTEND_PF_PORT}/")
+body_contains '<html' "${INDEX}" || fail "frontend index does not look like HTML"
 log "PASS frontend GET / (SPA shell)"
 
-PROXY_STATE=$(curl -sf "http://127.0.0.1:${FRONTEND_PF_PORT}/api/v1/state")
-echo "${PROXY_STATE}" | grep -q 'kpis' || fail "frontend /api proxy failed: ${PROXY_STATE}"
+PROXY_STATE=$(wait_for_dashboard_state "http://127.0.0.1:${FRONTEND_PF_PORT}/api/v1/state" 30) \
+  || fail "frontend /api proxy failed: ${PROXY_STATE}"
 log "PASS frontend GET /api/v1/state (nginx same-origin proxy)"
 
 if [[ "${RUN_UI_E2E:-}" == "1" || "${RUN_UI_E2E:-}" == "true" ]]; then
@@ -99,7 +133,8 @@ if [[ "${RUN_UI_E2E:-}" == "1" || "${RUN_UI_E2E:-}" == "true" ]]; then
   fi
   export SUPPLY_CHAIN_UI_ENDPOINT="http://127.0.0.1:${FRONTEND_PF_PORT}"
   export BACKEND_HEALTH_URL="http://127.0.0.1:${BACKEND_PF_PORT}/healthz"
-  export SKIP_MODEL_TESTS="${SKIP_MODEL_TESTS:-false}"
+  # Kind values disable Llama Stack; guardrail/route UI tests do not need the LLM.
+  export SKIP_MODEL_TESTS="${SKIP_MODEL_TESTS:-true}"
   python -m pytest tests/e2e_ui/ -v --tb=short --browser chromium \
     || fail "Playwright UI E2E tests failed"
   log "PASS Playwright UI E2E"

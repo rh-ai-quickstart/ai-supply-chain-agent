@@ -76,7 +76,8 @@ jobs:
         env:
           NAMESPACE: ${{ env.KIND_NAMESPACE }}
           HELM_RELEASE: ${{ env.HELM_RELEASE }}
-          SKIP_MODEL_TESTS: "false"
+          # Kind chart disables Llama Stack (values-kind.yaml); UI smoke uses guardrail/route only.
+          SKIP_MODEL_TESTS: "true"
 
       - name: Upload Playwright test results
         if: always()
