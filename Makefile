@@ -23,7 +23,7 @@ VALUES_FILE    ?= $(HELM_CHART)/values.yaml
 
 # --- Podman ---
 BUILD_PLATFORM ?= linux/amd64
-# Optional on push, e.g. PUSH_EXTRA_ARGS=--tls-verify=false for Kind (localhost:5001)
+CONTAINER_CLI  ?= podman
 PUSH_EXTRA_ARGS ?=
 KIND_VALUES_FILE ?= $(HELM_CHART)/values-kind.yaml
 HELM_EXTRA_ARGS ?=
@@ -74,12 +74,6 @@ help:
 	@echo "    kind-build-images  Build backend, ingest, and frontend for REGISTRY (default localhost:5001)"
 	@echo "    kind-push-images   Push kind-build-images to REGISTRY"
 	@echo "    k8s-namespace      Create/set kubectl namespace (NAMESPACE)"
-	@echo "    kind-verify          Post-deploy checks (port-forward + curl; Kind cluster must be up)"
-	@echo "    kind-verify-e2e      kind-verify + Playwright UI tests (RUN_UI_E2E=1)"
-	@echo ""
-	@echo "  E2E UI (Playwright):"
-	@echo "    e2e-ui-install       Install pytest-playwright and Chromium"
-	@echo "    e2e-ui               Run browser E2E tests (needs SUPPLY_CHAIN_UI_ENDPOINT)"
 	@echo ""
 	@echo "  Ingest:"
 	@echo "    ingest             Run the knowledge-base ingestion Job on OpenShift"
@@ -112,7 +106,7 @@ build: build-backend build-ingest build-frontend build-perspective
 .PHONY: build-backend
 build-backend:
 	@echo ">>> Building backend image: $(BACKEND_IMAGE):$(BACKEND_TAG)"
-	podman build \
+	$(CONTAINER_CLI) build \
 		--platform $(BUILD_PLATFORM) \
 		-f ./app/backend/api/Containerfile \
 		-t $(BACKEND_IMAGE):$(BACKEND_TAG) \
@@ -122,7 +116,7 @@ build-backend:
 .PHONY: build-ingest
 build-ingest:
 	@echo ">>> Building ingestion image: $(INGEST_IMAGE):$(INGEST_TAG)"
-	podman build \
+	$(CONTAINER_CLI) build \
 		--platform $(BUILD_PLATFORM) \
 		-f ./app/backend/ingestion/Containerfile \
 		-t $(INGEST_IMAGE):$(INGEST_TAG) \
@@ -143,7 +137,7 @@ build-frontend:
 build-perspective:
 	@echo ">>> Building perspective image: $(PERSPECTIVE_IMAGE):$(PERSPECTIVE_TAG)"
 	@echo ">>> SUPPLY_CHAIN_API_BASE_URL=$(PERSPECTIVE_API_BASE_URL) (empty = same-origin /api/ proxy)"
-	podman build \
+	$(CONTAINER_CLI) build \
 		--platform $(BUILD_PLATFORM) \
 		--build-arg SUPPLY_CHAIN_API_BASE_URL=$(PERSPECTIVE_API_BASE_URL) \
 		-f ./app/supply-chain-perspective/Containerfile \
