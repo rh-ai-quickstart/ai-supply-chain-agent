@@ -15,8 +15,11 @@ class TestDashboardUIBasics:
     def test_main_navigation_visible(self, page: Page):
         nav = page.get_by_role("navigation", name="Main")
         expect(nav).to_be_visible(timeout=TEST_TIMEOUT)
-        expect(page.get_by_role("button", name="Dashboard")).to_be_visible(timeout=TEST_TIMEOUT)
-        expect(page.get_by_role("button", name="Knowledge bases")).to_be_visible(
+        # Scope to nav: "Live Dashboard" also matches substring "Dashboard".
+        expect(nav.get_by_role("button", name="Dashboard", exact=True)).to_be_visible(
+            timeout=TEST_TIMEOUT
+        )
+        expect(nav.get_by_role("button", name="Knowledge bases", exact=True)).to_be_visible(
             timeout=TEST_TIMEOUT
         )
 
