@@ -1,0 +1,14 @@
+# Dev image tags — use with: make dev  (or helm upgrade -f values.yaml -f values-dev.yaml)
+# Builds runnable app images (:dev), not unit-test images (:test).
+
+backend:
+  image:
+    tag: dev
+
+frontend:
+  image:
+    tag: dev
+
+ingest:
+  image:
+    tag: dev

@@ -9,8 +9,11 @@ INGEST_IMAGE       ?= $(REGISTRY)/ai-supply-chain-agent-ingestion
 FRONTEND_IMAGE     ?= $(REGISTRY)/ai-supply-chain-agent-frontend
 PERSPECTIVE_IMAGE  ?= $(REGISTRY)/ai-supply-chain-agent-perspective
 BACKEND_TAG        ?= latest
+BACKEND_TEST_TAG   ?= test
 INGEST_TAG         ?= latest
 FRONTEND_TAG       ?= latest
+FRONTEND_TEST_TAG  ?= test
+DEV_TAG            ?= dev
 PERSPECTIVE_TAG    ?= latest
 # Baked into the perspective bundle at build time (empty = same-origin /api/ proxy).
 PERSPECTIVE_API_BASE_URL ?= 
@@ -26,6 +29,7 @@ BUILD_PLATFORM ?= linux/amd64
 # Optional on push, e.g. PUSH_EXTRA_ARGS=--tls-verify=false for Kind (localhost:5001)
 PUSH_EXTRA_ARGS ?=
 KIND_VALUES_FILE ?= $(HELM_CHART)/values-kind.yaml
+DEV_VALUES_FILE  ?= $(HELM_CHART)/values-dev.yaml
 HELM_EXTRA_ARGS ?=
 
 # ============================================================
@@ -43,6 +47,26 @@ help:
 	@echo "    build-ingest       Build the ingestion container image"
 	@echo "    build-frontend     Build the frontend container image"
 	@echo "    build-perspective  Build the OpenShift console perspective plugin image"
+	@echo "    build-test         Build backend and frontend test images"
+	@echo "    build-test-backend Build backend test image (pytest in container)"
+	@echo "    build-test-frontend Build frontend test image (vitest in container)"
+	@echo ""
+	@echo "  Test (container):"
+	@echo "    test               Run backend and frontend unit tests in containers"
+	@echo "    test-backend       Build and run backend pytest in a container"
+	@echo "    test-frontend      Build and run frontend vitest in a container"
+	@echo ""
+	@echo "  Dev (runnable :dev images for cluster testing):"
+	@echo "    dev                Build, push, and deploy backend + frontend + ingest (:dev tag)"
+	@echo "    build-dev          Build backend, frontend, and ingest with tag dev"
+	@echo "    build-dev-backend  Build backend app image (:dev)"
+	@echo "    build-dev-frontend Build frontend app image (:dev)"
+	@echo "    build-dev-ingest   Build ingestion app image (:dev)"
+	@echo "    push-dev           Push :dev app images to the registry"
+	@echo "    dev-deploy         Helm upgrade using values-dev.yaml (:dev tags)"
+	@echo ""
+	@echo "  Hugging Face:"
+	@echo "    hf-secret-update   Patch huggingface-secret (HF_TOKEN env or llm-service.secret.hf_token in values)"
 	@echo ""
 	@echo "  Push:"
 	@echo "    push               Push all images to the registry"
@@ -94,8 +118,11 @@ help:
 	@echo "  Overridable variables (e.g. make build-backend BACKEND_TAG=v2):"
 	@echo "    REGISTRY           $(REGISTRY)"
 	@echo "    BACKEND_TAG        $(BACKEND_TAG)"
+	@echo "    BACKEND_TEST_TAG   $(BACKEND_TEST_TAG)"
 	@echo "    INGEST_TAG         $(INGEST_TAG)"
 	@echo "    FRONTEND_TAG       $(FRONTEND_TAG)"
+	@echo "    FRONTEND_TEST_TAG  $(FRONTEND_TEST_TAG)"
+	@echo "    DEV_TAG            $(DEV_TAG)"
 	@echo "    PERSPECTIVE_TAG    $(PERSPECTIVE_TAG)"
 	@echo "    PERSPECTIVE_API_BASE_URL  $(if $(PERSPECTIVE_API_BASE_URL),$(PERSPECTIVE_API_BASE_URL),(empty — same-origin /api/))"
 	@echo "    NAMESPACE          $(NAMESPACE)"
@@ -150,6 +177,100 @@ build-perspective:
 		-t $(PERSPECTIVE_IMAGE):$(PERSPECTIVE_TAG) \
 		./app/supply-chain-perspective
 	@echo ">>> Perspective image built successfully."
+
+.PHONY: build-test
+build-test: build-test-backend build-test-frontend
+
+.PHONY: build-test-backend
+build-test-backend:
+	@echo ">>> Building backend test image: $(BACKEND_IMAGE):$(BACKEND_TEST_TAG)"
+	podman build \
+		--platform $(BUILD_PLATFORM) \
+		-f ./app/backend/Containerfile.test \
+		-t $(BACKEND_IMAGE):$(BACKEND_TEST_TAG) \
+		./app/backend
+	@echo ">>> Backend test image built successfully."
+
+.PHONY: build-test-frontend
+build-test-frontend:
+	@echo ">>> Building frontend test image: $(FRONTEND_IMAGE):$(FRONTEND_TEST_TAG)"
+	podman build \
+		--platform $(BUILD_PLATFORM) \
+		-f ./app/frontend/Containerfile.test \
+		-t $(FRONTEND_IMAGE):$(FRONTEND_TEST_TAG) \
+		./app/frontend
+	@echo ">>> Frontend test image built successfully."
+
+.PHONY: test test-backend test-frontend
+test: test-backend test-frontend
+
+test-backend: build-test-backend
+	@echo ">>> Running backend tests in container"
+	podman run --rm $(BACKEND_IMAGE):$(BACKEND_TEST_TAG)
+
+test-frontend: build-test-frontend
+	@echo ">>> Running frontend tests in container"
+	podman run --rm $(FRONTEND_IMAGE):$(FRONTEND_TEST_TAG)
+
+# ============================================================
+# Dev targets (runnable app images tagged :dev — not unit-test :test images)
+# ============================================================
+.PHONY: build-dev build-dev-backend build-dev-frontend build-dev-ingest
+build-dev: build-dev-backend build-dev-frontend build-dev-ingest
+
+build-dev-backend:
+	$(MAKE) build-backend BACKEND_TAG=$(DEV_TAG)
+
+build-dev-frontend:
+	$(MAKE) build-frontend FRONTEND_TAG=$(DEV_TAG)
+
+build-dev-ingest:
+	$(MAKE) build-ingest INGEST_TAG=$(DEV_TAG)
+
+.PHONY: push-dev push-dev-backend push-dev-frontend push-dev-ingest
+push-dev: push-dev-backend push-dev-frontend push-dev-ingest
+
+push-dev-backend:
+	$(MAKE) push-backend BACKEND_TAG=$(DEV_TAG)
+
+push-dev-frontend:
+	$(MAKE) push-frontend FRONTEND_TAG=$(DEV_TAG)
+
+push-dev-ingest:
+	$(MAKE) push-ingest INGEST_TAG=$(DEV_TAG)
+
+.PHONY: dev dev-deploy
+dev: build-dev push-dev dev-deploy
+
+dev-deploy: helm-deps
+	@echo ">>> Deploying $(HELM_RELEASE) with :dev app images (namespace: $(NAMESPACE))"
+	@oc get namespace $(NAMESPACE) 2>/dev/null || oc new-project $(NAMESPACE)
+	helm upgrade --install $(HELM_RELEASE) $(HELM_CHART) \
+		--namespace $(NAMESPACE) \
+		-f $(VALUES_FILE) \
+		-f $(DEV_VALUES_FILE) \
+		$(HELM_EXTRA_ARGS) \
+		--wait \
+		--timeout 10m
+
+# llm-service only creates huggingface-secret on first install; use this after changing the token.
+.PHONY: hf-secret-update
+hf-secret-update:
+	@set -eu; \
+	TOKEN="$(HF_TOKEN)"; \
+	if [ -z "$$TOKEN" ]; then \
+	  TOKEN=$$(python3 -c "import yaml; t=yaml.safe_load(open('$(VALUES_FILE)'))['llm-service']['secret']['hf_token']; print(t or '', end='')"); \
+	fi; \
+	if [ -z "$$TOKEN" ]; then \
+	  echo ">>> Set HF_TOKEN=hf_... or llm-service.secret.hf_token in $(VALUES_FILE)"; exit 1; \
+	fi; \
+	echo ">>> Updating huggingface-secret in namespace $(NAMESPACE)"; \
+	oc create secret generic huggingface-secret \
+	  --from-literal=HF_TOKEN="$$TOKEN" \
+	  -n $(NAMESPACE) \
+	  --dry-run=client -o yaml | oc apply -f -; \
+	echo ">>> Restarting model pods..."; \
+	oc delete pod -n $(NAMESPACE) -l serving.kserve.io/inferenceservice 2>/dev/null || true
 
 # ============================================================
 # Push targets
@@ -402,8 +523,13 @@ ingest-status:
 clean:
 	@echo ">>> Removing local images"
 	-podman rmi $(BACKEND_IMAGE):$(BACKEND_TAG) 2>/dev/null
+	-podman rmi $(BACKEND_IMAGE):$(BACKEND_TEST_TAG) 2>/dev/null
+	-podman rmi $(BACKEND_IMAGE):$(DEV_TAG) 2>/dev/null
 	-podman rmi $(INGEST_IMAGE):$(INGEST_TAG) 2>/dev/null
+	-podman rmi $(INGEST_IMAGE):$(DEV_TAG) 2>/dev/null
 	-podman rmi $(FRONTEND_IMAGE):$(FRONTEND_TAG) 2>/dev/null
+	-podman rmi $(FRONTEND_IMAGE):$(FRONTEND_TEST_TAG) 2>/dev/null
+	-podman rmi $(FRONTEND_IMAGE):$(DEV_TAG) 2>/dev/null
 	-podman rmi $(PERSPECTIVE_IMAGE):$(PERSPECTIVE_TAG) 2>/dev/null
 	@echo ">>> Done."
 
