@@ -394,6 +394,29 @@
 }
 
 /* Markdown inside AI bubbles (react-markdown output) */
+.supply-chain-perspective__dashboard-chat-md-plain {
+  box-sizing: border-box;
+  width: 100%;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.supply-chain-perspective__dashboard-chat-md-plain--compact {
+  font-size: var(--pf-t--global--font--size--body--sm);
+}
+
+.supply-chain-perspective__dashboard-chat-stream-cursor {
+  display: inline-block;
+  margin-left: 1px;
+  animation: supply-chain-perspective-chat-stream-blink 1s step-end infinite;
+}
+
+@keyframes supply-chain-perspective-chat-stream-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
 .supply-chain-perspective__dashboard-chat-md {
   box-sizing: border-box;
   width: 100%;

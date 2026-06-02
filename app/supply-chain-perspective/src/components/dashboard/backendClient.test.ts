@@ -10,17 +10,21 @@ import {
 const mocks = vi.hoisted(() => ({
   apiGet: vi.fn(),
   apiPost: vi.fn(),
+  apiPostNdjsonStream: vi.fn(),
 }));
 
 vi.mock('../../services/apiClient', () => ({
   apiGet: mocks.apiGet,
   apiPost: mocks.apiPost,
+  apiPostNdjsonStream: mocks.apiPostNdjsonStream,
 }));
 
 describe('backendClient', () => {
   beforeEach(() => {
     mocks.apiGet.mockReset();
     mocks.apiPost.mockReset();
+    mocks.apiPostNdjsonStream.mockReset();
+    mocks.apiPostNdjsonStream.mockResolvedValue(undefined);
   });
 
   it('fetchDashboardState calls state endpoint', async () => {
@@ -50,19 +54,26 @@ describe('backendClient', () => {
     expect(mocks.apiGet).toHaveBeenCalledWith('/api/v1/vector_stores');
   });
 
-  it('postAssistantMessage omits optional fields when absent', async () => {
-    mocks.apiPost.mockResolvedValue({});
-    await postAssistantMessage('hello', [], undefined);
-    expect(mocks.apiPost).toHaveBeenCalledWith('/api/v1/chat', { input: 'hello' });
+  it('postAssistantMessage streams NDJSON from chat endpoint', async () => {
+    const onEvent = vi.fn();
+    await postAssistantMessage('hello', [], undefined, { onEvent });
+    expect(mocks.apiPostNdjsonStream).toHaveBeenCalledWith(
+      '/api/v1/chat',
+      { input: 'hello' },
+      expect.objectContaining({ onEvent }),
+    );
   });
 
   it('postAssistantMessage includes trimmed vector_store_id and history', async () => {
-    mocks.apiPost.mockResolvedValue({});
     await postAssistantMessage('q', [{ role: 'human', content: 'prev' }], '  vs-1  ');
-    expect(mocks.apiPost).toHaveBeenCalledWith('/api/v1/chat', {
-      input: 'q',
-      chat_history: [{ role: 'human', content: 'prev' }],
-      vector_store_id: 'vs-1',
-    });
+    expect(mocks.apiPostNdjsonStream).toHaveBeenCalledWith(
+      '/api/v1/chat',
+      {
+        input: 'q',
+        chat_history: [{ role: 'human', content: 'prev' }],
+        vector_store_id: 'vs-1',
+      },
+      expect.any(Object),
+    );
   });
 });

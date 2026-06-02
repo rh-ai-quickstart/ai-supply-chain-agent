@@ -18,13 +18,19 @@ export interface ChatMessage {
   content: string;
   /** Present when the last assistant turn came from the LLM stack (tokens, model, etc.). */
   completion?: ChatCompletionPayload | null;
+  /** True while NDJSON tokens are still arriving. */
+  streaming?: boolean;
+  routeData?: unknown;
 }
 
-/** Body shape for ``POST /api/v1/chat`` success responses. */
-export interface ChatApiResponse {
+/** One line from ``POST /api/v1/chat`` (``application/x-ndjson``). */
+export interface ChatStreamEvent {
+  event: string;
+  delta?: string;
   answer?: string;
   completion?: ChatCompletionPayload | null;
   routeData?: unknown;
+  message?: string;
 }
 
 export interface MapPort {

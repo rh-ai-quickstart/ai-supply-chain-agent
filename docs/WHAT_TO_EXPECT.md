@@ -69,7 +69,7 @@ The standalone **frontend** is built with `VITE_API_BASE_URL` pointing at this R
 | `GET` | `/api/v1/state` | Full dashboard JSON (KPIs, charts, map layers, alerts) |
 | `POST` | `/api/v1/trigger-event` | Random disruption on the current map view (`mapView` in body) |
 | `POST` | `/api/v1/simulate` | Scenario preset (`scenario`, optional `optimize`) — returns updated state |
-| `POST` | `/api/v1/chat` | RAG chat (`input`, `chat_history`, optional `vector_store_id`) |
+| `POST` | `/api/v1/chat` | RAG chat (`input`, `chat_history`, optional `vector_store_id`) — NDJSON stream (`start`, `token`, `done`, or instant `message` for guardrail/route) |
 | `GET` | `/api/v1/vector_stores` | Llama Stack vector stores (chat knowledge-base picker) |
 | `GET` / `POST` | `/api/v1/knowledge-bases` | List UI-upload catalog / upload files (multipart) |
 | `GET` / `POST` | `/api/v1/simulations` | List or create named simulation records (perspective **Simulations** page) |
@@ -88,13 +88,19 @@ With `optimize: true`, the response includes synthetic **performance** metrics (
 - Route-style questions can return optimization narrative from `RouteService`.
 - Otherwise: retrieve context from PGVector and/or the selected Llama Stack vector store, then call the configured model via Llama Stack.
 
-Example (chat):
+Chat responses are streamed as **newline-delimited JSON** (`Content-Type: application/x-ndjson`). The standalone frontend and console plugin read tokens incrementally. Nginx disables proxy buffering on `POST /api/v1/chat` so chunks are not held until the full reply completes.
+
+Example (chat stream — first lines):
 
 ```bash
 API="https://$(oc get route supply-chain-dashboard-backend -n supply-chain-dashboard -o jsonpath='{.spec.host}')"
-curl -s -X POST "$API/api/v1/chat" \
+curl -s -N -X POST "$API/api/v1/chat" \
   -H 'Content-Type: application/json' \
+  -H 'Accept: application/x-ndjson' \
   -d '{"input":"What risks affect trans-Pacific shipping?","chat_history":[]}'
+# {"event":"start"}
+# {"event":"token","delta":"..."}
+# {"event":"done","answer":"...","completion":{...}}
 ```
 
 Re-run knowledge ingestion without redeploying Helm:

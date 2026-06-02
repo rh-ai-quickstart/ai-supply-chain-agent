@@ -14,9 +14,27 @@ function normalizeChatMarkdown(markdown: string): string {
 export interface ChatMarkdownBodyProps {
   content: string;
   compact?: boolean;
+  streaming?: boolean;
 }
 
-export function ChatMarkdownBody({ content, compact }: ChatMarkdownBodyProps) {
+export function ChatMarkdownBody({ content, compact, streaming = false }: ChatMarkdownBodyProps) {
+  if (streaming) {
+    const plainClass = [
+      'supply-chain-perspective__dashboard-chat-md-plain',
+      compact ? 'supply-chain-perspective__dashboard-chat-md-plain--compact' : '',
+    ]
+      .filter(Boolean)
+      .join(' ');
+    return (
+      <div className={plainClass}>
+        {content}
+        <span className="supply-chain-perspective__dashboard-chat-stream-cursor" aria-hidden="true">
+          ▌
+        </span>
+      </div>
+    );
+  }
+
   const rootClass = [
     'supply-chain-perspective__dashboard-chat-md',
     compact ? 'supply-chain-perspective__dashboard-chat-md--compact' : '',

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type {
   ChatMessage,
@@ -22,6 +22,7 @@ import {
   toRevenueChartData,
   toSystemHealthMetrics,
 } from './chartMappers';
+import { handleChatStreamEvent } from '../../utils/handleChatStreamEvent';
 
 const REFRESH_INTERVAL_MS = 15000;
 
@@ -42,6 +43,7 @@ export function useDashboardController() {
   const [dashboardState, setDashboardState] = useState<DashboardState | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const chatAbortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -143,32 +145,69 @@ export function useDashboardController() {
       return;
     }
 
+    chatAbortRef.current?.abort();
+    const abortController = new AbortController();
+    chatAbortRef.current = abortController;
+
     const humanMessage: ChatMessage = { role: 'human', content: question };
+    const placeholderAi: ChatMessage = {
+      role: 'ai',
+      content: '',
+      streaming: true,
+      completion: null,
+    };
     const historyForApi: ChatMessage[] = [...chatMessages, humanMessage];
 
-    setChatMessages(historyForApi);
+    setChatMessages([...historyForApi, placeholderAi]);
     setChatInput('');
     setChatError('');
     setChatLoading(true);
+
+    const updateStreamingMessage = (updater: (_msg: ChatMessage) => ChatMessage) => {
+      setChatMessages((prev) => {
+        if (prev.length === 0) {
+          return prev;
+        }
+        const next = [...prev];
+        const lastIndex = next.length - 1;
+        const last = next[lastIndex];
+        if (last?.role !== 'ai') {
+          return prev;
+        }
+        next[lastIndex] = updater(last);
+        return next;
+      });
+    };
+
     try {
-      const result = await postAssistantMessage(
+      await postAssistantMessage(
         question,
         historyForApi,
         selectedVectorStoreId.trim() || undefined,
+        {
+          signal: abortController.signal,
+          onEvent: (evt) =>
+            handleChatStreamEvent(evt, {
+              updateStreamingMessage,
+              setChatError,
+              emptyAnswerText: t('No response from assistant.'),
+              streamFailedText: t('Chat stream failed.'),
+            }),
+        },
       );
-      const answer =
-        typeof result?.answer === 'string' && result.answer.trim()
-          ? result.answer
-          : t('No response from assistant.');
-      const aiMessage: ChatMessage = {
-        role: 'ai',
-        content: answer,
-        completion: result?.completion ?? null,
-      };
-      setChatMessages([...historyForApi, aiMessage]);
-    } catch {
-      setChatError(t('Failed to send chat request.'));
+    } catch (err) {
+      if ((err as Error)?.name !== 'AbortError') {
+        setChatError(t('Failed to send chat request.'));
+        updateStreamingMessage((msg) => ({
+          ...msg,
+          streaming: false,
+          content: msg.content || t('Failed to get a response.'),
+        }));
+      }
     } finally {
+      if (chatAbortRef.current === abortController) {
+        chatAbortRef.current = null;
+      }
       setChatLoading(false);
     }
   }, [chatInput, chatLoading, chatMessages, selectedVectorStoreId, t]);

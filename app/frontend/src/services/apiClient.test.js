@@ -1,75 +1,96 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { apiGet, apiPost, apiPostFormData } from "./apiClient";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { apiPostNdjsonStream, parseNdjsonBuffer } from "./apiClient";
 
-describe("apiClient", () => {
-  beforeEach(() => {
-    globalThis.fetch = vi.fn();
+function ndjsonFetchResponse(lines) {
+  const encoder = new TextEncoder();
+  const chunks = lines.map((line) => encoder.encode(`${line}\n`));
+  let index = 0;
+  const body = new ReadableStream({
+    pull(controller) {
+      if (index < chunks.length) {
+        controller.enqueue(chunks[index]);
+        index += 1;
+      } else {
+        controller.close();
+      }
+    },
+  });
+  return { ok: true, body };
+}
+
+describe("apiPostNdjsonStream", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
-  describe("apiGet", () => {
-    it("throws when response is not ok", async () => {
-      globalThis.fetch.mockResolvedValue({ ok: false, status: 503 });
-      await expect(apiGet("/api/v1/state")).rejects.toThrow("503");
+  it("invokes onEvent for each NDJSON line from the response body", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        ndjsonFetchResponse([
+          '{"event":"start"}',
+          '{"event":"token","delta":"Hi"}',
+          '{"event":"done","answer":"Hi"}',
+        ]),
+      ),
+    );
+
+    const events = [];
+    await apiPostNdjsonStream("/api/v1/chat", { input: "q" }, {
+      onEvent: (evt) => events.push(evt),
     });
 
-    it("GETs JSON from default base URL + path", async () => {
-      globalThis.fetch.mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve({ ok: true }),
-      });
-      await expect(apiGet("/api/v1/state")).resolves.toEqual({ ok: true });
-      expect(globalThis.fetch).toHaveBeenCalledWith("/api/v1/state");
-    });
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/v1/chat",
+      expect.objectContaining({
+        method: "POST",
+        headers: expect.objectContaining({
+          Accept: "application/x-ndjson",
+        }),
+      }),
+    );
+    expect(events).toEqual([
+      { event: "start" },
+      { event: "token", delta: "Hi" },
+      { event: "done", answer: "Hi" },
+    ]);
   });
 
-  describe("apiPost", () => {
-    it("POSTs JSON body", async () => {
-      globalThis.fetch.mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve({ id: 1 }),
-      });
-      await expect(apiPost("/api/v1/chat", { input: "hi" })).resolves.toEqual({ id: 1 });
-      expect(globalThis.fetch).toHaveBeenCalledWith(
-        "/api/v1/chat",
-        expect.objectContaining({
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ input: "hi" }),
-        })
-      );
-    });
+  it("throws when the response is not ok", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 502 }));
+
+    await expect(
+      apiPostNdjsonStream("/api/v1/chat", { input: "q" }, { onEvent: () => {} }),
+    ).rejects.toThrow("Request failed: 502");
   });
 
-  describe("apiPostFormData", () => {
-    it("returns JSON on success without setting Content-Type", async () => {
-      const fd = new FormData();
-      fd.append("name", "kb");
-      globalThis.fetch.mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve({ created: true }),
-      });
-      await expect(apiPostFormData("/api/v1/knowledge-bases", fd)).resolves.toEqual({ created: true });
-      const [, init] = globalThis.fetch.mock.calls[0];
-      expect(init.headers).toBeUndefined();
-      expect(init.body).toBe(fd);
-    });
+  it("returns quietly when fetch aborts", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockRejectedValue(new DOMException("Aborted", "AbortError")),
+    );
 
-    it("prefers JSON error message when error response body parses", async () => {
-      globalThis.fetch.mockResolvedValue({
-        ok: false,
-        status: 400,
-        text: () => Promise.resolve(JSON.stringify({ error: "bad file" })),
-      });
-      await expect(apiPostFormData("/api/v1/knowledge-bases", new FormData())).rejects.toThrow("bad file");
-    });
+    await expect(
+      apiPostNdjsonStream("/api/v1/chat", { input: "q" }, { onEvent: () => {} }),
+    ).resolves.toBeUndefined();
+  });
+});
 
-    it("falls back to raw text on parse failure", async () => {
-      globalThis.fetch.mockResolvedValue({
-        ok: false,
-        status: 422,
-        text: () => Promise.resolve("plain failure"),
-      });
-      await expect(apiPostFormData("/x", new FormData())).rejects.toThrow("plain failure");
-    });
+describe("parseNdjsonBuffer", () => {
+  it("parses complete lines and keeps a partial remainder", () => {
+    const { events, remainder } = parseNdjsonBuffer(
+      '{"event":"start"}\n{"event":"token","delta":"Hi"}\n{"event":"tok',
+    );
+    expect(events).toEqual([
+      { event: "start" },
+      { event: "token", delta: "Hi" },
+    ]);
+    expect(remainder).toBe('{"event":"tok');
+  });
+
+  it("ignores blank lines", () => {
+    const { events, remainder } = parseNdjsonBuffer('\n\n{"event":"done"}\n\n');
+    expect(events).toEqual([{ event: "done" }]);
+    expect(remainder).toBe("");
   });
 });

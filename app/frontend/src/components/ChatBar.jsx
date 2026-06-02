@@ -108,8 +108,10 @@ export function ChatBar({
         <p className="muted">No chat messages yet.</p>
       ) : (
         chatMessages.map((message, index) => {
+          const isStreamingAi = message.role === "ai" && message.streaming;
           const hasCompletion =
             message.role === "ai" &&
+            !isStreamingAi &&
             message.completion &&
             Object.keys(message.completion).length > 0;
           const completionSummary = hasCompletion ? formatCompletionSummary(message.completion) : "";
@@ -117,7 +119,11 @@ export function ChatBar({
             <div key={`${message.role}-${index}`} className={messageBubbleClassName(message.role, compact)}>
               {message.role === "ai" ? (
                 <>
-                  <ChatMarkdownBody content={message.content} compact={compact} />
+                  <ChatMarkdownBody
+                    content={message.content}
+                    compact={compact}
+                    streaming={isStreamingAi}
+                  />
                   {hasCompletion && message.completion ? (
                     <div className="chat-completion-meta">
                       {completionSummary ? <p className="chat-completion-summary">{completionSummary}</p> : null}
@@ -137,7 +143,9 @@ export function ChatBar({
           );
         })
       )}
-      {chatLoading ? <p className="muted">Thinking…</p> : null}
+      {chatLoading && !chatMessages.some((m) => m.role === "ai" && m.streaming) ? (
+        <p className="muted">Thinking…</p>
+      ) : null}
       {chatError ? <p className="error">{chatError}</p> : null}
       {compact ? null : <div ref={logEndRef} />}
     </>

@@ -14,4 +14,16 @@ describe('ChatMarkdownBody', () => {
     ).toBeTruthy();
     expect(screen.getByTestId('md')).toHaveTextContent('# Hi');
   });
+
+  it('renders plain text while streaming without markdown', () => {
+    const { container } = render(<ChatMarkdownBody content="partial" streaming />);
+    expect(
+      container.querySelector('.supply-chain-perspective__dashboard-chat-md-plain'),
+    ).toBeTruthy();
+    expect(
+      container.querySelector('.supply-chain-perspective__dashboard-chat-stream-cursor'),
+    ).toBeTruthy();
+    expect(screen.queryByTestId('md')).toBeNull();
+    expect(screen.getByText(/partial/)).toBeInTheDocument();
+  });
 });

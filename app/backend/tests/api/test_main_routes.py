@@ -1,5 +1,6 @@
 """Flask ``main`` routes and ``list_vector_stores_safe``."""
 
+import json
 from io import BytesIO
 from unittest.mock import MagicMock, patch
 
@@ -38,13 +39,55 @@ def test_get_state(flask_client):
     assert rv.get_json() == app_main.dashboard_service.get_state.return_value
 
 
-def test_post_chat(flask_client, mock_llama_stack_client):
+def _parse_ndjson_response(rv) -> list[dict]:
+    return [json.loads(line) for line in rv.data.decode().splitlines() if line.strip()]
+
+
+def test_post_chat_llm_stream(flask_client, mock_llama_stack_client):
     client, _ = flask_client
     rv = client.post("/api/v1/chat", json={"input": "inventory levels?"})
     assert rv.status_code == 200
-    body = rv.get_json()
-    assert body["answer"] == "mocked answer"
-    mock_llama_stack_client.ask.assert_called()
+    assert "application/x-ndjson" in (rv.content_type or "")
+    events = _parse_ndjson_response(rv)
+    assert events[0]["event"] == "start"
+    assert any(e.get("event") == "token" for e in events)
+    assert events[-1]["event"] == "done"
+    assert events[-1]["answer"] == "Hello world"
+    mock_llama_stack_client.ask_stream.assert_called()
+
+
+def test_post_chat_route(flask_client, mock_llama_stack_client, mock_route_service):
+    mock_route_service.is_route_query.return_value = True
+    mock_route_service.get_optimized_route.return_value = {
+        "answer": "Optimized route.",
+        "routeData": {"type": "optimized_land_route", "coordinates": []},
+    }
+    client, _ = flask_client
+    rv = client.post(
+        "/api/v1/chat",
+        json={"input": "Find the best truck route"},
+    )
+    assert rv.status_code == 200
+    events = _parse_ndjson_response(rv)
+    assert len(events) == 1
+    assert events[0]["event"] == "message"
+    assert events[0]["answer"] == "Optimized route."
+    assert "routeData" in events[0]
+    mock_llama_stack_client.ask_stream.assert_not_called()
+
+
+def test_post_chat_guardrail(flask_client, mock_llama_stack_client):
+    client, _ = flask_client
+    rv = client.post(
+        "/api/v1/chat",
+        json={"input": "best pizza in town"},
+    )
+    assert rv.status_code == 200
+    events = _parse_ndjson_response(rv)
+    assert len(events) == 1
+    assert events[0]["event"] == "message"
+    assert "supply chain" in events[0]["answer"].lower()
+    mock_llama_stack_client.ask_stream.assert_not_called()
 
 
 def test_post_simulate(flask_client):

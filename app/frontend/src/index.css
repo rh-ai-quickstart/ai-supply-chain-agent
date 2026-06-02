@@ -503,6 +503,29 @@ body,
   word-break: break-word;
 }
 
+.chat-md-plain {
+  box-sizing: border-box;
+  width: 100%;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.chat-md-plain--compact {
+  font-size: 0.85rem;
+}
+
+.chat-stream-cursor {
+  display: inline-block;
+  margin-left: 1px;
+  animation: chat-stream-blink 1s step-end infinite;
+}
+
+@keyframes chat-stream-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
 .chat-md {
   box-sizing: border-box;
   width: 100%;

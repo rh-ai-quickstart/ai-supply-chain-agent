@@ -32,11 +32,19 @@ describe("App chat", () => {
     vi.mocked(sendChatMessage).mockReset();
   });
 
-  it("shows the assistant reply in the chat modal after POST /api/v1/chat succeeds", async () => {
-    vi.mocked(sendChatMessage).mockResolvedValue({
-      answer: "Fuel prices vary by region.",
-      completion: { model: "meta-llama/Llama-3.2-1B-Instruct", usage: { total_tokens: 10 } },
-    });
+  it("shows the assistant reply after the chat stream completes", async () => {
+    vi.mocked(sendChatMessage).mockImplementation(
+      async (_input, _history, _vectorStoreId, { onEvent }) => {
+        onEvent({ event: "start" });
+        onEvent({ event: "token", delta: "Fuel prices " });
+        onEvent({ event: "token", delta: "vary by region." });
+        onEvent({
+          event: "done",
+          answer: "Fuel prices vary by region.",
+          completion: { model: "meta-llama/Llama-3.2-1B-Instruct", usage: { total_tokens: 10 } },
+        });
+      },
+    );
 
     const user = userEvent.setup();
     render(<App />);

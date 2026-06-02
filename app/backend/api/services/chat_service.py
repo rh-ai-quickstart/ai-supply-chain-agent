@@ -1,4 +1,5 @@
 import logging
+from collections.abc import Iterator
 from typing import Any, Optional
 
 from clients.llama_stack_client import LlamaStackClient
@@ -36,36 +37,66 @@ class ChatService:
         self.route_service = route_service
         self.vector_store_client = vector_store_client
 
-    def reply(
+    @staticmethod
+    def _message_event(answer: str, **extra: Any) -> dict[str, Any]:
+        return {"event": "message", "answer": answer, "completion": None, **extra}
+
+    def reply_stream(
         self,
         user_input: str,
         chat_history: Optional[list[dict[str, Any]]] = None,
         vector_store_id: Optional[str] = None,
-    ) -> dict:
+    ) -> Iterator[dict[str, Any]]:
+        """Yield NDJSON stream events for chat (guardrail, route, or LLM tokens)."""
         history = chat_history if isinstance(chat_history, list) else []
         latest = self._latest_user_text(history, user_input)
         lowered = (latest or "").lower()
 
         if any(keyword in lowered for keyword in _GUARDRAIL_KEYWORDS):
-            return {"answer": _GUARDRAIL_RESPONSE, "completion": None}
+            yield self._message_event(_GUARDRAIL_RESPONSE)
+            return
 
         if self.route_service.is_route_query(latest):
             out = dict(self.route_service.get_optimized_route(latest))
-            out.setdefault("completion", None)
-            return out
+            yield self._message_event(
+                out.get("answer", ""),
+                routeData=out.get("routeData"),
+                completion=out.get("completion"),
+            )
+            return
 
+        yield from self._stream_llm_reply(latest, history, vector_store_id)
+
+    def _stream_llm_reply(
+        self,
+        latest: str,
+        history: list[dict[str, Any]],
+        vector_store_id: Optional[str],
+    ) -> Iterator[dict[str, Any]]:
         context = self._retrieve_context(latest, vector_store_id=vector_store_id)
         conversation = self._map_chat_history(history)
-        llm_result = self.llama_stack_client.ask(
+        yield {"event": "start"}
+
+        accumulated = ""
+        completion_payload: Any = None
+        for delta, completion_json in self.llama_stack_client.ask_stream(
             latest,
             context=context,
             conversation_messages=conversation,
-        )
-        answer = llm_result.get("answer", "")
-        logger.info("ChatService: answer: %s", answer)
-        return {
+        ):
+            if completion_json is not None:
+                completion_payload = completion_json
+                break
+            if delta:
+                accumulated += delta
+                yield {"event": "token", "delta": delta}
+
+        answer = accumulated.strip() or "Darn! Something went wrong."
+        logger.info("ChatService: stream answer: %s", answer)
+        yield {
+            "event": "done",
             "answer": answer,
-            "completion": llm_result.get("completion"),
+            "completion": completion_payload,
         }
 
     @staticmethod

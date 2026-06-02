@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "./lib/chartSetup";
 import { AlertsPanel } from "./components/AlertsPanel";
 import { ChatBar } from "./components/ChatBar";
@@ -26,6 +26,7 @@ import {
   sendChatMessage,
   triggerWorldEvent,
 } from "./services/dashboardService";
+import { handleChatStreamEvent } from "./utils/handleChatStreamEvent";
 
 function viewFromHash() {
   const raw = window.location.hash.replace(/^#/, "");
@@ -49,6 +50,7 @@ function App() {
   const [vectorStoresError, setVectorStoresError] = useState("");
   const [selectedVectorStoreId, setSelectedVectorStoreId] = useState("");
   const [activeView, setActiveView] = useState(viewFromHash);
+  const chatAbortRef = useRef(null);
   const { dashboardState, loading, error, setDashboardState } = useDashboardState();
 
   const reloadVectorStores = useCallback(async () => {
@@ -114,34 +116,69 @@ function App() {
       return;
     }
 
+    chatAbortRef.current?.abort();
+    const abortController = new AbortController();
+    chatAbortRef.current = abortController;
+
     const humanMessage = { role: "human", content: question };
+    const placeholderAi = {
+      role: "ai",
+      content: "",
+      streaming: true,
+      completion: null,
+    };
     const historyForApi = [...chatMessages, humanMessage];
 
-    setChatMessages(historyForApi);
+    setChatMessages([...historyForApi, placeholderAi]);
     setChatInput("");
     setChatError("");
     setChatLoading(true);
+
+    const updateStreamingMessage = (updater) => {
+      setChatMessages((prev) => {
+        if (prev.length === 0) {
+          return prev;
+        }
+        const next = [...prev];
+        const lastIndex = next.length - 1;
+        const last = next[lastIndex];
+        if (last?.role !== "ai") {
+          return prev;
+        }
+        next[lastIndex] = updater(last);
+        return next;
+      });
+    };
+
     try {
-      const result = await sendChatMessage(
+      await sendChatMessage(
         question,
         historyForApi,
         selectedVectorStoreId.trim() || undefined,
+        {
+          signal: abortController.signal,
+          onEvent: (evt) =>
+            handleChatStreamEvent(evt, {
+              updateStreamingMessage,
+              setChatError,
+              emptyAnswerText: "No response from assistant.",
+              streamFailedText: "Chat stream failed.",
+            }),
+        },
       );
-      const answer =
-        typeof result?.answer === "string" && result.answer.trim()
-          ? result.answer
-          : "No response from assistant.";
-      const aiMessage = {
-        role: "ai",
-        content: answer,
-        completion: result?.completion ?? null,
-      };
-      // Single atomic update so the assistant turn is not lost if an earlier
-      // setChatMessages has not flushed before this runs (seen as empty UI with 200 OK).
-      setChatMessages([...historyForApi, aiMessage]);
-    } catch {
-      setChatError("Failed to send chat request.");
+    } catch (err) {
+      if (err?.name !== "AbortError") {
+        setChatError("Failed to send chat request.");
+        updateStreamingMessage((msg) => ({
+          ...msg,
+          streaming: false,
+          content: msg.content || "Failed to get a response.",
+        }));
+      }
     } finally {
+      if (chatAbortRef.current === abortController) {
+        chatAbortRef.current = null;
+      }
       setChatLoading(false);
     }
   };

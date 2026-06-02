@@ -1,7 +1,9 @@
+import json
 import logging
+from collections.abc import Iterator
 from typing import Any, Optional
 
-from flask import Flask, jsonify, request
+from flask import Flask, Response, jsonify, request, stream_with_context
 from flask_cors import CORS
 
 from clients.llama_stack_client import LlamaStackClient
@@ -15,6 +17,27 @@ from services.simulations_store import append_simulation, load_all as load_simul
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+NDJSON_HEADERS = {"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
+
+
+def ndjson_response(events: Iterator[dict[str, Any]]) -> Response:
+    """Stream newline-delimited JSON objects (one event per line)."""
+
+    def generate():
+        try:
+            for evt in events:
+                yield json.dumps(evt) + "\n"
+        except GeneratorExit:
+            logger.info("NDJSON stream client disconnected")
+            raise
+
+    return Response(
+        stream_with_context(generate()),
+        mimetype="application/x-ndjson",
+        headers=NDJSON_HEADERS,
+    )
+
 
 app = Flask(__name__)
 CORS(app)
@@ -79,13 +102,15 @@ def post_chat():
     chat_history = payload.get("chat_history") or []
     raw_vs = payload.get("vector_store_id") or payload.get("vectorStoreId") or ""
     vector_store_id = str(raw_vs).strip() or None
-    return jsonify(
-        chat_service.reply(
+
+    return ndjson_response(
+        chat_service.reply_stream(
             user_input,
             chat_history=chat_history,
             vector_store_id=vector_store_id,
         )
     )
+
 
 @app.route("/api/v1/knowledge-bases", methods=["GET"])
 def get_knowledge_bases():

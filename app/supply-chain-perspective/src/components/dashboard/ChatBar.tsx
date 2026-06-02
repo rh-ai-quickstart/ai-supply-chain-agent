@@ -144,8 +144,10 @@ export function ChatBar({
         </Content>
       ) : (
         chatMessages.map((message, index) => {
+          const isStreamingAi = message.role === 'ai' && message.streaming;
           const hasCompletion =
             message.role === 'ai' &&
+            !isStreamingAi &&
             message.completion &&
             Object.keys(message.completion).length > 0;
           const completionSummary = hasCompletion
@@ -158,7 +160,11 @@ export function ChatBar({
             >
               {message.role === 'ai' ? (
                 <>
-                  <ChatMarkdownBody content={message.content} compact={compact} />
+                  <ChatMarkdownBody
+                    content={message.content}
+                    compact={compact}
+                    streaming={isStreamingAi}
+                  />
                   {hasCompletion && message.completion ? (
                     <div className="supply-chain-perspective__dashboard-chat-completion-meta">
                       {completionSummary ? (
@@ -185,7 +191,7 @@ export function ChatBar({
           );
         })
       )}
-      {chatLoading ? (
+      {chatLoading && !chatMessages.some((m) => m.role === 'ai' && m.streaming) ? (
         <Content component="p" className="supply-chain-perspective__dashboard-muted">
           {t('Thinking…')}
         </Content>

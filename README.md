@@ -426,7 +426,7 @@ app/
 | `GET` | `/api/v1/state` | Full dashboard state (KPIs, alerts, charts, map) |
 | `POST` | `/api/v1/trigger-event` | Trigger a disruption event for a given map view |
 | `POST` | `/api/v1/simulate` | Run a named scenario with optional route optimization |
-| `POST` | `/api/v1/chat` | RAG-augmented chat with the LLM |
+| `POST` | `/api/v1/chat` | RAG-augmented chat (NDJSON stream: `start`, `token`, `done`, or `message`) |
 
 ### Environment variables
 

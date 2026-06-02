@@ -1,6 +1,7 @@
 import io
 import logging
 import os
+from collections.abc import Iterator
 from typing import Any
 
 from openai import OpenAI
@@ -66,6 +67,40 @@ class LlamaStackClient:
         )
 
     @staticmethod
+    def _build_messages(
+        user_input: str,
+        context: str = "",
+        conversation_messages: list[dict] | None = None,
+    ) -> list[dict]:
+        messages: list[dict] = [{"role": "system", "content": SYSTEM_PROMPT}]
+        if context:
+            messages.append(
+                {
+                    "role": "system",
+                    "content": f"Relevant context from the knowledge base:\n{context}",
+                }
+            )
+        turns = conversation_messages if conversation_messages else []
+        if turns:
+            messages.extend(turns)
+        else:
+            messages.append({"role": "user", "content": user_input})
+        return messages
+
+    @staticmethod
+    def _delta_text_from_chunk(chunk: Any) -> str | None:
+        if not chunk.choices:
+            return None
+        delta = chunk.choices[0].delta
+        if not delta:
+            return None
+        piece = getattr(delta, "content", None)
+        return piece if piece else None
+
+    def _minimal_completion_json(self) -> dict[str, Any]:
+        return {"model": self.model, "usage": None}
+
+    @staticmethod
     def _completion_to_json(completion: Any) -> dict[str, Any]:
         """Serialize an OpenAI ``ChatCompletion`` (or similar) for API responses."""
         if completion is None:
@@ -77,58 +112,51 @@ class LlamaStackClient:
             logger.warning("LlamaStackClient: could not model_dump completion: %s", exc)
             return {"serialization_error": str(exc)}
 
-    def ask(
+    def ask_stream(
         self,
         user_input: str,
         context: str = "",
         conversation_messages: list[dict] | None = None,
-    ) -> dict[str, Any]:
-        """Call the chat completion API.
+    ) -> Iterator[tuple[str, dict[str, Any] | None]]:
+        """Stream chat completion deltas from Llama Stack.
 
-        Returns a dict with ``answer`` (assistant text) and ``completion`` (full
-        JSON-serializable completion payload from the stack, including ``usage``).
+        Yields ``(delta_text, completion_json)`` per chunk. The final yield uses an
+        empty delta and carries the serialized completion (or ``None`` if unavailable).
+        On error, yields a single tuple with the error message as delta and ``None``.
         """
         if not self.base_url:
-            return {
-                "answer": "Something went wrong. There is no endpoint configured.",
-                "completion": None,
-            }
-
-        messages: list[dict] = [{"role": "system", "content": SYSTEM_PROMPT}]
-
-        if context:
-            messages.append(
-                {
-                    "role": "system",
-                    "content": f"Relevant context from the knowledge base:\n{context}",
-                }
+            yield (
+                "Something went wrong. There is no endpoint configured.",
+                None,
             )
+            return
 
-        turns = conversation_messages if conversation_messages else []
-        if turns:
-            messages.extend(turns)
-        else:
-            messages.append({"role": "user", "content": user_input})
+        messages = self._build_messages(user_input, context, conversation_messages)
+        last_chunk: Any = None
 
         try:
-            completion = self._client.chat.completions.create(
+            stream = self._client.chat.completions.create(
                 model=self.model,
                 messages=messages,
                 temperature=0.1,
                 timeout=self._timeout,
+                stream=True,
             )
-            logger.info("LlamaStackClient: completion: %s", completion)
-            text = completion.choices[0].message.content or "Darn! Something went wrong."
-            return {
-                "answer": text,
-                "completion": self._completion_to_json(completion),
-            }
+            for chunk in stream:
+                last_chunk = chunk
+                piece = self._delta_text_from_chunk(chunk)
+                if piece:
+                    yield (piece, None)
+
+            completion_json = (
+                self._completion_to_json(last_chunk) if last_chunk is not None else {}
+            )
+            if not completion_json:
+                completion_json = self._minimal_completion_json()
+            yield ("", completion_json)
         except Exception as exc:
-            logger.error("Llama Stack request failed: %s", exc)
-            return {
-                "answer": f"Darn! Something went wrong: {exc}",
-                "completion": None,
-            }
+            logger.error("Llama Stack stream request failed: %s", exc)
+            yield (f"Darn! Something went wrong: {exc}", None)
 
     def list_vector_stores(self, limit: int = 100) -> list[dict[str, Any]]:
         """Return vector stores from LlamaStack (OpenAI-compatible ``/vector_stores``)."""

@@ -100,16 +100,18 @@ log "PASS backend GET /api/v1/state"
 
 GUARD=$(curl -sf --max-time "${CURL_MAX_TIME}" -X POST "http://127.0.0.1:${BACKEND_PF_PORT}/api/v1/chat" \
   -H 'Content-Type: application/json' \
+  -H 'Accept: application/x-ndjson' \
   -d '{"input":"Where is the best pizza?","chat_history":[]}')
-body_contains 'answer' "${GUARD}" || fail "POST /api/v1/chat (guardrail) missing answer"
+body_contains '"event": "message"' "${GUARD}" || fail "POST /api/v1/chat (guardrail) missing message event"
 body_contains_ci 'supply chain' "${GUARD}" || fail "guardrail response unexpected: ${GUARD}"
-log "PASS backend POST /api/v1/chat (off-topic guardrail)"
+log "PASS backend POST /api/v1/chat (off-topic guardrail, NDJSON)"
 
 ROUTE=$(curl -sf --max-time "${CURL_MAX_TIME}" -X POST "http://127.0.0.1:${BACKEND_PF_PORT}/api/v1/chat" \
   -H 'Content-Type: application/json' \
+  -H 'Accept: application/x-ndjson' \
   -d '{"input":"Find the best truck route","chat_history":[]}')
 body_contains 'routeData' "${ROUTE}" || fail "route chat response missing routeData: ${ROUTE}"
-log "PASS backend POST /api/v1/chat (route optimization)"
+log "PASS backend POST /api/v1/chat (route optimization, NDJSON)"
 
 log "Port-forward frontend Service"
 kubectl port-forward -n "${NAMESPACE}" "svc/${HELM_RELEASE}-frontend" \

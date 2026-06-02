@@ -18,7 +18,7 @@ vi.mock("./services/dashboardService", () => ({
   getVectorStores: vi.fn(() => Promise.resolve({ vector_stores: [] })),
   triggerWorldEvent: vi.fn(() => Promise.resolve({})),
   runSimulation: vi.fn(() => Promise.resolve({})),
-  sendChatMessage: vi.fn(() => Promise.resolve({ answer: "ok" })),
+  sendChatMessage: vi.fn(() => Promise.resolve()),
 }));
 
 describe("App", () => {
