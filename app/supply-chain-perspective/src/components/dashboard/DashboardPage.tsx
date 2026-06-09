@@ -20,6 +20,8 @@ export default function DashboardPage() {
   const {
     isLightTheme,
     setIsLightTheme,
+    optimize,
+    setOptimize,
     mapView,
     setMapView,
     simulationLoading,
@@ -79,6 +81,8 @@ export default function DashboardPage() {
                 <GridItem md={3} span={12}>
                   <SimulationPanel
                     mapView={mapView}
+                    optimize={optimize}
+                    onOptimizeChange={setOptimize}
                     onRunScenario={handleRunScenario}
                     onTriggerEvent={handleTriggerEvent}
                     simulationLoading={simulationLoading}

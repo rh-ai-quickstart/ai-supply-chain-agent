@@ -1,4 +1,5 @@
 import logging
+import os
 from typing import Any, Optional
 
 from flask import Flask, jsonify, request
@@ -40,10 +41,13 @@ def list_vector_stores_safe(chat_service: Any) -> tuple[list[dict[str, Any]], Op
         logger.warning("list_vector_stores failed: %s", exc)
         return ([], str(exc))
 
+_openai_model = os.getenv("LLAMA_STACK_OPENAI_MODEL", "claude-3-5-haiku-20241022")
+
 chat_service = ChatService(
-    LlamaStackClient(),
+    LlamaStackClient(label="vllm"),
     RouteService(),
     vector_store_client=_vector_store_client,
+    openai_client=LlamaStackClient(model=_openai_model, label="openai"),
 )
 
 
@@ -79,11 +83,13 @@ def post_chat():
     chat_history = payload.get("chat_history") or []
     raw_vs = payload.get("vector_store_id") or payload.get("vectorStoreId") or ""
     vector_store_id = str(raw_vs).strip() or None
+    use_vllm = bool(payload.get("use_vllm", True))
     return jsonify(
         chat_service.reply(
             user_input,
             chat_history=chat_history,
             vector_store_id=vector_store_id,
+            use_vllm=use_vllm,
         )
     )
 

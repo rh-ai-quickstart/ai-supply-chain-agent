@@ -23,7 +23,7 @@ llama-stack:
 
 llm-service:
   enabled: true
-  device: cpu # Change to gpu (Change #models.llama-3-2-1b-instruct.device to gpu if you change this)
+  device: gpu # Change to gpu (Change #models.llama-3-2-1b-instruct.device to gpu if you change this)
   secret:
     # Required: set your Hugging Face token (https://huggingface.co/settings/tokens) for gated models.
     hf_token: ""
@@ -31,7 +31,7 @@ llm-service:
   models:
     llama-3-2-1b-instruct:
       enabled: true
-      device: cpu # Change to gpu for better performance
+      device: gpu # Change to gpu for better performance
 
 imagePullSecrets: []
 
@@ -39,7 +39,7 @@ backend:
   enabled: true
   replicaCount: 1
   image:
-    repository: quay.io/rh-ai-quickstart/ai-supply-chain-agent-backend
+    repository: quay.io/robertsandoval/supply-chain-backend
     tag: latest
     pullPolicy: Always
   service:
@@ -57,6 +57,9 @@ backend:
     # OpenAI client timeout (seconds) for chat and vector-store API calls.
     LLAMA_STACK_TIMEOUT_SECONDS: "300"
     EMBED_MODEL: all-MiniLM-L6-v2
+    # Model ID registered in Llama Stack used when "Enable vLLM & LLM-D" is unchecked.
+    # Must match a model that Llama Stack has registered (e.g. an Anthropic provider model).
+    LLAMA_STACK_OPENAI_MODEL: claude-3-5-haiku-20241022
     # PG_ prefix avoids collision with the Kubernetes service-discovery
     # variable PGVECTOR_PORT=tcp://ip:port that is auto-injected for the
     # pgvector Service, which would corrupt SQLAlchemy URL parsing.
@@ -92,7 +95,7 @@ frontend:
   enabled: true
   replicaCount: 1
   image:
-    repository: quay.io/rh-ai-quickstart/ai-supply-chain-agent-frontend
+    repository: quay.io/robertsandoval/supply-chain-frontend
     tag: latest
     pullPolicy: Always
   service:

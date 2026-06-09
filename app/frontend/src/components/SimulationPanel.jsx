@@ -1,14 +1,12 @@
-import { useState } from "react";
-
 export function SimulationPanel({
   mapView,
+  optimize,
+  onOptimizeChange,
   onRunScenario,
   onTriggerEvent,
   simulationLoading,
   simulationError,
 }) {
-  const [optimize, setOptimize] = useState(false);
-
   const handleRun = (scenario) => {
     onRunScenario({ scenario, optimize });
   };
@@ -21,7 +19,7 @@ export function SimulationPanel({
         <input
           type="checkbox"
           checked={optimize}
-          onChange={(event) => setOptimize(event.target.checked)}
+          onChange={(event) => onOptimizeChange(event.target.checked)}
         />
         Enable vLLM & LLM-D
       </label>

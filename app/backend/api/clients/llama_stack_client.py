@@ -38,11 +38,17 @@ def timeout_seconds_from_env(default: int = _DEFAULT_TIMEOUT_SECONDS) -> int:
 class LlamaStackClient:
     """OpenAI-compatible client pointed at a Llama Stack server."""
 
-    def __init__(self, timeout_seconds: int | None = None):
-        self.base_url = os.getenv(
-            "LLAMA_STACK_URL", "http://llamastack:8321"
-        ).rstrip("/") + "/v1/openai/v1"
-        self.model = os.getenv(
+    def __init__(
+        self,
+        timeout_seconds: int | None = None,
+        base_url: str | None = None,
+        model: str | None = None,
+        label: str = "vllm",
+    ):
+        env_url = os.getenv("LLAMA_STACK_URL", "http://llamastack:8321")
+        self.base_url = (base_url or env_url).rstrip("/") + "/v1/openai/v1"
+        self.label = label
+        self.model = model or os.getenv(
             "LLAMA_STACK_MODEL",
             "meta-llama/Llama-3.2-1B-Instruct",
         )
@@ -58,8 +64,9 @@ class LlamaStackClient:
             timeout=self._timeout,
         )
         logger.info(
-            "LlamaStackClient: base_url=%s model=%s timeout=%ss "
+            "LlamaStackClient[%s]: base_url=%s model=%s timeout=%ss "
             "(LLAMA_STACK_TIMEOUT_SECONDS for slow inference)",
+            self.label,
             self.base_url,
             self.model,
             self._timeout,
@@ -110,6 +117,13 @@ class LlamaStackClient:
         else:
             messages.append({"role": "user", "content": user_input})
 
+        logger.info(
+            "LlamaStackClient[%s]: sending request — base_url=%s model=%s message_count=%d",
+            self.label,
+            self.base_url,
+            self.model,
+            len(messages),
+        )
         try:
             completion = self._client.chat.completions.create(
                 model=self.model,
@@ -117,14 +131,19 @@ class LlamaStackClient:
                 temperature=0.1,
                 timeout=self._timeout,
             )
-            logger.info("LlamaStackClient: completion: %s", completion)
             text = completion.choices[0].message.content or "Darn! Something went wrong."
+            logger.info(
+                "LlamaStackClient[%s]: response received — model=%s finish_reason=%s",
+                self.label,
+                completion.model,
+                completion.choices[0].finish_reason,
+            )
             return {
                 "answer": text,
                 "completion": self._completion_to_json(completion),
             }
         except Exception as exc:
-            logger.error("Llama Stack request failed: %s", exc)
+            logger.error("LlamaStackClient[%s]: request failed: %s", self.label, exc)
             return {
                 "answer": f"Darn! Something went wrong: {exc}",
                 "completion": None,

@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import {
   Button,
   Card,
@@ -16,6 +15,8 @@ import type { MapViewId } from '../../types/dashboard';
 
 export interface SimulationPanelProps {
   mapView: MapViewId;
+  optimize: boolean;
+  onOptimizeChange: (_checked: boolean) => void;
   onRunScenario: (_args: { scenario: string; optimize: boolean }) => void;
   onTriggerEvent: (_selectedMapView: MapViewId) => void;
   simulationLoading: boolean;
@@ -24,13 +25,14 @@ export interface SimulationPanelProps {
 
 export function SimulationPanel({
   mapView,
+  optimize,
+  onOptimizeChange,
   onRunScenario,
   onTriggerEvent,
   simulationLoading,
   simulationError,
 }: SimulationPanelProps) {
   const { t } = useTranslation('plugin__supply-chain-perspective');
-  const [optimize, setOptimize] = useState(false);
 
   const handleRun = (scenario: string) => {
     onRunScenario({ scenario, optimize });
@@ -46,7 +48,7 @@ export function SimulationPanel({
               id="optimize-engine"
               label={t('Enable vLLM & LLM-D')}
               isChecked={optimize}
-              onChange={(_event, checked) => setOptimize(checked)}
+              onChange={(_event, checked) => onOptimizeChange(checked)}
             />
           </FormGroup>
           <FormGroup label={t('Scenario Presets')} fieldId="scenarios">

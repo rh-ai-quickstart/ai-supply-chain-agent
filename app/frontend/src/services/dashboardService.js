@@ -16,10 +16,11 @@ export async function runSimulation({ scenario, optimize }) {
   return apiPost("/api/v1/simulate", { scenario, optimize });
 }
 
-export async function sendChatMessage(input, chatHistory = [], vectorStoreId) {
+export async function sendChatMessage(input, chatHistory = [], vectorStoreId, useVllm = true) {
   const trimmed = vectorStoreId && String(vectorStoreId).trim();
   return apiPost("/api/v1/chat", {
     input,
+    use_vllm: useVllm,
     ...(chatHistory.length ? { chat_history: chatHistory } : {}),
     ...(trimmed ? { vector_store_id: trimmed } : {}),
   });

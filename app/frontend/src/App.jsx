@@ -37,6 +37,7 @@ function viewFromHash() {
 
 function App() {
   const [isLightTheme, setIsLightTheme] = useState(false);
+  const [optimize, setOptimize] = useState(false);
   const [mapView, setMapView] = useState("airFreight");
   const [simulationLoading, setSimulationLoading] = useState(false);
   const [simulationError, setSimulationError] = useState("");
@@ -126,6 +127,7 @@ function App() {
         question,
         historyForApi,
         selectedVectorStoreId.trim() || undefined,
+        optimize,
       );
       const answer =
         typeof result?.answer === "string" && result.answer.trim()
@@ -177,6 +179,8 @@ function App() {
             <main className="dashboard-grid">
               <SimulationPanel
                 mapView={mapView}
+                optimize={optimize}
+                onOptimizeChange={setOptimize}
                 onRunScenario={handleRunScenario}
                 onTriggerEvent={handleTriggerEvent}
                 simulationLoading={simulationLoading}

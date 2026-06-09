@@ -31,8 +31,10 @@ class ChatService:
         llama_stack_client: LlamaStackClient,
         route_service: RouteService,
         vector_store_client: Optional[VectorStoreClient] = None,
+        openai_client: Optional[LlamaStackClient] = None,
     ):
         self.llama_stack_client = llama_stack_client
+        self.openai_client: LlamaStackClient = openai_client or llama_stack_client
         self.route_service = route_service
         self.vector_store_client = vector_store_client
 
@@ -41,6 +43,7 @@ class ChatService:
         user_input: str,
         chat_history: Optional[list[dict[str, Any]]] = None,
         vector_store_id: Optional[str] = None,
+        use_vllm: bool = True,
     ) -> dict:
         history = chat_history if isinstance(chat_history, list) else []
         latest = self._latest_user_text(history, user_input)
@@ -54,15 +57,28 @@ class ChatService:
             out.setdefault("completion", None)
             return out
 
+        client = self.llama_stack_client if use_vllm else self.openai_client
+        logger.info(
+            "ChatService: routing request to LlamaStack[%s] model=%s base_url=%s (use_vllm=%s)",
+            client.label,
+            client.model,
+            client.base_url,
+            use_vllm,
+        )
+
         context = self._retrieve_context(latest, vector_store_id=vector_store_id)
         conversation = self._map_chat_history(history)
-        llm_result = self.llama_stack_client.ask(
+        llm_result = client.ask(
             latest,
             context=context,
             conversation_messages=conversation,
         )
         answer = llm_result.get("answer", "")
-        logger.info("ChatService: answer: %s", answer)
+        logger.info(
+            "ChatService: answer received from LlamaStack[%s] model=%s",
+            client.label,
+            client.model,
+        )
         return {
             "answer": answer,
             "completion": llm_result.get("completion"),
