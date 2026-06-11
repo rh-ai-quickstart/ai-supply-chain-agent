@@ -30,7 +30,7 @@ class VectorStoreClient:
 
         embeddings = OpenAIEmbeddings(
             api_key="not-required",
-            base_url=f"{llama_stack_url}/v1/openai/v1",
+            base_url=f"{llama_stack_url}/v1",
             model=embed_model,
             tiktoken_enabled=False,
             check_embedding_ctx_length=False,

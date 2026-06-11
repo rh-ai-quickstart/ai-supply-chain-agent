@@ -1,0 +1,17 @@
+global:
+  models:
+    external-model:
+      enabled: true
+      # id, url and apiToken set at deploy time via --set
+    llama-3-2-1b-instruct:
+      enabled: false
+
+llm-service:
+  enabled: false
+
+llama-stack:
+  enabled: true
+  rawDeploymentMode: true
+  pgvector:
+    enabled: true
+  secrets: {}

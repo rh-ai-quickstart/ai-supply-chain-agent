@@ -19,7 +19,7 @@ class LlamaStackVectorStoreClient:
     def __init__(self) -> None:
         base_url = os.getenv(
             "LLAMA_STACK_URL", "http://llamastack:8321"
-        ).rstrip("/") + "/v1/openai/v1"
+        ).rstrip("/") + "/v1"
 
         self._client = OpenAI(
             api_key="not-required",

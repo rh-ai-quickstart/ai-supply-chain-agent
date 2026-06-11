@@ -8,6 +8,8 @@ An AI-powered supply chain intelligence dashboard that combines real-time logist
 - [Architecture diagrams](#architecture-diagrams)
 - [Requirements](#requirements)
 - [Deploy](#deploy)
+  - [Option A: Local CPU/GPU](#option-a-local-cpugpu)
+  - [Option B: External GPU model](#option-b-external-gpu-model)
 - [References](#references)
 - [Technical details](#technical-details)
 - [Tags](#tags)
@@ -181,6 +183,11 @@ Defaults used below (overridable on `make`, e.g. `make helm-install NAMESPACE=my
 
 Run `make help` for the full target list.
 
+For step 4, choose one of two deployment options:
+
+- **[Option A](#option-a-local-cpugpu)** — deploy with a local LLM (CPU or GPU via KServe). Requires a Hugging Face token.
+- **[Option B](#option-b-external-gpu-model)** — point the quickstart at an external vLLM-compatible endpoint. No local model deployment required.
+
 ### 1. Clone the repository
 
 ```bash
@@ -227,6 +234,8 @@ make helm-deps
 
 ### 4. Deploy the application
 
+#### Option A: Local CPU/GPU
+
 **Helm (install or upgrade):**
 
 ```bash
@@ -260,6 +269,35 @@ The umbrella chart in `helm/` deploys:
 - **PGVector** — PostgreSQL + pgvector (subchart)
 - **Llama Stack** + **LLM service** — inference (subcharts)
 - **Ingest Job** — optional post-install job (`ingest.enabled`) that loads the knowledge base
+
+#### Option B: External GPU model
+
+If you have an external vLLM-compatible inference endpoint (for example, a model already deployed on a GPU cluster or a managed inference service), you can point the quickstart at it instead of deploying a local LLM service.
+
+Use `helm/gpu-values.yaml` as your values file.
+
+**Helm (install or upgrade):**
+
+```bash
+helm upgrade --install supply-chain-dashboard ./helm \
+  -f helm/gpu-values.yaml \
+  --set global.models.external-model.id=<your-model-id> \
+  --set global.models.external-model.url=https://<your-endpoint>/v1 \
+  --set global.models.external-model.apiToken=<your-token> \
+  --set llama-stack.secrets.EXTERNAL_MODEL_API_TOKEN=<your-token> \
+  --set backend.env.LLAMA_STACK_MODEL=external-model/<your-model-id> \
+  --namespace supply-chain-dashboard \
+  --create-namespace \
+  --wait \
+  --timeout 10m
+```
+
+Replace:
+- `<your-model-id>` — the model ID as served by your endpoint (e.g. `meta-llama/Llama-3.1-8B-Instruct`)
+- `https://<your-endpoint>/v1` — the base URL of your vLLM-compatible inference endpoint
+- `<your-token>` — your API token; passed twice: once as `apiToken` for the init container health check, and once into the `llama-stack-env` Secret for LlamaStack runtime use
+
+Once deployed, continue from [step 5](#5-access-the-dashboard).
 
 ### 5. Access the dashboard
 

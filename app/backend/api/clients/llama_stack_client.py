@@ -50,7 +50,7 @@ class LlamaStackClient:
         self.label = label
         self.model = model or os.getenv(
             "LLAMA_STACK_MODEL",
-            "meta-llama/Llama-3.2-1B-Instruct",
+            "llama-3-2-1b-instruct/meta-llama/Llama-3.2-1B-Instruct",
         )
         self._timeout = (
             timeout_seconds

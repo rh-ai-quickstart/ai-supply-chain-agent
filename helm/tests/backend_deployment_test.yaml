@@ -10,7 +10,7 @@ tests:
       backend.enabled: true
       backend.pgvectorSecretName: pgvector
       backend.env.LLAMA_STACK_URL: "http://llamastack.example:8321"
-      backend.env.LLAMA_STACK_MODEL: "meta-llama/Llama-3.2-1B-Instruct"
+      backend.env.LLAMA_STACK_MODEL: "llama-3-2-1b-instruct/meta-llama/Llama-3.2-1B-Instruct"
       backend.env.EMBED_MODEL: "all-MiniLM-L6-v2"
       backend.env.PG_HOST: pgvector
       backend.env.PG_PORT: "5432"
