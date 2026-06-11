@@ -147,7 +147,7 @@ else
   do
     oc get -n openshift-machine-api "$MACHINESET" -o json | jq --arg INSTANCE_TYPE "$INSTANCE_TYPE" --arg NEW_NAME "$NEW_NAME" --arg ACCELERATOR_LABEL "$ACCELERATOR_LABEL" --arg SPOT_MARKET_OPTIONS "$SPOT_MARKET_OPTIONS" --argjson DISK_SIZE "$DISK_SIZE" '
         (.metadata.name) |= $NEW_NAME |
-        (.spec.selector.matchLab:els["machine.openshift.io/cluster-api-machineset"]) |= $NEW_NAME |
+        (.spec.selector.matchLabels["machine.openshift.io/cluster-api-machineset"]) |= $NEW_NAME |
         (.spec.template.metadata.labels["machine.openshift.io/cluster-api-machineset"]) |= $NEW_NAME |
         (.spec.template.spec.providerSpec.value.instanceType) |= $INSTANCE_TYPE |
         (.spec.template.spec.providerSpec.value.blockDevices) |= [
