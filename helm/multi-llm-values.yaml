@@ -41,7 +41,7 @@ backend:
   enabled: true
   replicaCount: 1
   image:
-    repository: quay.io/robertsandoval/supply-chain-backend
+    repository: quay.io/rh-ai-quickstart/ai-supply-chain-agent-backend
     tag: latest
     pullPolicy: Always
   service:
@@ -94,7 +94,7 @@ frontend:
   enabled: true
   replicaCount: 1
   image:
-    repository: quay.io/robertsandoval/supply-chain-frontend
+    repository: quay.io/rh-ai-quickstart/ai-supply-chain-agent-frontend
     tag: latest
     pullPolicy: Always
   service:
