@@ -16,6 +16,8 @@ tests:
       backend.env.PG_PORT: "5432"
       backend.env.PG_USER: postgres
       backend.env.PG_DB: blueprint
+      global.models.llama-3-2-1b-instruct.enabled: true
+      global.models.external-model.id: "gpt-4o-mini"
     asserts:
       - isKind:
           of: Deployment
@@ -32,6 +34,11 @@ tests:
           content:
             name: LLAMA_STACK_TIMEOUT_SECONDS
             value: "300"
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: LLAMA_STACK_OPENAI_MODEL
+            value: "external-model/gpt-4o-mini"
       - contains:
           path: spec.template.spec.containers[0].env
           content:
