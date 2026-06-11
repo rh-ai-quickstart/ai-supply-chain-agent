@@ -46,7 +46,7 @@ class LlamaStackClient:
         label: str = "vllm",
     ):
         env_url = os.getenv("LLAMA_STACK_URL", "http://llamastack:8321")
-        self.base_url = (base_url or env_url).rstrip("/") + "/v1/openai/v1"
+        self.base_url = (base_url or env_url).rstrip("/") + "/v1"
         self.label = label
         self.model = model or os.getenv(
             "LLAMA_STACK_MODEL",
