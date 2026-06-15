@@ -41,13 +41,13 @@ def list_vector_stores_safe(chat_service: Any) -> tuple[list[dict[str, Any]], Op
         logger.warning("list_vector_stores failed: %s", exc)
         return ([], str(exc))
 
-_openai_model = os.environ["LLAMA_STACK_OPENAI_MODEL"]
+_openai_model = os.getenv("LLAMA_STACK_OPENAI_MODEL")
 
 chat_service = ChatService(
     LlamaStackClient(label="vllm"),
     RouteService(),
     vector_store_client=_vector_store_client,
-    openai_client=LlamaStackClient(model=_openai_model, label="openai"),
+    openai_client=LlamaStackClient(model=_openai_model, label="openai") if _openai_model else None,
 )
 
 

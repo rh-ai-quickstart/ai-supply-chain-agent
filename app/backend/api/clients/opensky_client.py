@@ -13,10 +13,10 @@ logger = logging.getLogger(__name__)
 
 
 class OpenSkyClient:
-    """Fetches `/api/states/all` with a short-lived in-memory cache."""
+    """Fetches `/api/states/all` with a 5-minute in-memory cache."""
 
     OPEN_SKY_URL = "https://opensky-network.org/api/states/all"
-    CACHE_DURATION_SECONDS = 360
+    CACHE_DURATION_SECONDS = 5 * 60
 
     def __init__(self, session: requests.Session | None = None) -> None:
         self._session = session or requests.Session()
@@ -34,23 +34,21 @@ class OpenSkyClient:
             ):
                 return self._cached_states
 
-        try:
-            logger.info("OpenSkyClient: requesting %s", self.OPEN_SKY_URL)
-            response = self._session.get(self.OPEN_SKY_URL, timeout=8)
-            if response.status_code == 200:
-                data = response.json()
-                states = data.get("states", [])
-                with self._lock:
+            try:
+                logger.info("OpenSkyClient: requesting %s", self.OPEN_SKY_URL)
+                response = self._session.get(self.OPEN_SKY_URL, timeout=2)
+                if response.status_code == 200:
+                    data = response.json()
+                    states = data.get("states", [])
                     self._cached_states = states
                     self._last_fetch = time.time()
                     logger.info("OpenSkyClient: cached %s flights", len(states))
-                return states
-            logger.warning(
-                "OpenSkyClient: HTTP %s (using cache if present)",
-                response.status_code,
-            )
-        except Exception as exc:
-            logger.warning("OpenSkyClient: error %s (using cache if present)", exc)
+                    return states
+                logger.warning(
+                    "OpenSkyClient: HTTP %s (using cache if present)",
+                    response.status_code,
+                )
+            except Exception as exc:
+                logger.warning("OpenSkyClient: error %s (using cache if present)", exc)
 
-        with self._lock:
             return self._cached_states

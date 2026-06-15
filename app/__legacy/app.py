@@ -71,7 +71,7 @@ opensky_cache = {
     "data": None,
     "last_fetch": 0
 }
-CACHE_DURATION_SECONDS = 360 
+CACHE_DURATION_SECONDS = 5 * 60
 
 current_simulated_event = {
     "event": None,
@@ -257,7 +257,7 @@ class MCPAgent:
         try:
             print("MCP Agent: Contacting OpenSky API...")
             # Timeout set to 8s for reliability
-            response = requests.get(OPEN_SKY_URL, timeout=8) 
+            response = requests.get(OPEN_SKY_URL, timeout=2) 
             if response.status_code == 200:
                 data = response.json()
                 opensky_cache["data"] = data.get('states', [])

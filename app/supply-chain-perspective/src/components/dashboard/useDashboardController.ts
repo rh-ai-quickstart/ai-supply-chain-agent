@@ -23,7 +23,7 @@ import {
   toSystemHealthMetrics,
 } from './chartMappers';
 
-const REFRESH_INTERVAL_MS = 15000;
+const REFRESH_INTERVAL_MS = 60 * 5 * 1000; // 5 minutes
 
 export function useDashboardController() {
   const { t } = useTranslation('plugin__supply-chain-perspective');

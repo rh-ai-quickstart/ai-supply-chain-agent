@@ -1,0 +1,1712 @@
+{
+    "alerts": {
+      "airFreight": [
+        {
+          "text": "OpenSky connection slow. Displaying predicted flight paths.",
+          "type": "warning"
+        }
+      ],
+      "global": [
+        {
+          "text": "System nominal. All sea routes clear.",
+          "type": "info"
+        }
+      ],
+      "regional": [
+        {
+          "text": "Chicago DC approaching 85% capacity.",
+          "type": "warning"
+        }
+      ]
+    },
+    "charts": {
+      "demand": {
+        "actual": [
+          59,
+          42,
+          49,
+          42,
+          41,
+          54,
+          48,
+          60,
+          45,
+          52,
+          52,
+          55
+        ],
+        "annotation": null,
+        "forecast": [
+          40,
+          49,
+          44,
+          40,
+          41,
+          46,
+          54,
+          44,
+          50,
+          43,
+          45,
+          51
+        ],
+        "labels": [
+          "W1",
+          "W2",
+          "W3",
+          "W4",
+          "W5",
+          "W6",
+          "W7",
+          "W8",
+          "W9",
+          "W10",
+          "W11",
+          "W12"
+        ]
+      },
+      "revenue": {
+        "colors": [
+          "green",
+          "green",
+          "red",
+          "green",
+          "green"
+        ],
+        "marginData": [
+          30,
+          23,
+          33,
+          23,
+          23
+        ],
+        "revenueData": [
+          103,
+          106,
+          95,
+          105,
+          108
+        ]
+      }
+    },
+    "kpis": {
+      "inStock": {
+        "value": "94%"
+      },
+      "lostSales": {
+        "value": "$0.2M"
+      },
+      "onTime": {
+        "value": "96%"
+      },
+      "reorderPoint": {
+        "value": "22%"
+      },
+      "turnover": {
+        "value": "4.8x"
+      }
+    },
+    "mapData": {
+      "airFreight": {
+        "assets": [
+          {
+            "altitude_ft": "34962 ft",
+            "cargo": "Mixed Freight",
+            "id": "sim-cargo-0",
+            "is_live": true,
+            "lat": 58.237728743341144,
+            "lng": -3.5955235963179675,
+            "name": "ATLAS1883 (Sim)",
+            "routeId": null,
+            "speed": "566 mph",
+            "track": 212
+          },
+          {
+            "altitude_ft": "33797 ft",
+            "cargo": "Mixed Freight",
+            "id": "sim-cargo-1",
+            "is_live": true,
+            "lat": 44.31676608866256,
+            "lng": -64.84221521986275,
+            "name": "AMZ7381 (Sim)",
+            "routeId": null,
+            "speed": "533 mph",
+            "track": 179
+          },
+          {
+            "altitude_ft": "33705 ft",
+            "cargo": "Mixed Freight",
+            "id": "sim-cargo-2",
+            "is_live": true,
+            "lat": 54.713509670966246,
+            "lng": -137.93317629622968,
+            "name": "PAC9378 (Sim)",
+            "routeId": null,
+            "speed": "591 mph",
+            "track": 90
+          },
+          {
+            "altitude_ft": "36025 ft",
+            "cargo": "Mixed Freight",
+            "id": "sim-cargo-3",
+            "is_live": true,
+            "lat": 39.55628832163997,
+            "lng": -99.88307791521405,
+            "name": "BOX5123 (Sim)",
+            "routeId": null,
+            "speed": "574 mph",
+            "track": 344
+          },
+          {
+            "altitude_ft": "39069 ft",
+            "cargo": "Mixed Freight",
+            "id": "sim-cargo-4",
+            "is_live": true,
+            "lat": 44.91901562189756,
+            "lng": -76.09152355692684,
+            "name": "KLM7913 (Sim)",
+            "routeId": null,
+            "speed": "557 mph",
+            "track": 113
+          },
+          {
+            "altitude_ft": "39920 ft",
+            "cargo": "Mixed Freight",
+            "id": "sim-cargo-5",
+            "is_live": true,
+            "lat": 32.963368047664545,
+            "lng": 124.85635975782235,
+            "name": "UAL7059 (Sim)",
+            "routeId": null,
+            "speed": "544 mph",
+            "track": 164
+          },
+          {
+            "altitude_ft": "40235 ft",
+            "cargo": "Mixed Freight",
+            "id": "sim-cargo-6",
+            "is_live": true,
+            "lat": 16.38062697968393,
+            "lng": 104.70037990168126,
+            "name": "GTI7433 (Sim)",
+            "routeId": null,
+            "speed": "575 mph",
+            "track": 141
+          },
+          {
+            "altitude_ft": "30507 ft",
+            "cargo": "Mixed Freight",
+            "id": "sim-cargo-7",
+            "is_live": true,
+            "lat": 42.20566718274963,
+            "lng": -96.78154716290227,
+            "name": "SAS3398 (Sim)",
+            "routeId": null,
+            "speed": "537 mph",
+            "track": 77
+          },
+          {
+            "altitude_ft": "32507 ft",
+            "cargo": "Mixed Freight",
+            "id": "sim-cargo-8",
+            "is_live": true,
+            "lat": 62.68862647207392,
+            "lng": -2.006179222174243,
+            "name": "CKS8576 (Sim)",
+            "routeId": null,
+            "speed": "503 mph",
+            "track": 26
+          },
+          {
+            "altitude_ft": "31782 ft",
+            "cargo": "Mixed Freight",
+            "id": "sim-cargo-9",
+            "is_live": true,
+            "lat": 33.43269861220656,
+            "lng": 64.26001174733612,
+            "name": "UAL7842 (Sim)",
+            "routeId": null,
+            "speed": "527 mph",
+            "track": 105
+          },
+          {
+            "altitude_ft": "34378 ft",
+            "cargo": "Mixed Freight",
+            "id": "sim-cargo-10",
+            "is_live": true,
+            "lat": 57.005324350234396,
+            "lng": -150.78858542856776,
+            "name": "CES9876 (Sim)",
+            "routeId": null,
+            "speed": "454 mph",
+            "track": 100
+          },
+          {
+            "altitude_ft": "30778 ft",
+            "cargo": "Mixed Freight",
+            "id": "sim-cargo-11",
+            "is_live": true,
+            "lat": 30.13503302398675,
+            "lng": -125.62713721996766,
+            "name": "PAC3242 (Sim)",
+            "routeId": null,
+            "speed": "568 mph",
+            "track": 80
+          },
+          {
+            "altitude_ft": "35526 ft",
+            "cargo": "Mixed Freight",
+            "id": "sim-cargo-12",
+            "is_live": true,
+            "lat": 18.40271220869647,
+            "lng": 100.41870285888469,
+            "name": "SIA1994 (Sim)",
+            "routeId": null,
+            "speed": "543 mph",
+            "track": 37
+          },
+          {
+            "altitude_ft": "38965 ft",
+            "cargo": "Mixed Freight",
+            "id": "sim-cargo-13",
+            "is_live": true,
+            "lat": 51.58925855970594,
+            "lng": -70.01032300814829,
+            "name": "UPS3566 (Sim)",
+            "routeId": null,
+            "speed": "515 mph",
+            "track": 121
+          },
+          {
+            "altitude_ft": "31382 ft",
+            "cargo": "Mixed Freight",
+            "id": "sim-cargo-14",
+            "is_live": true,
+            "lat": 42.581143218226416,
+            "lng": -111.287544891921,
+            "name": "SAS560 (Sim)",
+            "routeId": null,
+            "speed": "530 mph",
+            "track": 224
+          },
+          {
+            "altitude_ft": "40108 ft",
+            "cargo": "Mixed Freight",
+            "id": "sim-cargo-15",
+            "is_live": true,
+            "lat": 3.4639847440201166,
+            "lng": 92.28035832571825,
+            "name": "DHL9649 (Sim)",
+            "routeId": null,
+            "speed": "528 mph",
+            "track": 290
+          },
+          {
+            "altitude_ft": "31844 ft",
+            "cargo": "Mixed Freight",
+            "id": "sim-cargo-16",
+            "is_live": true,
+            "lat": 62.33640564040739,
+            "lng": -10.603227399970255,
+            "name": "UAL965 (Sim)",
+            "routeId": null,
+            "speed": "507 mph",
+            "track": 292
+          },
+          {
+            "altitude_ft": "30961 ft",
+            "cargo": "Mixed Freight",
+            "id": "sim-cargo-17",
+            "is_live": true,
+            "lat": 12.490575623371946,
+            "lng": 122.8263697918511,
+            "name": "ATLAS6917 (Sim)",
+            "routeId": null,
+            "speed": "491 mph",
+            "track": 263
+          },
+          {
+            "altitude_ft": "39168 ft",
+            "cargo": "Mixed Freight",
+            "id": "sim-cargo-18",
+            "is_live": true,
+            "lat": 31.30220751114041,
+            "lng": -88.38675608345966,
+            "name": "SIA248 (Sim)",
+            "routeId": null,
+            "speed": "450 mph",
+            "track": 270
+          },
+          {
+            "altitude_ft": "32752 ft",
+            "cargo": "Mixed Freight",
+            "id": "sim-cargo-19",
+            "is_live": true,
+            "lat": 29.4847067630644,
+            "lng": 153.2901109796567,
+            "name": "ABW4919 (Sim)",
+            "routeId": null,
+            "speed": "542 mph",
+            "track": 227
+          },
+          {
+            "altitude_ft": "40554 ft",
+            "cargo": "Mixed Freight",
+            "id": "sim-cargo-20",
+            "is_live": true,
+            "lat": 19.40778288373123,
+            "lng": 41.05496428567426,
+            "name": "UPS3661 (Sim)",
+            "routeId": null,
+            "speed": "473 mph",
+            "track": 166
+          },
+          {
+            "altitude_ft": "37711 ft",
+            "cargo": "Mixed Freight",
+            "id": "sim-cargo-21",
+            "is_live": true,
+            "lat": 29.997754627255887,
+            "lng": -83.87112132138182,
+            "name": "AMZ8296 (Sim)",
+            "routeId": null,
+            "speed": "586 mph",
+            "track": 285
+          },
+          {
+            "altitude_ft": "34186 ft",
+            "cargo": "Mixed Freight",
+            "id": "sim-cargo-22",
+            "is_live": true,
+            "lat": -10.451624155882023,
+            "lng": 88.7380659361581,
+            "name": "UAE2352 (Sim)",
+            "routeId": null,
+            "speed": "458 mph",
+            "track": 213
+          },
+          {
+            "altitude_ft": "31372 ft",
+            "cargo": "Mixed Freight",
+            "id": "sim-cargo-23",
+            "is_live": true,
+            "lat": 31.26848619302779,
+            "lng": -85.53053285137618,
+            "name": "PAC7237 (Sim)",
+            "routeId": null,
+            "speed": "512 mph",
+            "track": 59
+          },
+          {
+            "altitude_ft": "41364 ft",
+            "cargo": "Mixed Freight",
+            "id": "sim-cargo-24",
+            "is_live": true,
+            "lat": 33.40620720276179,
+            "lng": 142.01975425132946,
+            "name": "CKS1676 (Sim)",
+            "routeId": null,
+            "speed": "475 mph",
+            "track": 353
+          },
+          {
+            "altitude_ft": "38036 ft",
+            "cargo": "Mixed Freight",
+            "id": "sim-cargo-25",
+            "is_live": true,
+            "lat": 7.48236149448465,
+            "lng": 118.86262176037911,
+            "name": "AFR8771 (Sim)",
+            "routeId": null,
+            "speed": "471 mph",
+            "track": 279
+          },
+          {
+            "altitude_ft": "37752 ft",
+            "cargo": "Mixed Freight",
+            "id": "sim-cargo-26",
+            "is_live": true,
+            "lat": 32.89958485566894,
+            "lng": 53.35364201611165,
+            "name": "AAL892 (Sim)",
+            "routeId": null,
+            "speed": "468 mph",
+            "track": 95
+          },
+          {
+            "altitude_ft": "34170 ft",
+            "cargo": "Mixed Freight",
+            "id": "sim-cargo-27",
+            "is_live": true,
+            "lat": 31.14846682019055,
+            "lng": 127.91757691792138,
+            "name": "UAE381 (Sim)",
+            "routeId": null,
+            "speed": "510 mph",
+            "track": 269
+          },
+          {
+            "altitude_ft": "38721 ft",
+            "cargo": "Mixed Freight",
+            "id": "sim-cargo-28",
+            "is_live": true,
+            "lat": 10.029085513458465,
+            "lng": 104.88909458355025,
+            "name": "UAE2905 (Sim)",
+            "routeId": null,
+            "speed": "453 mph",
+            "track": 339
+          },
+          {
+            "altitude_ft": "39926 ft",
+            "cargo": "Mixed Freight",
+            "id": "sim-cargo-29",
+            "is_live": true,
+            "lat": 38.61578855955101,
+            "lng": 18.44400916287759,
+            "name": "QFA1024 (Sim)",
+            "routeId": null,
+            "speed": "582 mph",
+            "track": 143
+          },
+          {
+            "altitude_ft": "37105 ft",
+            "cargo": "General Cargo",
+            "id": "sim-gen-0",
+            "is_live": true,
+            "lat": 19.465705379218143,
+            "lng": 111.07191218718512,
+            "name": "FLT1560 (Gen)",
+            "routeId": null,
+            "speed": "541 mph",
+            "track": 110
+          },
+          {
+            "altitude_ft": "34028 ft",
+            "cargo": "General Cargo",
+            "id": "sim-gen-1",
+            "is_live": true,
+            "lat": 38.654857346061895,
+            "lng": -62.82479087729624,
+            "name": "FLT4130 (Gen)",
+            "routeId": null,
+            "speed": "517 mph",
+            "track": 164
+          },
+          {
+            "altitude_ft": "30994 ft",
+            "cargo": "General Cargo",
+            "id": "sim-gen-2",
+            "is_live": true,
+            "lat": 51.47359291121498,
+            "lng": -80.47442548880315,
+            "name": "FLT8745 (Gen)",
+            "routeId": null,
+            "speed": "444 mph",
+            "track": 171
+          },
+          {
+            "altitude_ft": "29863 ft",
+            "cargo": "General Cargo",
+            "id": "sim-gen-3",
+            "is_live": true,
+            "lat": 31.335386859139728,
+            "lng": -9.678328152844696,
+            "name": "FLT6939 (Gen)",
+            "routeId": null,
+            "speed": "441 mph",
+            "track": 181
+          },
+          {
+            "altitude_ft": "34615 ft",
+            "cargo": "General Cargo",
+            "id": "sim-gen-4",
+            "is_live": true,
+            "lat": 67.12514197209141,
+            "lng": 5.796113140288064,
+            "name": "FLT5226 (Gen)",
+            "routeId": null,
+            "speed": "454 mph",
+            "track": 306
+          },
+          {
+            "altitude_ft": "29927 ft",
+            "cargo": "General Cargo",
+            "id": "sim-gen-5",
+            "is_live": true,
+            "lat": 33.14938825051851,
+            "lng": 149.29322283640423,
+            "name": "FLT2849 (Gen)",
+            "routeId": null,
+            "speed": "536 mph",
+            "track": 73
+          },
+          {
+            "altitude_ft": "27320 ft",
+            "cargo": "General Cargo",
+            "id": "sim-gen-6",
+            "is_live": true,
+            "lat": 42.84946692438472,
+            "lng": -8.01431695456503,
+            "name": "FLT7406 (Gen)",
+            "routeId": null,
+            "speed": "429 mph",
+            "track": 49
+          },
+          {
+            "altitude_ft": "36268 ft",
+            "cargo": "General Cargo",
+            "id": "sim-gen-7",
+            "is_live": true,
+            "lat": 56.77826268499498,
+            "lng": 9.456580982395511,
+            "name": "FLT4024 (Gen)",
+            "routeId": null,
+            "speed": "469 mph",
+            "track": 178
+          },
+          {
+            "altitude_ft": "35460 ft",
+            "cargo": "General Cargo",
+            "id": "sim-gen-8",
+            "is_live": true,
+            "lat": 38.98653734669331,
+            "lng": -82.34784876689547,
+            "name": "FLT4002 (Gen)",
+            "routeId": null,
+            "speed": "533 mph",
+            "track": 202
+          },
+          {
+            "altitude_ft": "31142 ft",
+            "cargo": "General Cargo",
+            "id": "sim-gen-9",
+            "is_live": true,
+            "lat": 32.94861671759023,
+            "lng": 134.2615317858171,
+            "name": "FLT4271 (Gen)",
+            "routeId": null,
+            "speed": "484 mph",
+            "track": 197
+          },
+          {
+            "altitude_ft": "26120 ft",
+            "cargo": "General Cargo",
+            "id": "sim-gen-10",
+            "is_live": true,
+            "lat": 26.393393376509486,
+            "lng": -54.750367115153395,
+            "name": "FLT1361 (Gen)",
+            "routeId": null,
+            "speed": "549 mph",
+            "track": 137
+          },
+          {
+            "altitude_ft": "28982 ft",
+            "cargo": "General Cargo",
+            "id": "sim-gen-11",
+            "is_live": true,
+            "lat": 59.140784489214674,
+            "lng": -68.95691707517821,
+            "name": "FLT7069 (Gen)",
+            "routeId": null,
+            "speed": "507 mph",
+            "track": 76
+          },
+          {
+            "altitude_ft": "31185 ft",
+            "cargo": "General Cargo",
+            "id": "sim-gen-12",
+            "is_live": true,
+            "lat": 7.971711079022292,
+            "lng": 62.337722540391155,
+            "name": "FLT6883 (Gen)",
+            "routeId": null,
+            "speed": "432 mph",
+            "track": 252
+          },
+          {
+            "altitude_ft": "34825 ft",
+            "cargo": "General Cargo",
+            "id": "sim-gen-13",
+            "is_live": true,
+            "lat": 37.50028556335299,
+            "lng": 22.920705687214976,
+            "name": "FLT9992 (Gen)",
+            "routeId": null,
+            "speed": "412 mph",
+            "track": 122
+          },
+          {
+            "altitude_ft": "32884 ft",
+            "cargo": "General Cargo",
+            "id": "sim-gen-14",
+            "is_live": true,
+            "lat": 47.98527416200028,
+            "lng": -86.90300902919498,
+            "name": "FLT1787 (Gen)",
+            "routeId": null,
+            "speed": "511 mph",
+            "track": 123
+          },
+          {
+            "altitude_ft": "25681 ft",
+            "cargo": "General Cargo",
+            "id": "sim-gen-15",
+            "is_live": true,
+            "lat": 74.18185339161468,
+            "lng": -152.6266521039325,
+            "name": "FLT7702 (Gen)",
+            "routeId": null,
+            "speed": "483 mph",
+            "track": 36
+          },
+          {
+            "altitude_ft": "35588 ft",
+            "cargo": "General Cargo",
+            "id": "sim-gen-16",
+            "is_live": true,
+            "lat": 64.1010327713128,
+            "lng": -147.5005172474379,
+            "name": "FLT1896 (Gen)",
+            "routeId": null,
+            "speed": "402 mph",
+            "track": 16
+          },
+          {
+            "altitude_ft": "28696 ft",
+            "cargo": "General Cargo",
+            "id": "sim-gen-17",
+            "is_live": true,
+            "lat": 10.891441750443,
+            "lng": 71.9309240542653,
+            "name": "FLT5011 (Gen)",
+            "routeId": null,
+            "speed": "511 mph",
+            "track": 141
+          },
+          {
+            "altitude_ft": "25169 ft",
+            "cargo": "General Cargo",
+            "id": "sim-gen-18",
+            "is_live": true,
+            "lat": 14.00290162443472,
+            "lng": 49.51398064051758,
+            "name": "FLT6133 (Gen)",
+            "routeId": null,
+            "speed": "449 mph",
+            "track": 31
+          },
+          {
+            "altitude_ft": "26521 ft",
+            "cargo": "General Cargo",
+            "id": "sim-gen-19",
+            "is_live": true,
+            "lat": 13.164853113274269,
+            "lng": 119.45143601664626,
+            "name": "FLT2598 (Gen)",
+            "routeId": null,
+            "speed": "441 mph",
+            "track": 83
+          },
+          {
+            "altitude_ft": "28847 ft",
+            "cargo": "General Cargo",
+            "id": "sim-gen-20",
+            "is_live": true,
+            "lat": 52.163899936807745,
+            "lng": 125.25589126372235,
+            "name": "FLT7371 (Gen)",
+            "routeId": null,
+            "speed": "400 mph",
+            "track": 8
+          },
+          {
+            "altitude_ft": "29683 ft",
+            "cargo": "General Cargo",
+            "id": "sim-gen-21",
+            "is_live": true,
+            "lat": 54.50656152733031,
+            "lng": 138.07641526475044,
+            "name": "FLT9195 (Gen)",
+            "routeId": null,
+            "speed": "411 mph",
+            "track": 263
+          },
+          {
+            "altitude_ft": "37877 ft",
+            "cargo": "General Cargo",
+            "id": "sim-gen-22",
+            "is_live": true,
+            "lat": 4.2418142405548345,
+            "lng": 98.85689256329056,
+            "name": "FLT4285 (Gen)",
+            "routeId": null,
+            "speed": "506 mph",
+            "track": 186
+          },
+          {
+            "altitude_ft": "36245 ft",
+            "cargo": "General Cargo",
+            "id": "sim-gen-23",
+            "is_live": true,
+            "lat": 42.86154757059843,
+            "lng": -105.12734551644927,
+            "name": "FLT2469 (Gen)",
+            "routeId": null,
+            "speed": "546 mph",
+            "track": 157
+          },
+          {
+            "altitude_ft": "34802 ft",
+            "cargo": "General Cargo",
+            "id": "sim-gen-24",
+            "is_live": true,
+            "lat": 35.032773996362636,
+            "lng": 156.14717078448106,
+            "name": "FLT1240 (Gen)",
+            "routeId": null,
+            "speed": "464 mph",
+            "track": 40
+          },
+          {
+            "altitude_ft": "28230 ft",
+            "cargo": "General Cargo",
+            "id": "sim-gen-25",
+            "is_live": true,
+            "lat": 27.075373849860142,
+            "lng": -82.87257401143823,
+            "name": "FLT1286 (Gen)",
+            "routeId": null,
+            "speed": "465 mph",
+            "track": 216
+          },
+          {
+            "altitude_ft": "27587 ft",
+            "cargo": "General Cargo",
+            "id": "sim-gen-26",
+            "is_live": true,
+            "lat": 25.51631364574761,
+            "lng": -74.84701177923625,
+            "name": "FLT4206 (Gen)",
+            "routeId": null,
+            "speed": "410 mph",
+            "track": 181
+          },
+          {
+            "altitude_ft": "36222 ft",
+            "cargo": "General Cargo",
+            "id": "sim-gen-27",
+            "is_live": true,
+            "lat": 4.232672653165434,
+            "lng": 115.22425624420585,
+            "name": "FLT3703 (Gen)",
+            "routeId": null,
+            "speed": "453 mph",
+            "track": 279
+          },
+          {
+            "altitude_ft": "35153 ft",
+            "cargo": "General Cargo",
+            "id": "sim-gen-28",
+            "is_live": true,
+            "lat": 23.224730204573923,
+            "lng": -78.168779393503,
+            "name": "FLT7935 (Gen)",
+            "routeId": null,
+            "speed": "548 mph",
+            "track": 27
+          },
+          {
+            "altitude_ft": "28476 ft",
+            "cargo": "General Cargo",
+            "id": "sim-gen-29",
+            "is_live": true,
+            "lat": 44.65832606708257,
+            "lng": -153.38027716039707,
+            "name": "FLT2464 (Gen)",
+            "routeId": null,
+            "speed": "460 mph",
+            "track": 121
+          },
+          {
+            "altitude_ft": "30090 ft",
+            "cargo": "General Cargo",
+            "id": "sim-gen-30",
+            "is_live": true,
+            "lat": 18.863126527569722,
+            "lng": 43.617716391281775,
+            "name": "FLT7089 (Gen)",
+            "routeId": null,
+            "speed": "542 mph",
+            "track": 258
+          },
+          {
+            "altitude_ft": "31681 ft",
+            "cargo": "General Cargo",
+            "id": "sim-gen-31",
+            "is_live": true,
+            "lat": -6.465039873935474,
+            "lng": 100.07136892820098,
+            "name": "FLT768 (Gen)",
+            "routeId": null,
+            "speed": "421 mph",
+            "track": 58
+          },
+          {
+            "altitude_ft": "30126 ft",
+            "cargo": "General Cargo",
+            "id": "sim-gen-32",
+            "is_live": true,
+            "lat": 49.99555009875247,
+            "lng": 121.02254478931323,
+            "name": "FLT1815 (Gen)",
+            "routeId": null,
+            "speed": "504 mph",
+            "track": 98
+          },
+          {
+            "altitude_ft": "32005 ft",
+            "cargo": "General Cargo",
+            "id": "sim-gen-33",
+            "is_live": true,
+            "lat": -4.930670397312458,
+            "lng": 95.62627380897449,
+            "name": "FLT930 (Gen)",
+            "routeId": null,
+            "speed": "505 mph",
+            "track": 56
+          },
+          {
+            "altitude_ft": "28892 ft",
+            "cargo": "General Cargo",
+            "id": "sim-gen-34",
+            "is_live": true,
+            "lat": 69.7702977065172,
+            "lng": -139.48097656754894,
+            "name": "FLT5553 (Gen)",
+            "routeId": null,
+            "speed": "537 mph",
+            "track": 346
+          },
+          {
+            "altitude_ft": "25711 ft",
+            "cargo": "General Cargo",
+            "id": "sim-gen-35",
+            "is_live": true,
+            "lat": 33.03985704702006,
+            "lng": 153.0779699579689,
+            "name": "FLT7455 (Gen)",
+            "routeId": null,
+            "speed": "415 mph",
+            "track": 17
+          },
+          {
+            "altitude_ft": "34930 ft",
+            "cargo": "General Cargo",
+            "id": "sim-gen-36",
+            "is_live": true,
+            "lat": 7.856484058593082,
+            "lng": 106.69683497354518,
+            "name": "FLT1977 (Gen)",
+            "routeId": null,
+            "speed": "407 mph",
+            "track": 22
+          },
+          {
+            "altitude_ft": "37698 ft",
+            "cargo": "General Cargo",
+            "id": "sim-gen-37",
+            "is_live": true,
+            "lat": 52.438576479530404,
+            "lng": -81.75633026388854,
+            "name": "FLT6686 (Gen)",
+            "routeId": null,
+            "speed": "450 mph",
+            "track": 300
+          },
+          {
+            "altitude_ft": "34722 ft",
+            "cargo": "General Cargo",
+            "id": "sim-gen-38",
+            "is_live": true,
+            "lat": 14.153324776623485,
+            "lng": 116.16719078485588,
+            "name": "FLT5728 (Gen)",
+            "routeId": null,
+            "speed": "532 mph",
+            "track": 122
+          },
+          {
+            "altitude_ft": "37482 ft",
+            "cargo": "General Cargo",
+            "id": "sim-gen-39",
+            "is_live": true,
+            "lat": 12.767433119650992,
+            "lng": 49.564341490862134,
+            "name": "FLT1700 (Gen)",
+            "routeId": null,
+            "speed": "465 mph",
+            "track": 329
+          },
+          {
+            "altitude_ft": "32197 ft",
+            "cargo": "General Cargo",
+            "id": "sim-gen-40",
+            "is_live": true,
+            "lat": 51.97523575462276,
+            "lng": -93.22572011817428,
+            "name": "FLT5873 (Gen)",
+            "routeId": null,
+            "speed": "515 mph",
+            "track": 158
+          },
+          {
+            "altitude_ft": "33810 ft",
+            "cargo": "General Cargo",
+            "id": "sim-gen-41",
+            "is_live": true,
+            "lat": 39.97597919430198,
+            "lng": 134.55544717722438,
+            "name": "FLT412 (Gen)",
+            "routeId": null,
+            "speed": "418 mph",
+            "track": 291
+          },
+          {
+            "altitude_ft": "30675 ft",
+            "cargo": "General Cargo",
+            "id": "sim-gen-42",
+            "is_live": true,
+            "lat": 51.27442927113613,
+            "lng": -103.05925803123188,
+            "name": "FLT251 (Gen)",
+            "routeId": null,
+            "speed": "463 mph",
+            "track": 36
+          },
+          {
+            "altitude_ft": "37138 ft",
+            "cargo": "General Cargo",
+            "id": "sim-gen-43",
+            "is_live": true,
+            "lat": 65.83219650193597,
+            "lng": -148.35583678414585,
+            "name": "FLT7634 (Gen)",
+            "routeId": null,
+            "speed": "490 mph",
+            "track": 164
+          },
+          {
+            "altitude_ft": "33856 ft",
+            "cargo": "General Cargo",
+            "id": "sim-gen-44",
+            "is_live": true,
+            "lat": 36.609525427588025,
+            "lng": -113.89678790354318,
+            "name": "FLT674 (Gen)",
+            "routeId": null,
+            "speed": "431 mph",
+            "track": 120
+          },
+          {
+            "altitude_ft": "27388 ft",
+            "cargo": "General Cargo",
+            "id": "sim-gen-45",
+            "is_live": true,
+            "lat": 3.0366821593872046,
+            "lng": 113.24332816424277,
+            "name": "FLT8553 (Gen)",
+            "routeId": null,
+            "speed": "459 mph",
+            "track": 91
+          },
+          {
+            "altitude_ft": "34940 ft",
+            "cargo": "General Cargo",
+            "id": "sim-gen-46",
+            "is_live": true,
+            "lat": 12.809159625280573,
+            "lng": 119.51980131240732,
+            "name": "FLT3973 (Gen)",
+            "routeId": null,
+            "speed": "519 mph",
+            "track": 126
+          },
+          {
+            "altitude_ft": "26430 ft",
+            "cargo": "General Cargo",
+            "id": "sim-gen-47",
+            "is_live": true,
+            "lat": 28.234332422507897,
+            "lng": 39.568460962057735,
+            "name": "FLT2669 (Gen)",
+            "routeId": null,
+            "speed": "417 mph",
+            "track": 319
+          },
+          {
+            "altitude_ft": "29070 ft",
+            "cargo": "General Cargo",
+            "id": "sim-gen-48",
+            "is_live": true,
+            "lat": -16.54514227417768,
+            "lng": 118.58065249110862,
+            "name": "FLT346 (Gen)",
+            "routeId": null,
+            "speed": "532 mph",
+            "track": 134
+          },
+          {
+            "altitude_ft": "31040 ft",
+            "cargo": "General Cargo",
+            "id": "sim-gen-49",
+            "is_live": true,
+            "lat": 45.81634390244582,
+            "lng": 135.2764985459545,
+            "name": "FLT5269 (Gen)",
+            "routeId": null,
+            "speed": "408 mph",
+            "track": 227
+          },
+          {
+            "altitude_ft": "30719 ft",
+            "cargo": "General Cargo",
+            "id": "sim-gen-50",
+            "is_live": true,
+            "lat": 36.77113860491821,
+            "lng": -15.940245039259189,
+            "name": "FLT9057 (Gen)",
+            "routeId": null,
+            "speed": "414 mph",
+            "track": 114
+          },
+          {
+            "altitude_ft": "28704 ft",
+            "cargo": "General Cargo",
+            "id": "sim-gen-51",
+            "is_live": true,
+            "lat": 21.923559832548882,
+            "lng": 97.03401744373897,
+            "name": "FLT8021 (Gen)",
+            "routeId": null,
+            "speed": "419 mph",
+            "track": 315
+          },
+          {
+            "altitude_ft": "30038 ft",
+            "cargo": "General Cargo",
+            "id": "sim-gen-52",
+            "is_live": true,
+            "lat": 29.88460920590185,
+            "lng": -94.89935508998049,
+            "name": "FLT8399 (Gen)",
+            "routeId": null,
+            "speed": "448 mph",
+            "track": 101
+          },
+          {
+            "altitude_ft": "26843 ft",
+            "cargo": "General Cargo",
+            "id": "sim-gen-53",
+            "is_live": true,
+            "lat": 44.01514273493855,
+            "lng": -77.38210859468964,
+            "name": "FLT3815 (Gen)",
+            "routeId": null,
+            "speed": "516 mph",
+            "track": 311
+          },
+          {
+            "altitude_ft": "35721 ft",
+            "cargo": "General Cargo",
+            "id": "sim-gen-54",
+            "is_live": true,
+            "lat": 33.00480031023303,
+            "lng": 45.48377906459882,
+            "name": "FLT749 (Gen)",
+            "routeId": null,
+            "speed": "509 mph",
+            "track": 329
+          },
+          {
+            "altitude_ft": "26535 ft",
+            "cargo": "General Cargo",
+            "id": "sim-gen-55",
+            "is_live": true,
+            "lat": 49.23104654001759,
+            "lng": -85.88930588469921,
+            "name": "FLT3632 (Gen)",
+            "routeId": null,
+            "speed": "503 mph",
+            "track": 249
+          },
+          {
+            "altitude_ft": "29090 ft",
+            "cargo": "General Cargo",
+            "id": "sim-gen-56",
+            "is_live": true,
+            "lat": 40.48084144714124,
+            "lng": 45.43712085576693,
+            "name": "FLT2677 (Gen)",
+            "routeId": null,
+            "speed": "525 mph",
+            "track": 147
+          },
+          {
+            "altitude_ft": "37980 ft",
+            "cargo": "General Cargo",
+            "id": "sim-gen-57",
+            "is_live": true,
+            "lat": 33.74358496949894,
+            "lng": -11.939467208752944,
+            "name": "FLT5263 (Gen)",
+            "routeId": null,
+            "speed": "424 mph",
+            "track": 142
+          },
+          {
+            "altitude_ft": "32710 ft",
+            "cargo": "General Cargo",
+            "id": "sim-gen-58",
+            "is_live": true,
+            "lat": 58.363111028757906,
+            "lng": -155.26845328339493,
+            "name": "FLT7306 (Gen)",
+            "routeId": null,
+            "speed": "508 mph",
+            "track": 111
+          },
+          {
+            "altitude_ft": "29768 ft",
+            "cargo": "General Cargo",
+            "id": "sim-gen-59",
+            "is_live": true,
+            "lat": 18.075889728022354,
+            "lng": 90.52475399011355,
+            "name": "FLT2531 (Gen)",
+            "routeId": null,
+            "speed": "529 mph",
+            "track": 113
+          },
+          {
+            "altitude_ft": "27345 ft",
+            "cargo": "General Cargo",
+            "id": "sim-gen-60",
+            "is_live": true,
+            "lat": 26.076506561212497,
+            "lng": 146.81600581882736,
+            "name": "FLT3892 (Gen)",
+            "routeId": null,
+            "speed": "507 mph",
+            "track": 293
+          },
+          {
+            "altitude_ft": "27524 ft",
+            "cargo": "General Cargo",
+            "id": "sim-gen-61",
+            "is_live": true,
+            "lat": 11.063039468351338,
+            "lng": 60.95472345702285,
+            "name": "FLT3277 (Gen)",
+            "routeId": null,
+            "speed": "412 mph",
+            "track": 194
+          },
+          {
+            "altitude_ft": "30462 ft",
+            "cargo": "General Cargo",
+            "id": "sim-gen-62",
+            "is_live": true,
+            "lat": 10.571303347264942,
+            "lng": 108.48909829896847,
+            "name": "FLT8019 (Gen)",
+            "routeId": null,
+            "speed": "409 mph",
+            "track": 173
+          },
+          {
+            "altitude_ft": "25515 ft",
+            "cargo": "General Cargo",
+            "id": "sim-gen-63",
+            "is_live": true,
+            "lat": -18.006986531418786,
+            "lng": 89.19005952067822,
+            "name": "FLT4416 (Gen)",
+            "routeId": null,
+            "speed": "422 mph",
+            "track": 313
+          },
+          {
+            "altitude_ft": "34008 ft",
+            "cargo": "General Cargo",
+            "id": "sim-gen-64",
+            "is_live": true,
+            "lat": 34.1309769921235,
+            "lng": -99.4247908792222,
+            "name": "FLT9951 (Gen)",
+            "routeId": null,
+            "speed": "492 mph",
+            "track": 199
+          },
+          {
+            "altitude_ft": "27386 ft",
+            "cargo": "General Cargo",
+            "id": "sim-gen-65",
+            "is_live": true,
+            "lat": 38.15641647558804,
+            "lng": -69.74047353836838,
+            "name": "FLT8461 (Gen)",
+            "routeId": null,
+            "speed": "427 mph",
+            "track": 53
+          },
+          {
+            "altitude_ft": "29402 ft",
+            "cargo": "General Cargo",
+            "id": "sim-gen-66",
+            "is_live": true,
+            "lat": -4.448603516690387,
+            "lng": 105.47551960317615,
+            "name": "FLT478 (Gen)",
+            "routeId": null,
+            "speed": "539 mph",
+            "track": 146
+          },
+          {
+            "altitude_ft": "25422 ft",
+            "cargo": "General Cargo",
+            "id": "sim-gen-67",
+            "is_live": true,
+            "lat": 17.22433840097874,
+            "lng": 66.31239298150047,
+            "name": "FLT2128 (Gen)",
+            "routeId": null,
+            "speed": "533 mph",
+            "track": 43
+          },
+          {
+            "altitude_ft": "34421 ft",
+            "cargo": "General Cargo",
+            "id": "sim-gen-68",
+            "is_live": true,
+            "lat": 66.70936844732054,
+            "lng": 3.7104708858070996,
+            "name": "FLT6943 (Gen)",
+            "routeId": null,
+            "speed": "402 mph",
+            "track": 262
+          },
+          {
+            "altitude_ft": "25194 ft",
+            "cargo": "General Cargo",
+            "id": "sim-gen-69",
+            "is_live": true,
+            "lat": 25.15555982317496,
+            "lng": 47.04956267040025,
+            "name": "FLT4705 (Gen)",
+            "routeId": null,
+            "speed": "410 mph",
+            "track": 73
+          }
+        ],
+        "ports": [
+          {
+            "buffer": 50,
+            "id": "ANC",
+            "inventory": 200,
+            "lat": 61.17,
+            "lng": -149.99,
+            "name": "Anchorage (ANC)",
+            "risk": 10
+          },
+          {
+            "buffer": 40,
+            "id": "LAX",
+            "inventory": 150,
+            "lat": 33.94,
+            "lng": -118.4,
+            "name": "Los Angeles (LAX)",
+            "risk": 20
+          },
+          {
+            "buffer": 45,
+            "id": "JFK",
+            "inventory": 180,
+            "lat": 40.64,
+            "lng": -73.77,
+            "name": "New York (JFK)",
+            "risk": 15
+          },
+          {
+            "buffer": 60,
+            "id": "FRA",
+            "inventory": 220,
+            "lat": 50.03,
+            "lng": 8.57,
+            "name": "Frankfurt (FRA)",
+            "risk": 10
+          },
+          {
+            "buffer": 70,
+            "id": "HKG",
+            "inventory": 300,
+            "lat": 22.3,
+            "lng": 113.91,
+            "name": "Hong Kong (HKG)",
+            "risk": 5
+          }
+        ],
+        "riskZones": [],
+        "routes": [
+          {
+            "end": [
+              -149.99,
+              61.17
+            ],
+            "id": "HKG-ANC",
+            "primary": true,
+            "start": [
+              113.91,
+              22.3
+            ]
+          },
+          {
+            "end": [
+              -73.77,
+              40.64
+            ],
+            "id": "FRA-JFK",
+            "primary": true,
+            "start": [
+              8.57,
+              50.03
+            ]
+          },
+          {
+            "end": [
+              -118.4,
+              33.94
+            ],
+            "id": "ANC-LAX",
+            "primary": true,
+            "start": [
+              -149.99,
+              61.17
+            ]
+          }
+        ]
+      },
+      "global": {
+        "assets": [
+          {
+            "capacity": "12000 TEU",
+            "cargo": "Electronics",
+            "is_live": false,
+            "name": "Vessel Alpha",
+            "progress": 0.45,
+            "routeId": "SH-LA",
+            "track": 90
+          },
+          {
+            "capacity": "8500 TEU",
+            "cargo": "Apparel",
+            "is_live": false,
+            "name": "Vessel Bravo",
+            "progress": 0.75,
+            "routeId": "RO-LA",
+            "track": 85
+          },
+          {
+            "capacity": "15000 TEU",
+            "cargo": "Raw Goods",
+            "is_live": false,
+            "name": "Vessel Charlie",
+            "progress": 0.2,
+            "routeId": "SG-LA",
+            "track": 260
+          },
+          {
+            "capacity": "9000 TEU",
+            "cargo": "Machinery",
+            "is_live": false,
+            "name": "Vessel Delta",
+            "progress": 0.85,
+            "routeId": "SH-RO",
+            "track": 275
+          },
+          {
+            "capacity": "5000 TEU",
+            "cargo": "Pharma",
+            "is_live": false,
+            "name": "Vessel Echo",
+            "progress": 0.5,
+            "routeId": "RO-NK",
+            "track": 310
+          },
+          {
+            "capacity": "11000 TEU",
+            "cargo": "Auto Parts",
+            "is_live": false,
+            "name": "Vessel Foxtrot",
+            "progress": 0.8,
+            "routeId": "SH-LA",
+            "track": 95
+          },
+          {
+            "capacity": "7000 TEU",
+            "cargo": "Grain",
+            "is_live": false,
+            "name": "Vessel Golf",
+            "progress": 0.3,
+            "routeId": "SH-RO",
+            "track": 45
+          },
+          {
+            "capacity": "6000 TEU",
+            "cargo": "Furniture",
+            "is_live": false,
+            "name": "Vessel Hotel",
+            "progress": 0.1,
+            "routeId": "RO-LA",
+            "track": 180
+          },
+          {
+            "capacity": "20000 TEU",
+            "cargo": "Oil",
+            "is_live": false,
+            "name": "Vessel India",
+            "progress": 0.6,
+            "routeId": "SG-LA",
+            "track": 270
+          },
+          {
+            "capacity": "14000 TEU",
+            "cargo": "Coal",
+            "is_live": false,
+            "name": "Vessel Juliet",
+            "progress": 0.25,
+            "routeId": "SH-LA",
+            "track": 90
+          },
+          {
+            "capacity": "10000 TEU",
+            "cargo": "Steel",
+            "is_live": false,
+            "name": "Vessel Kilo",
+            "progress": 0.55,
+            "routeId": "SH-RO",
+            "track": 275
+          },
+          {
+            "capacity": "5500 TEU",
+            "cargo": "Chemicals",
+            "is_live": false,
+            "name": "Vessel Lima",
+            "progress": 0.9,
+            "routeId": "RO-NK",
+            "track": 310
+          },
+          {
+            "capacity": "9000 TEU",
+            "cargo": "Vehicles",
+            "is_live": false,
+            "name": "Vessel Mike",
+            "progress": 0.4,
+            "routeId": "RO-LA",
+            "track": 85
+          }
+        ],
+        "ports": [
+          {
+            "id": "sh",
+            "lat": 31.23,
+            "lng": 121.47,
+            "name": "Shanghai",
+            "risk": 15
+          },
+          {
+            "id": "la",
+            "lat": 33.7,
+            "lng": -118.29,
+            "name": "Los Angeles",
+            "risk": 20
+          },
+          {
+            "id": "rot",
+            "lat": 51.9,
+            "lng": 4.48,
+            "name": "Rotterdam",
+            "risk": 10
+          },
+          {
+            "id": "sin",
+            "lat": 1.29,
+            "lng": 103.85,
+            "name": "Singapore",
+            "risk": 5
+          },
+          {
+            "id": "nyk",
+            "lat": 40.69,
+            "lng": -74.17,
+            "name": "Newark",
+            "risk": 25
+          }
+        ],
+        "riskZones": [],
+        "routes": [
+          {
+            "end": [
+              -118.29,
+              33.7
+            ],
+            "id": "SH-LA",
+            "start": [
+              121.47,
+              31.23
+            ]
+          },
+          {
+            "end": [
+              -118.29,
+              33.7
+            ],
+            "id": "RO-LA",
+            "start": [
+              4.48,
+              51.9
+            ]
+          },
+          {
+            "end": [
+              -118.29,
+              33.7
+            ],
+            "id": "SG-LA",
+            "start": [
+              103.85,
+              1.29
+            ]
+          },
+          {
+            "end": [
+              4.48,
+              51.9
+            ],
+            "id": "SH-RO",
+            "start": [
+              121.47,
+              31.23
+            ]
+          },
+          {
+            "end": [
+              -74.17,
+              40.69
+            ],
+            "id": "RO-NK",
+            "start": [
+              4.48,
+              51.9
+            ]
+          }
+        ]
+      },
+      "regional": {
+        "assets": [
+          {
+            "cargo": "Apparel",
+            "is_live": false,
+            "name": "Truck 405A",
+            "progress": 0.6,
+            "routeId": "LA-CHI",
+            "track": 70
+          },
+          {
+            "cargo": "Electronics",
+            "is_live": false,
+            "name": "Truck 102B",
+            "progress": 0.3,
+            "routeId": "NY-CHI",
+            "track": 280
+          },
+          {
+            "cargo": "Auto Parts",
+            "is_live": false,
+            "name": "Truck 202C",
+            "progress": 0.8,
+            "routeId": "LA-DAL",
+            "track": 110
+          }
+        ],
+        "ports": [
+          {
+            "id": "la_dc",
+            "lat": 34.05,
+            "lng": -118.24,
+            "name": "Los Angeles DC",
+            "risk": 10
+          },
+          {
+            "id": "chi_dc",
+            "lat": 41.87,
+            "lng": -87.62,
+            "name": "Chicago DC",
+            "risk": 25
+          },
+          {
+            "id": "ny_dc",
+            "lat": 40.69,
+            "lng": -74.17,
+            "name": "Newark Hub",
+            "risk": 5
+          },
+          {
+            "id": "dal_dc",
+            "lat": 32.77,
+            "lng": -96.79,
+            "name": "Dallas DC",
+            "risk": 5
+          }
+        ],
+        "riskZones": [],
+        "routes": [
+          {
+            "end": [
+              -87.62,
+              41.87
+            ],
+            "id": "LA-CHI",
+            "start": [
+              -118.24,
+              34.05
+            ]
+          },
+          {
+            "end": [
+              -87.62,
+              41.87
+            ],
+            "id": "NY-CHI",
+            "start": [
+              -74.17,
+              40.69
+            ]
+          },
+          {
+            "end": [
+              -96.79,
+              32.77
+            ],
+            "id": "LA-DAL",
+            "start": [
+              -118.24,
+              34.05
+            ]
+          }
+        ]
+      }
+    }
+  }
+  

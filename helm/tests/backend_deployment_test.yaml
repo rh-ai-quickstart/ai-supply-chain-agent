@@ -17,6 +17,7 @@ tests:
       backend.env.PG_USER: postgres
       backend.env.PG_DB: blueprint
       global.models.llama-3-2-1b-instruct.enabled: true
+      global.models.external-model.enabled: true
       global.models.external-model.id: "gpt-4o-mini"
     asserts:
       - isKind:
@@ -52,6 +53,26 @@ tests:
               secretKeyRef:
                 name: pgvector
                 key: password
+
+  - it: uses local llama for openai model when external model is disabled
+    set:
+      backend.enabled: true
+      backend.pgvectorSecretName: pgvector
+      backend.env.LLAMA_STACK_URL: "http://llamastack.example:8321"
+      backend.env.PG_HOST: pgvector
+      backend.env.PG_PORT: "5432"
+      backend.env.PG_USER: postgres
+      backend.env.PG_DB: blueprint
+      global.models.llama-3-2-1b-instruct.enabled: true
+      global.models.external-model.enabled: false
+    asserts:
+      - isKind:
+          of: Deployment
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: LLAMA_STACK_OPENAI_MODEL
+            value: "llama-3-2-1b-instruct/meta-llama/Llama-3.2-1B-Instruct"
 
   - it: does not render when backend is disabled
     set:
