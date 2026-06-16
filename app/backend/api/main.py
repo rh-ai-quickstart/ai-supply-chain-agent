@@ -1,8 +1,9 @@
+import json
 import logging
 import os
 from typing import Any, Optional
 
-from flask import Flask, jsonify, request
+from flask import Flask, Response, jsonify, request, stream_with_context
 from flask_cors import CORS
 
 from clients.llama_stack_client import LlamaStackClient
@@ -76,20 +77,51 @@ def post_simulate():
     return jsonify(dashboard_service.simulate(scenario, optimize))
 
 
+def _sse_event(payload: dict[str, Any]) -> str:
+    return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
+
+
+def _parse_chat_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    raw_vs = payload.get("vector_store_id") or payload.get("vectorStoreId") or ""
+    return {
+        "user_input": payload.get("input", ""),
+        "chat_history": payload.get("chat_history") or [],
+        "vector_store_id": str(raw_vs).strip() or None,
+        "use_vllm": bool(payload.get("use_vllm", True)),
+        "stream": bool(payload.get("stream", False)),
+    }
+
+
 @app.route("/api/v1/chat", methods=["POST"])
 def post_chat():
-    payload = request.get_json(silent=True) or {}
-    user_input = payload.get("input", "")
-    chat_history = payload.get("chat_history") or []
-    raw_vs = payload.get("vector_store_id") or payload.get("vectorStoreId") or ""
-    vector_store_id = str(raw_vs).strip() or None
-    use_vllm = bool(payload.get("use_vllm", True))
+    args = _parse_chat_payload(request.get_json(silent=True) or {})
+
+    if args["stream"]:
+        def generate():
+            for event in chat_service.reply_stream(
+                args["user_input"],
+                chat_history=args["chat_history"],
+                vector_store_id=args["vector_store_id"],
+                use_vllm=args["use_vllm"],
+            ):
+                yield _sse_event(event)
+
+        return Response(
+            stream_with_context(generate()),
+            mimetype="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "X-Accel-Buffering": "no",
+                "Connection": "keep-alive",
+            },
+        )
+
     return jsonify(
         chat_service.reply(
-            user_input,
-            chat_history=chat_history,
-            vector_store_id=vector_store_id,
-            use_vllm=use_vllm,
+            args["user_input"],
+            chat_history=args["chat_history"],
+            vector_store_id=args["vector_store_id"],
+            use_vllm=args["use_vllm"],
         )
     )
 

@@ -41,8 +41,14 @@ def simulations_store_module(tmp_path, monkeypatch):
 
 @pytest.fixture
 def mock_llama_stack_client():
+    def _ask_stream(*_args, **_kwargs):
+        yield {"type": "delta", "content": "mocked "}
+        yield {"type": "delta", "content": "answer"}
+        yield {"type": "done", "answer": "mocked answer", "completion": None}
+
     client = MagicMock()
     client.ask.return_value = {"answer": "mocked answer", "completion": None}
+    client.ask_stream.side_effect = _ask_stream
     client.list_vector_stores.return_value = [
         {"id": "vs_1", "name": "Demo KB", "status": "ready", "created_at": 0}
     ]

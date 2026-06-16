@@ -93,3 +93,32 @@ def test_retrieve_context_via_pgvector_client_fallback():
     vs.similarity_search.assert_called_once_with("query text", k=3)
     ctx = mock_llama.ask.call_args.kwargs["context"]
     assert ctx == "doc a"
+
+
+def test_reply_stream_guardrail(chat_service):
+    events = list(chat_service.reply_stream("best pizza in town", chat_history=[]))
+    assert events == [
+        {"type": "done", "answer": _GUARDRAIL_RESPONSE, "completion": None},
+    ]
+    chat_service.llama_stack_client.ask_stream.assert_not_called()
+
+
+def test_reply_stream_route_shortcut(chat_service, mock_route_service):
+    mock_route_service.is_route_query.return_value = True
+    mock_route_service.get_optimized_route.return_value = {
+        "answer": "Calculated route.",
+        "routeData": {"type": "optimized_land_route", "coordinates": [[0, 0]]},
+    }
+    events = list(chat_service.reply_stream("Find the best truck route", chat_history=[]))
+    assert events[0]["type"] == "done"
+    assert events[0]["answer"] == "Calculated route."
+    assert "routeData" in events[0]
+    chat_service.llama_stack_client.ask_stream.assert_not_called()
+
+
+def test_reply_stream_delegates_to_llama(chat_service, mock_llama_stack_client, mock_route_service):
+    mock_route_service.is_route_query.return_value = False
+    events = list(chat_service.reply_stream("Summarize supplier risk", chat_history=[]))
+    assert [e["type"] for e in events] == ["delta", "delta", "done"]
+    assert events[-1]["answer"] == "mocked answer"
+    mock_llama_stack_client.ask_stream.assert_called_once()

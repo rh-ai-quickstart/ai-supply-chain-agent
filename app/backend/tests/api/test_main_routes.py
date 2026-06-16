@@ -47,6 +47,19 @@ def test_post_chat(flask_client, mock_llama_stack_client):
     mock_llama_stack_client.ask.assert_called()
 
 
+def test_post_chat_stream(flask_client, mock_llama_stack_client):
+    client, _ = flask_client
+    rv = client.post("/api/v1/chat", json={"input": "inventory levels?", "stream": True})
+    assert rv.status_code == 200
+    assert rv.content_type.startswith("text/event-stream")
+    body = rv.get_data(as_text=True)
+    assert '"type": "delta"' in body
+    assert '"type": "done"' in body
+    assert '"answer": "mocked answer"' in body
+    mock_llama_stack_client.ask_stream.assert_called()
+    mock_llama_stack_client.ask.assert_not_called()
+
+
 def test_post_simulate(flask_client):
     client, _ = flask_client
     rv = client.post("/api/v1/simulate", json={"scenario": "none", "optimize": False})

@@ -1,4 +1,6 @@
 import logging
+from collections.abc import Iterator
+from dataclasses import dataclass
 from typing import Any, Optional
 
 from clients.llama_stack_client import LlamaStackClient
@@ -25,6 +27,17 @@ _GUARDRAIL_RESPONSE = (
 )
 
 
+@dataclass(frozen=True)
+class _PreparedChatTurn:
+    """Normalized inputs shared by sync and streaming reply paths."""
+
+    latest: str
+    history: list[dict[str, Any]]
+    client: LlamaStackClient
+    context: str
+    conversation: list[dict[str, str]]
+
+
 class ChatService:
     def __init__(
         self,
@@ -45,6 +58,55 @@ class ChatService:
         vector_store_id: Optional[str] = None,
         use_vllm: bool = True,
     ) -> dict:
+        shortcut = self._early_reply(user_input, chat_history)
+        if shortcut is not None:
+            return shortcut
+
+        turn = self._prepare_llm_turn(user_input, chat_history, vector_store_id, use_vllm)
+        self._log_llm_routing(turn.client, use_vllm, streaming=False)
+        llm_result = turn.client.ask(
+            turn.latest,
+            context=turn.context,
+            conversation_messages=turn.conversation,
+        )
+        answer = llm_result.get("answer", "")
+        logger.info(
+            "ChatService: answer received from LlamaStack[%s] model=%s",
+            turn.client.label,
+            turn.client.model,
+        )
+        return {
+            "answer": answer,
+            "completion": llm_result.get("completion"),
+        }
+
+    def reply_stream(
+        self,
+        user_input: str,
+        chat_history: Optional[list[dict[str, Any]]] = None,
+        vector_store_id: Optional[str] = None,
+        use_vllm: bool = True,
+    ) -> Iterator[dict[str, Any]]:
+        """Yield SSE-friendly chat events (guardrails, route shortcuts, or LLM stream)."""
+        shortcut = self._early_reply(user_input, chat_history)
+        if shortcut is not None:
+            yield {"type": "done", **shortcut}
+            return
+
+        turn = self._prepare_llm_turn(user_input, chat_history, vector_store_id, use_vllm)
+        self._log_llm_routing(turn.client, use_vllm, streaming=True)
+        yield from turn.client.ask_stream(
+            turn.latest,
+            context=turn.context,
+            conversation_messages=turn.conversation,
+        )
+
+    def _early_reply(
+        self,
+        user_input: str,
+        chat_history: Optional[list[dict[str, Any]]],
+    ) -> Optional[dict[str, Any]]:
+        """Return a guardrail or route shortcut response, or ``None`` to call the LLM."""
         history = chat_history if isinstance(chat_history, list) else []
         latest = self._latest_user_text(history, user_input)
         lowered = (latest or "").lower()
@@ -57,32 +119,39 @@ class ChatService:
             out.setdefault("completion", None)
             return out
 
+        return None
+
+    def _prepare_llm_turn(
+        self,
+        user_input: str,
+        chat_history: Optional[list[dict[str, Any]]],
+        vector_store_id: Optional[str],
+        use_vllm: bool,
+    ) -> _PreparedChatTurn:
+        history = chat_history if isinstance(chat_history, list) else []
+        latest = self._latest_user_text(history, user_input)
         client = self.llama_stack_client if use_vllm else self.openai_client
+        context = self._retrieve_context(latest, vector_store_id=vector_store_id)
+        conversation = self._map_chat_history(history)
+        return _PreparedChatTurn(
+            latest=latest,
+            history=history,
+            client=client,
+            context=context,
+            conversation=conversation,
+        )
+
+    @staticmethod
+    def _log_llm_routing(client: LlamaStackClient, use_vllm: bool, *, streaming: bool) -> None:
+        mode = "streaming" if streaming else "routing"
         logger.info(
-            "ChatService: routing request to LlamaStack[%s] model=%s base_url=%s (use_vllm=%s)",
+            "ChatService: %s request to LlamaStack[%s] model=%s base_url=%s (use_vllm=%s)",
+            mode,
             client.label,
             client.model,
             client.base_url,
             use_vllm,
         )
-
-        context = self._retrieve_context(latest, vector_store_id=vector_store_id)
-        conversation = self._map_chat_history(history)
-        llm_result = client.ask(
-            latest,
-            context=context,
-            conversation_messages=conversation,
-        )
-        answer = llm_result.get("answer", "")
-        logger.info(
-            "ChatService: answer received from LlamaStack[%s] model=%s",
-            client.label,
-            client.model,
-        )
-        return {
-            "answer": answer,
-            "completion": llm_result.get("completion"),
-        }
 
     @staticmethod
     def _latest_user_text(history: list[dict[str, Any]], fallback: str) -> str:
