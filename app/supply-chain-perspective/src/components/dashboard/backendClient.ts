@@ -2,7 +2,23 @@
  * HTTP client for `app/backend/api` (Flask) routes. Paths must stay in sync with `app/backend/api/main.py`.
  */
 import type { ChatApiResponse, ChatMessage, DashboardState, VectorStoreSummary } from '../../types/dashboard';
-import { apiGet, apiPost } from '../../services/apiClient';
+import { apiGet, apiPost, apiPostStream } from '../../services/apiClient';
+import type { ChatStreamEvent } from '../../utils/chatStream';
+
+function chatRequestBody(
+  input: string,
+  chatHistory: ChatMessage[],
+  vectorStoreId: string | undefined,
+  useVllm: boolean,
+) {
+  const trimmed = vectorStoreId?.trim();
+  return {
+    input,
+    use_vllm: useVllm,
+    ...(chatHistory.length ? { chat_history: chatHistory } : {}),
+    ...(trimmed ? { vector_store_id: trimmed } : {}),
+  };
+}
 
 export function fetchDashboardState(): Promise<DashboardState> {
   return apiGet<DashboardState>('/api/v1/state');
@@ -30,11 +46,15 @@ export function postAssistantMessage(
   vectorStoreId?: string,
   useVllm = true,
 ): Promise<ChatApiResponse> {
-  const trimmed = vectorStoreId?.trim();
-  return apiPost<ChatApiResponse>('/api/v1/chat', {
-    input,
-    use_vllm: useVllm,
-    ...(chatHistory.length ? { chat_history: chatHistory } : {}),
-    ...(trimmed ? { vector_store_id: trimmed } : {}),
-  });
+  return apiPost<ChatApiResponse>('/api/v1/chat', chatRequestBody(input, chatHistory, vectorStoreId, useVllm));
+}
+
+export function postAssistantMessageStream(
+  input: string,
+  chatHistory: ChatMessage[] = [],
+  vectorStoreId: string | undefined,
+  useVllm: boolean,
+  onEvent: (event: ChatStreamEvent) => void,
+): Promise<void> {
+  return apiPostStream('/api/v1/chat', chatRequestBody(input, chatHistory, vectorStoreId, useVllm), onEvent);
 }

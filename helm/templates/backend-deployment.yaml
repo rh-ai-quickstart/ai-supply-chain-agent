@@ -37,7 +37,14 @@ spec:
             - name: EMBED_MODEL
               value: {{ .Values.backend.env.EMBED_MODEL | default "all-MiniLM-L6-v2" | quote }}
             - name: LLAMA_STACK_OPENAI_MODEL
-              value: {{ printf "external-model/%s" (required "global.models.external-model.id is required" (.Values.global.models | dig "external-model" "id" "")) | quote }}
+              {{- $extId := .Values.global.models | dig "external-model" "id" "" }}
+              {{- if $extId }}
+              value: {{ printf "external-model/%s" $extId | quote }}
+              {{- else if (.Values.global.models | dig "llama-3-2-1b-instruct" "enabled" false) }}
+              value: {{ printf "llama-3-2-1b-instruct/%s" (.Values.global.models | dig "llama-3-2-1b-instruct" "id" "meta-llama/Llama-3.2-1B-Instruct") | quote }}
+              {{- else }}
+              value: {{ printf "external-model/%s" (required "global.models.external-model.id is required when llama-3-2-1b-instruct is disabled" $extId) | quote }}
+              {{- end }}
             # PG_ prefix avoids collision with the Kubernetes-injected
             # PGVECTOR_PORT=tcp://ip:port service-discovery variable.
             - name: PG_HOST

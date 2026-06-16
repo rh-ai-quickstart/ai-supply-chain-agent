@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { applyChatStreamEvent } from '../../utils/chatStream';
 import type {
   ChatMessage,
   DashboardState,
@@ -9,7 +10,7 @@ import type {
 import {
   fetchDashboardState,
   fetchVectorStores,
-  postAssistantMessage,
+  postAssistantMessageStream,
   postSimulation,
   postTriggerWorldEvent,
 } from './backendClient';
@@ -146,30 +147,29 @@ export function useDashboardController() {
 
     const humanMessage: ChatMessage = { role: 'human', content: question };
     const historyForApi: ChatMessage[] = [...chatMessages, humanMessage];
+    const aiPlaceholder: ChatMessage = { role: 'ai', content: '', completion: null };
 
-    setChatMessages(historyForApi);
+    setChatMessages([...historyForApi, aiPlaceholder]);
     setChatInput('');
     setChatError('');
     setChatLoading(true);
     try {
-      const result = await postAssistantMessage(
+      await postAssistantMessageStream(
         question,
         historyForApi,
         selectedVectorStoreId.trim() || undefined,
         optimize,
+        (event) => {
+          setChatMessages((prev) =>
+            applyChatStreamEvent(prev, event, {
+              emptyAnswerFallback: t('No response from assistant.'),
+            }) ?? prev,
+          );
+        },
       );
-      const answer =
-        typeof result?.answer === 'string' && result.answer.trim()
-          ? result.answer
-          : t('No response from assistant.');
-      const aiMessage: ChatMessage = {
-        role: 'ai',
-        content: answer,
-        completion: result?.completion ?? null,
-      };
-      setChatMessages([...historyForApi, aiMessage]);
     } catch {
       setChatError(t('Failed to send chat request.'));
+      setChatMessages(historyForApi);
     } finally {
       setChatLoading(false);
     }

@@ -83,6 +83,12 @@ data:
                 proxy_set_header X-Real-IP $remote_addr;
                 proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
                 proxy_set_header X-Forwarded-Proto $scheme;
+                proxy_buffering off;
+                proxy_cache off;
+                chunked_transfer_encoding on;
+                proxy_connect_timeout 60s;
+                proxy_send_timeout 300s;
+                proxy_read_timeout 300s;
                 proxy_pass http://{{ .Values.plugin.apiProxy.serviceName }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.plugin.apiProxy.servicePort }};
             }
             {{- end }}

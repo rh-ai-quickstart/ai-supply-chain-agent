@@ -24,6 +24,20 @@ export async function apiPost(path, payload) {
   return response.json();
 }
 
+/** POST with ``stream: true`` and SSE event callbacks for chat completions. */
+export async function apiPostStream(path, payload, onEvent) {
+  const { consumeChatSseStream } = await import("../utils/chatStream.js");
+  const response = await fetch(apiUrl(path), {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
+    body: JSON.stringify({ ...payload, stream: true }),
+  });
+  if (!response.ok) {
+    throw new Error(`Request failed: ${response.status}`);
+  }
+  await consumeChatSseStream(response, onEvent);
+}
+
 /** Multipart POST (file uploads). Do not set Content-Type so the browser sets the boundary. */
 export async function apiPostFormData(path, formData) {
   const response = await fetch(apiUrl(path), {
