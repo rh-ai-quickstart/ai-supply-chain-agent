@@ -53,7 +53,7 @@ describe('backendClient', () => {
   it('postAssistantMessage omits optional fields when absent', async () => {
     mocks.apiPost.mockResolvedValue({});
     await postAssistantMessage('hello', [], undefined);
-    expect(mocks.apiPost).toHaveBeenCalledWith('/api/v1/chat', { input: 'hello' });
+    expect(mocks.apiPost).toHaveBeenCalledWith('/api/v1/chat', { input: 'hello', use_vllm: true });
   });
 
   it('postAssistantMessage includes trimmed vector_store_id and history', async () => {
@@ -61,8 +61,15 @@ describe('backendClient', () => {
     await postAssistantMessage('q', [{ role: 'human', content: 'prev' }], '  vs-1  ');
     expect(mocks.apiPost).toHaveBeenCalledWith('/api/v1/chat', {
       input: 'q',
+      use_vllm: true,
       chat_history: [{ role: 'human', content: 'prev' }],
       vector_store_id: 'vs-1',
     });
+  });
+
+  it('postAssistantMessage passes use_vllm when explicitly false', async () => {
+    mocks.apiPost.mockResolvedValue({});
+    await postAssistantMessage('hello', [], undefined, false);
+    expect(mocks.apiPost).toHaveBeenCalledWith('/api/v1/chat', { input: 'hello', use_vllm: false });
   });
 });
