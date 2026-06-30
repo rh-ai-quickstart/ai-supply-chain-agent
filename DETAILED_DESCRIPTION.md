@@ -122,7 +122,7 @@ The platform is built as three integrated layers sharing a single Flask backend 
 
 2. **Disruption simulation:** The operator selects a scenario preset in the Simulation Panel and clicks Simulate. A `POST /api/v1/simulate` request mutates KPIs and injects critical alerts for the selected scenario (e.g. Port Strike LA, Suez blockage). The frontend replaces dashboard state immediately without waiting for the next poll cycle.
 
-3. **AI chat (RAG):** The operator types a question in the chat panel. `POST /api/v1/chat` runs the request through guardrails (off-topic rejection), an optional deterministic route-optimization shortcut, then a full RAG pipeline: vector similarity search against the knowledge base, followed by an LLM completion via Llama Stack. Responses are streamed back as markdown.
+3. **AI chat (RAG):** The operator types a question in the chat panel. `POST /api/v1/chat` runs the request through guardrails (off-topic rejection), an optional deterministic route-optimization shortcut, then a full RAG pipeline: vector similarity search against the knowledge base, followed by an LLM completion via Llama Stack. When `stream: true` is set (the default in both UIs), the backend relays token chunks over Server-Sent Events (SSE) so the assistant reply renders incrementally as markdown; non-streaming JSON responses remain supported for backward compatibility.
 
 4. **Knowledge base ingestion:** A post-install Kubernetes Job loads bundled risk analyses (Suez Canal, US trucking shortage, Iceland ash cloud) into Llama Stack vector stores. Operators can also upload custom `.txt`/`.pdf` documents at runtime via the knowledge base management panel.
 

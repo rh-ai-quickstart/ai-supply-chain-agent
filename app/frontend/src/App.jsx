@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { applyChatStreamEvent } from "./utils/chatStream.js";
 import "./lib/chartSetup";
 import { AlertsPanel } from "./components/AlertsPanel";
 import { ChatBar } from "./components/ChatBar";
@@ -23,7 +24,7 @@ import {
 import {
   getVectorStores,
   runSimulation,
-  sendChatMessage,
+  sendChatMessageStream,
   triggerWorldEvent,
 } from "./services/dashboardService";
 
@@ -117,32 +118,25 @@ function App() {
 
     const humanMessage = { role: "human", content: question };
     const historyForApi = [...chatMessages, humanMessage];
+    const aiPlaceholder = { role: "ai", content: "", completion: null };
 
-    setChatMessages(historyForApi);
+    setChatMessages([...historyForApi, aiPlaceholder]);
     setChatInput("");
     setChatError("");
     setChatLoading(true);
     try {
-      const result = await sendChatMessage(
+      await sendChatMessageStream(
         question,
         historyForApi,
         selectedVectorStoreId.trim() || undefined,
         optimize,
+        (event) => {
+          setChatMessages((prev) => applyChatStreamEvent(prev, event) ?? prev);
+        },
       );
-      const answer =
-        typeof result?.answer === "string" && result.answer.trim()
-          ? result.answer
-          : "No response from assistant.";
-      const aiMessage = {
-        role: "ai",
-        content: answer,
-        completion: result?.completion ?? null,
-      };
-      // Single atomic update so the assistant turn is not lost if an earlier
-      // setChatMessages has not flushed before this runs (seen as empty UI with 200 OK).
-      setChatMessages([...historyForApi, aiMessage]);
     } catch {
       setChatError("Failed to send chat request.");
+      setChatMessages(historyForApi);
     } finally {
       setChatLoading(false);
     }

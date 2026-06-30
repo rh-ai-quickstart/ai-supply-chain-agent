@@ -5,6 +5,7 @@ global:
       enabled: true
     external-model:
       enabled: true
+      id: gpt-4o-mini
 
 pgvector:
   enabled: true

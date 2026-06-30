@@ -1,4 +1,5 @@
 import { consoleFetch, consoleFetchJSON } from '@openshift-console/dynamic-plugin-sdk';
+import { consumeChatSseStream, type ChatStreamEvent } from '../utils/chatStream';
 
 declare const __SUPPLY_CHAIN_PLUGIN_HTTP_BASE__: string;
 
@@ -55,6 +56,32 @@ export async function apiPost<T>(path: string, payload: unknown): Promise<T> {
     throw new Error(`Request failed: ${response.status}`);
   }
   return response.json() as Promise<T>;
+}
+
+/** POST with ``stream: true`` and SSE callbacks (chat completions). */
+export async function apiPostStream(
+  path: string,
+  payload: unknown,
+  onEvent: (event: ChatStreamEvent) => void,
+): Promise<void> {
+  const url = resolveRequestUrl(path);
+  const body = JSON.stringify({ ...(payload as Record<string, unknown>), stream: true });
+  const response = usesConsoleProxy()
+    ? await consoleFetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
+        body,
+      })
+    : await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
+        body,
+        credentials: 'same-origin',
+      });
+  if (!response.ok) {
+    throw new Error(`Request failed: ${response.status}`);
+  }
+  await consumeChatSseStream(response, onEvent);
 }
 
 /** Multipart POST (e.g. file uploads). Uses ``consoleFetch`` in-cluster so CSRF headers are set. */

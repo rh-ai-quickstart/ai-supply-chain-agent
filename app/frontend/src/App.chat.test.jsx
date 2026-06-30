@@ -2,7 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
-import { sendChatMessage } from "./services/dashboardService";
+import { sendChatMessageStream } from "./services/dashboardService";
 
 vi.mock("./services/dashboardService", () => ({
   getDashboardState: vi.fn(() =>
@@ -24,18 +24,23 @@ vi.mock("./services/dashboardService", () => ({
   triggerWorldEvent: vi.fn(() => Promise.resolve({})),
   runSimulation: vi.fn(() => Promise.resolve({})),
   sendChatMessage: vi.fn(),
+  sendChatMessageStream: vi.fn(),
 }));
 
 describe("App chat", () => {
   beforeEach(() => {
     window.location.hash = "#/";
-    vi.mocked(sendChatMessage).mockReset();
+    vi.mocked(sendChatMessageStream).mockReset();
   });
 
   it("shows the assistant reply in the chat modal after POST /api/v1/chat succeeds", async () => {
-    vi.mocked(sendChatMessage).mockResolvedValue({
-      answer: "Fuel prices vary by region.",
-      completion: { model: "meta-llama/Llama-3.2-1B-Instruct", usage: { total_tokens: 10 } },
+    vi.mocked(sendChatMessageStream).mockImplementation(async (_input, _history, _vs, _vllm, onEvent) => {
+      onEvent({ type: "delta", content: "Fuel prices vary by region." });
+      onEvent({
+        type: "done",
+        answer: "Fuel prices vary by region.",
+        completion: { model: "meta-llama/Llama-3.2-1B-Instruct", usage: { total_tokens: 10 } },
+      });
     });
 
     const user = userEvent.setup();
