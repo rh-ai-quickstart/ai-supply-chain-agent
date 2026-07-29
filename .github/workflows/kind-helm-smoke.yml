@@ -9,7 +9,6 @@ on:
     paths:
       - "app/backend/**"
       - "app/frontend/**"
-      - "app/supply-chain-perspective/**"
       - "helm/**"
       - "scripts/ci/**"
       - "tests/e2e_ui/**"
@@ -21,7 +20,6 @@ on:
     paths:
       - "app/backend/**"
       - "app/frontend/**"
-      - "app/supply-chain-perspective/**"
       - "helm/**"
       - "scripts/ci/**"
       - "tests/e2e_ui/**"

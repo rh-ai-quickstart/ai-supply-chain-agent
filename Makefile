@@ -7,13 +7,9 @@ REGISTRY        ?= quay.io/rh-ai-quickstart
 BACKEND_IMAGE      ?= $(REGISTRY)/ai-supply-chain-agent-backend
 INGEST_IMAGE       ?= $(REGISTRY)/ai-supply-chain-agent-ingestion
 FRONTEND_IMAGE     ?= $(REGISTRY)/ai-supply-chain-agent-frontend
-PERSPECTIVE_IMAGE  ?= $(REGISTRY)/ai-supply-chain-agent-perspective
 BACKEND_TAG        ?= latest
 INGEST_TAG         ?= latest
 FRONTEND_TAG       ?= latest
-PERSPECTIVE_TAG    ?= latest
-# Baked into the perspective bundle at build time (empty = same-origin /api/ proxy).
-PERSPECTIVE_API_BASE_URL ?= 
 
 # --- Helm Config ---
 HELM_CHART     ?= ./helm
@@ -38,18 +34,16 @@ help:
 	@echo "=========================================="
 	@echo ""
 	@echo "  Build:"
-	@echo "    build              Build backend, ingestion, frontend, and perspective images"
+	@echo "    build              Build backend, ingestion, and frontend images"
 	@echo "    build-backend      Build the backend (API) container image"
 	@echo "    build-ingest       Build the ingestion container image"
 	@echo "    build-frontend     Build the frontend container image"
-	@echo "    build-perspective  Build the OpenShift console perspective plugin image"
 	@echo ""
 	@echo "  Push:"
 	@echo "    push               Push all images to the registry"
 	@echo "    push-backend       Push the backend image"
 	@echo "    push-ingest        Push the ingestion image"
 	@echo "    push-frontend      Push the frontend image"
-	@echo "    push-perspective   Push the perspective plugin image"
 	@echo ""
 	@echo "  Build & Push:"
 	@echo "    build-and-push     Build and push all images (latest tag)"
@@ -57,7 +51,6 @@ help:
 	@echo "    release-backend    Build and push the backend image"
 	@echo "    release-ingest     Build and push the ingestion image"
 	@echo "    release-frontend   Build and push the frontend image"
-	@echo "    release-perspective Build and push the perspective plugin image"
 	@echo ""
 	@echo "  Helm:"
 	@echo "    helm-deps          Update Helm chart dependencies"
@@ -96,8 +89,6 @@ help:
 	@echo "    BACKEND_TAG        $(BACKEND_TAG)"
 	@echo "    INGEST_TAG         $(INGEST_TAG)"
 	@echo "    FRONTEND_TAG       $(FRONTEND_TAG)"
-	@echo "    PERSPECTIVE_TAG    $(PERSPECTIVE_TAG)"
-	@echo "    PERSPECTIVE_API_BASE_URL  $(if $(PERSPECTIVE_API_BASE_URL),$(PERSPECTIVE_API_BASE_URL),(empty — same-origin /api/))"
 	@echo "    NAMESPACE          $(NAMESPACE)"
 	@echo "    HELM_RELEASE       $(HELM_RELEASE)"
 	@echo "    VALUES_FILE        $(VALUES_FILE)  (set llm-service.secret.hf_token before deploy)"
@@ -107,7 +98,7 @@ help:
 # Build targets
 # ============================================================
 .PHONY: build
-build: build-backend build-ingest build-frontend build-perspective
+build: build-backend build-ingest build-frontend
 
 .PHONY: build-backend
 build-backend:
@@ -139,23 +130,11 @@ build-frontend:
 		./app/frontend; \
 	echo ">>> Frontend image built successfully."
 
-.PHONY: build-perspective
-build-perspective:
-	@echo ">>> Building perspective image: $(PERSPECTIVE_IMAGE):$(PERSPECTIVE_TAG)"
-	@echo ">>> SUPPLY_CHAIN_API_BASE_URL=$(PERSPECTIVE_API_BASE_URL) (empty = same-origin /api/ proxy)"
-	podman build \
-		--platform $(BUILD_PLATFORM) \
-		--build-arg SUPPLY_CHAIN_API_BASE_URL=$(PERSPECTIVE_API_BASE_URL) \
-		-f ./app/supply-chain-perspective/Containerfile \
-		-t $(PERSPECTIVE_IMAGE):$(PERSPECTIVE_TAG) \
-		./app/supply-chain-perspective
-	@echo ">>> Perspective image built successfully."
-
 # ============================================================
 # Push targets
 # ============================================================
 .PHONY: push
-push: push-backend push-ingest push-frontend push-perspective
+push: push-backend push-ingest push-frontend
 
 .PHONY: push-backend
 push-backend:
@@ -172,11 +151,6 @@ push-frontend:
 	@echo ">>> Pushing frontend image: $(FRONTEND_IMAGE):$(FRONTEND_TAG)"
 	podman push $(PUSH_EXTRA_ARGS) $(FRONTEND_IMAGE):$(FRONTEND_TAG)
 
-.PHONY: push-perspective
-push-perspective:
-	@echo ">>> Pushing perspective image: $(PERSPECTIVE_IMAGE):$(PERSPECTIVE_TAG)"
-	podman push $(PUSH_EXTRA_ARGS) $(PERSPECTIVE_IMAGE):$(PERSPECTIVE_TAG)
-
 # ============================================================
 # Build & Push (all images with latest tag)
 # ============================================================
@@ -187,7 +161,7 @@ build-and-push: build push
 # Release (build + push) targets
 # ============================================================
 .PHONY: release
-release: release-backend release-ingest release-frontend release-perspective
+release: release-backend release-ingest release-frontend
 
 .PHONY: release-backend
 release-backend: build-backend push-backend
@@ -197,9 +171,6 @@ release-ingest: build-ingest push-ingest
 
 .PHONY: release-frontend
 release-frontend: build-frontend push-frontend
-
-.PHONY: release-perspective
-release-perspective: build-perspective push-perspective
 
 # ============================================================
 # Registry login
@@ -221,16 +192,6 @@ helm-deps:
 helm-lint: helm-deps
 	@echo ">>> Linting Helm chart: $(HELM_CHART)"
 	helm lint $(HELM_CHART) -f $(VALUES_FILE)
-
-.PHONY: helm-template
-helm-install-perspective: helm-deps
-	@echo ">>> Installing Helm release: $(HELM_RELEASE) in namespace: $(NAMESPACE)"
-	oc get namespace $(NAMESPACE) 2>/dev/null || oc new-project $(NAMESPACE)
-	helm install $(HELM_RELEASE) $(HELM_CHART) \
-		--namespace $(NAMESPACE) \
-		-f $(VALUES_FILE) \
-		--wait \
-		--timeout 10m
 
 .PHONY: helm-test
 helm-test: helm-deps
@@ -404,6 +365,5 @@ clean:
 	-podman rmi $(BACKEND_IMAGE):$(BACKEND_TAG) 2>/dev/null
 	-podman rmi $(INGEST_IMAGE):$(INGEST_TAG) 2>/dev/null
 	-podman rmi $(FRONTEND_IMAGE):$(FRONTEND_TAG) 2>/dev/null
-	-podman rmi $(PERSPECTIVE_IMAGE):$(PERSPECTIVE_TAG) 2>/dev/null
 	@echo ">>> Done."
 

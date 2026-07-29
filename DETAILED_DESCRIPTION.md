@@ -39,7 +39,6 @@ Generative AI changes this by bringing a reasoning layer directly into the opera
 This quickstart provides a complete, deployable reference architecture for an AI-powered supply chain intelligence platform on Red Hat OpenShift. It includes:
 
 - A **standalone React dashboard** for operators with KPIs, live charts, a logistics map, and a RAG-powered AI chatbot
-- An **OpenShift Console plugin** that embeds the same dashboard inside a dedicated Supply Chain perspective in the OpenShift web console
 - A **Flask backend API** managing dashboard state, disruption simulations, AI chat, and knowledge base management
 - A **knowledge base ingestion pipeline** that loads pre-built supply chain risk analyses into Llama Stack vector stores or PGVector for RAG retrieval
 - A **Helm umbrella chart** that deploys the full stack — frontend, backend, ingest job, Llama Stack, LLM service, and PGVector — with a single command
@@ -58,7 +57,6 @@ By the end of this quickstart, you will have:
 - Working disruption simulation scenarios (port strike, geopolitical event) that dynamically update KPIs and inject critical alerts
 - A knowledge base management interface for uploading and querying custom risk documents at runtime
 - Experience with the vLLM & LLM-D performance toggle that surfaces distributed inference metrics
-- (Optional) An OpenShift Console perspective integration via a dynamic console plugin
 
 ---
 
@@ -78,8 +76,6 @@ Throughout this quickstart, you'll gain hands-on experience with modern AI and c
 - **[React 19](https://react.dev/) + [Vite 7](https://vitejs.dev/)** — Standalone operator dashboard SPA
 - **[Chart.js 4](https://www.chartjs.org/) + react-chartjs-2** — Demand forecasting and revenue trend charts
 - **[Leaflet 1.9](https://leafletjs.com/) + react-leaflet 5** — Interactive logistics map with global, regional, and air-freight views
-- **[PatternFly 6](https://www.patternfly.org/)** — OpenShift-native UI components for the console plugin
-- **[@openshift-console/dynamic-plugin-sdk](https://github.com/openshift/console/tree/master/frontend/packages/dynamic-plugin-sdk)** — Embeds the dashboard as a first-class OpenShift Console perspective
 
 **Cloud-Native Infrastructure:**
 - **[OpenShift 4.21+](https://www.redhat.com/en/technologies/cloud-computing/openshift) / [OpenShift AI 3.4+](https://www.redhat.com/en/technologies/cloud-computing/openshift/openshift-ai)** — Container orchestration and AI/ML platform
@@ -91,17 +87,17 @@ Throughout this quickstart, you'll gain hands-on experience with modern AI and c
 
 ### Architecture overview
 
-The platform is built as three integrated layers sharing a single Flask backend API:
+The platform is built as a React frontend and Flask backend API:
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│                        User Interfaces                        │
+│                        User Interface                         │
 │                                                               │
-│   Standalone React SPA          OpenShift Console Plugin      │
-│   (nginx :8080)                 (PatternFly :9001)            │
-└─────────────────────┬───────────────────────┬────────────────┘
-                      │    /api/* proxy        │
-┌─────────────────────▼───────────────────────▼────────────────┐
+│                   Standalone React SPA                        │
+│                      (nginx :8080)                            │
+└─────────────────────────────┬────────────────────────────────┘
+                              │    /api/* proxy
+┌─────────────────────────────▼────────────────────────────────┐
 │                     Flask Backend API (:5001)                  │
 │                                                               │
 │  DashboardService   ChatService    RouteService               │
@@ -122,7 +118,7 @@ The platform is built as three integrated layers sharing a single Flask backend 
 
 2. **Disruption simulation:** The operator selects a scenario preset in the Simulation Panel and clicks Simulate. A `POST /api/v1/simulate` request mutates KPIs and injects critical alerts for the selected scenario (e.g. Port Strike LA, Suez blockage). The frontend replaces dashboard state immediately without waiting for the next poll cycle.
 
-3. **AI chat (RAG):** The operator types a question in the chat panel. `POST /api/v1/chat` runs the request through guardrails (off-topic rejection), an optional deterministic route-optimization shortcut, then a full RAG pipeline: vector similarity search against the knowledge base, followed by an LLM completion via Llama Stack. When `stream: true` is set (the default in both UIs), the backend relays token chunks over Server-Sent Events (SSE) so the assistant reply renders incrementally as markdown; non-streaming JSON responses remain supported for backward compatibility.
+3. **AI chat (RAG):** The operator types a question in the chat panel. `POST /api/v1/chat` runs the request through guardrails (off-topic rejection), an optional deterministic route-optimization shortcut, then a full RAG pipeline: vector similarity search against the knowledge base, followed by an LLM completion via Llama Stack. When `stream: true` is set (the default in the UI), the backend relays token chunks over Server-Sent Events (SSE) so the assistant reply renders incrementally as markdown; non-streaming JSON responses remain supported for backward compatibility.
 
 4. **Knowledge base ingestion:** A post-install Kubernetes Job loads bundled risk analyses (Suez Canal, US trucking shortage, Iceland ash cloud) into Llama Stack vector stores. Operators can also upload custom `.txt`/`.pdf` documents at runtime via the knowledge base management panel.
 

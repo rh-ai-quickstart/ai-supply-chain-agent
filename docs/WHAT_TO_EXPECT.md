@@ -24,8 +24,6 @@ OpenShift **Routes** (main Helm release `supply-chain-dashboard`):
 - Frontend UI: `supply-chain-dashboard-frontend`
 - Backend API: `supply-chain-dashboard-backend`
 
-The **console perspective** is reached through the OpenShift web console (not a third standalone dashboard Route). The plugin Helm chart exposes a Service (default name `supply-chain-perspective`) that the console loads via a `ConsolePlugin` resource.
-
 Check that workloads are up:
 
 ```bash
@@ -61,7 +59,7 @@ curl -s "$(oc get route supply-chain-dashboard-backend -n supply-chain-dashboard
 
 Expect: `https://supply-chain-dashboard-backend-supply-chain-dashboard.apps.<app>.<cluster_domain>`.
 
-The standalone **frontend** is built with a proxy pointing at this Route. The **console perspective** usually calls the same API via the plugin Route’s `/api/` proxy (see [Perspective](#openshift-console-perspective-optional) below).
+The **frontend** is built with a proxy pointing at this Route (same-origin `/api/*` via nginx in the cluster).
 
 ### API surface (interaction model)
 
@@ -74,7 +72,7 @@ The standalone **frontend** is built with a proxy pointing at this Route. The **
 | `POST` | `/api/v1/chat` | RAG chat (`input`, `chat_history`, optional `vector_store_id`) |
 | `GET` | `/api/v1/vector_stores` | Llama Stack vector stores (chat knowledge-base picker) |
 | `GET` / `POST` | `/api/v1/knowledge-bases` | List UI-upload catalog / upload files (multipart) |
-| `GET` / `POST` | `/api/v1/simulations` | List or create named simulation records (perspective **Simulations** page) |
+| `GET` / `POST` | `/api/v1/simulations` | List or create named simulation records |
 
 **Simulate** scenarios understood by the backend:
 
@@ -109,11 +107,11 @@ make ingest-logs
 
 ---
 
-## Frontend (standalone dashboard)
+## Frontend (dashboard)
 
 ### What it is
 
-A **React + Vite** single-page app served by nginx. It is the primary operator UI when you are **not** using the OpenShift Console perspective. One deployment, one Route — no cluster-admin required beyond what the main Helm chart needs.
+A **React + Vite** single-page app served by nginx. It is the operator UI for the quickstart. One deployment, one Route — no cluster-admin required beyond what the main Helm chart needs.
 
 ### How to open it
 
@@ -167,74 +165,11 @@ Open the **https** URL in a browser. The app polls `GET /api/v1/state` every **1
 
 ---
 
-## OpenShift Console perspective (optional)
-
-### What it is
-
-A **dynamic console plugin** (`supply-chain-perspective`) that adds a **Supply Chain** perspective to the OpenShift web console. It reimplements the dashboard experience with PatternFly and console navigation, and adds dedicated pages for **Simulations** and **Knowledge bases**.
-
-Installing it requires **cluster-admin** (`ConsolePlugin` CR + patch to `consoles.operator.openshift.io`). Deploy separately from the main chart; see [README — Deploy step 6](../README.md#6-optional-deploy-the-openshift-console-perspective).
-
-Typical install namespace: same as the app (`supply-chain-dashboard`) so the plugin’s API proxy can reach `supply-chain-dashboard-backend`.
-
-### How to open it
-
-1. Log in to the **OpenShift Console** (not the standalone frontend Route).
-2. Use the perspective switcher (top) and choose **Supply Chain**.
-3. Use the left nav under **Home**:
-   - **Dashboard** — `/supply-chain/dashboard`
-   - **Simulations** — `/supply-chain/simulations`
-   - **Knowledge bases** — `/supply-chain/knowledge-bases`
-
-Traffic to `/api/...` on the plugin Route is proxied to the backend Service (see `plugin.apiProxy` in the plugin Helm values).
-
-### Dashboard page (perspective)
-
-Functionally aligned with the standalone frontend:
-
-- KPI tiles, demand/revenue charts, system health, alerts, Leaflet map (view selector)
-- **Simulation** card: same presets (live, port strike, Suez, trigger event) and optional optimize flag
-- **Chat** modal with vector-store picker and markdown replies
-
-Differences from the standalone SPA:
-
-- Console chrome, theming, and i18n (`plugin__supply-chain-perspective`)
-- No hash-based routing; console handles paths under `/supply-chain/...`
-
-### Simulations page (perspective only)
-
-This page is **not** on the standalone frontend Route. It uses `GET/POST /api/v1/simulations` to:
-
-- List saved simulation **names** and descriptions
-- Create new records via a form
-
-Data lives in the backend container filesystem (`/tmp`) for demo purposes only.
-
-### Knowledge bases page (perspective)
-
-Same capability as the frontend’s knowledge-bases view: upload files, list catalogs, integrate with Llama Stack ingestion. After upload, use the dashboard chat vector-store dropdown to query the new store.
-
-### What to expect behaviorally
-
-- If the plugin pod or console enablement is wrong, the perspective may not appear — verify `ConsolePlugin` and operator `spec.plugins`.
-- If API proxy is misconfigured, dashboard loads but chat/simulations fail with network errors — confirm backend Service name/port in plugin values match the main release.
-- You can use **both** UIs at once (standalone Route + console perspective); they share the same backend.
-
-### Quick verification
-
-```bash
-oc get consoleplugin -n supply-chain-dashboard
-oc get pods -n supply-chain-dashboard -l app.kubernetes.io/name=supply-chain-perspective
-```
-
----
-
 ## Suggested walkthrough
 
 1. Open the **frontend Route** and confirm KPIs and map load (backend healthy).
 2. Run **Port Strike LA** and watch alerts/KPIs change.
 3. Ask the chat: *“Summarize current critical alerts.”* (optionally select a vector store after ingest).
 4. Open **Knowledge bases**, upload a short `.txt`, then ask a question grounded in that content.
-5. (If installed) Switch to the **Supply Chain** perspective, repeat a simulation, and create a named simulation on the **Simulations** page.
 
 For troubleshooting pods, routes, and ingest jobs, use `make oc-status`, `make ingest-status`, and `make ingest-logs`.
