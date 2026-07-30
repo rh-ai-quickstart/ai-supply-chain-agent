@@ -16,7 +16,14 @@ class VectorStoreClient:
         host = os.getenv("PG_HOST", "pgvector")
         port = os.getenv("PG_PORT", "5432")
         user = os.getenv("PG_USER", "postgres")
-        password = os.getenv("PG_PASSWORD", "password")
+        pg_password = os.environ.get("PG_PASSWORD")
+        if not pg_password:
+            raise RuntimeError(
+                "PG_PASSWORD environment variable is not set. "
+                "The pgvector Helm chart creates a Secret; reference it via "
+                "secretKeyRef in your Deployment env stanza."
+            )
+        password = pg_password
         db = os.getenv("PG_DB", "blueprint")
 
         connection_string = (

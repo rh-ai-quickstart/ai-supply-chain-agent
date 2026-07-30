@@ -1,28 +1,48 @@
+import PropTypes from "prop-types";
+
+function findVectorStoreId(stores, keywords) {
+  for (const store of stores) {
+    const name = (store.name || "").toLowerCase();
+    if (keywords.some((kw) => name.includes(kw))) {
+      return store.id;
+    }
+  }
+  return "";
+}
+
+const SCENARIO_KEYWORDS = {
+  "port-strike": ["port", "strike", "land"],
+  geopolitical: ["suez", "geopolitical"],
+  none: [],
+};
+
 export function SimulationPanel({
-  mapView,
-  optimize,
+  mapView = "airFreight",
+  optimize = false,
   onOptimizeChange,
   onRunScenario,
   onTriggerEvent,
-  simulationLoading,
-  simulationError,
+  simulationLoading = false,
+  simulationError = "",
+  vectorStores = [],
+  setSelectedVectorStoreId,
 }) {
   const handleRun = (scenario) => {
+    const keywords = SCENARIO_KEYWORDS[scenario] || [];
+    const storeId = keywords.length > 0 ? findVectorStoreId(vectorStores, keywords) : "";
+    setSelectedVectorStoreId(storeId);
     onRunScenario({ scenario, optimize });
+  };
+
+  const handleTriggerWorld = () => {
+    const storeId = findVectorStoreId(vectorStores, ["air", "risk", "iceland"]);
+    setSelectedVectorStoreId(storeId);
+    onTriggerEvent(mapView);
   };
 
   return (
     <section className="panel">
       <h3>AI Simulation & Presets</h3>
-      <label className="field-label">Infrastructure Engine</label>
-      <label className="row checkbox-row">
-        <input
-          type="checkbox"
-          checked={optimize}
-          onChange={(event) => onOptimizeChange(event.target.checked)}
-        />
-        Enable vLLM & LLM-D
-      </label>
 
       <label className="field-label">Scenario Presets</label>
       <div className="stack">
@@ -45,7 +65,7 @@ export function SimulationPanel({
         </button>
         <button
           className="btn"
-          onClick={() => onTriggerEvent(mapView)}
+          onClick={handleTriggerWorld}
           disabled={simulationLoading}
         >
           Trigger World Event
@@ -56,3 +76,15 @@ export function SimulationPanel({
     </section>
   );
 }
+
+SimulationPanel.propTypes = {
+  mapView: PropTypes.string,
+  optimize: PropTypes.bool,
+  onOptimizeChange: PropTypes.func,
+  onRunScenario: PropTypes.func,
+  onTriggerEvent: PropTypes.func,
+  simulationLoading: PropTypes.bool,
+  simulationError: PropTypes.string,
+  vectorStores: PropTypes.array,
+  setSelectedVectorStoreId: PropTypes.func,
+};

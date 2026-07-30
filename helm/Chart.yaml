@@ -1,8 +1,8 @@
 apiVersion: v2
-name: example
-description: Example umbrella chart with pgvector and llama-stack
+name: supply-chain-agent
+description: AI Supply Chain Agent — demo dashboard with pgvector and Llama Stack
 type: application
-version: 0.1.0
+version: 0.2.0
 appVersion: "0.1.0"
 
 dependencies:

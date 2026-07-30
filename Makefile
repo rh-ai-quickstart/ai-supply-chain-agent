@@ -9,7 +9,7 @@ INGEST_IMAGE       ?= $(REGISTRY)/ai-supply-chain-agent-ingestion
 FRONTEND_IMAGE     ?= $(REGISTRY)/ai-supply-chain-agent-frontend
 BACKEND_TAG        ?= latest
 INGEST_TAG         ?= latest
-FRONTEND_TAG       ?= latest
+FRONTEND_TAG       ?= dev
 
 # --- Helm Config ---
 HELM_CHART     ?= ./helm
@@ -203,24 +203,38 @@ helm-render: helm-deps
 	@echo ">>> Rendering Helm templates (namespace: $(NAMESPACE))"
 	helm template $(HELM_RELEASE) $(HELM_CHART) \
 		--namespace $(NAMESPACE) \
-		-f $(VALUES_FILE)
+		-f $(VALUES_FILE) \
+		--set backend.image.tag=$(BACKEND_TAG) \
+		--set frontend.image.tag=$(FRONTEND_TAG) \
+		--set ingest.image.tag=$(INGEST_TAG) \
+		$(HELM_EXTRA_ARGS)
 
 .PHONY: helm-install
 helm-install: helm-deps
 	@echo ">>> Installing Helm release: $(HELM_RELEASE) in namespace: $(NAMESPACE)"
+	@echo ">>> Images: backend=$(BACKEND_TAG) frontend=$(FRONTEND_TAG) ingest=$(INGEST_TAG)"
 	oc get namespace $(NAMESPACE) 2>/dev/null || oc new-project $(NAMESPACE)
 	helm install $(HELM_RELEASE) $(HELM_CHART) \
 		--namespace $(NAMESPACE) \
 		-f $(VALUES_FILE) \
+		--set backend.image.tag=$(BACKEND_TAG) \
+		--set frontend.image.tag=$(FRONTEND_TAG) \
+		--set ingest.image.tag=$(INGEST_TAG) \
+		$(HELM_EXTRA_ARGS) \
 		--wait \
 		--timeout 10m
 
 .PHONY: helm-upgrade
 helm-upgrade: helm-deps
 	@echo ">>> Upgrading Helm release: $(HELM_RELEASE) in namespace: $(NAMESPACE)"
+	@echo ">>> Images: backend=$(BACKEND_TAG) frontend=$(FRONTEND_TAG) ingest=$(INGEST_TAG)"
 	helm upgrade $(HELM_RELEASE) $(HELM_CHART) \
 		--namespace $(NAMESPACE) \
 		-f $(VALUES_FILE) \
+		--set backend.image.tag=$(BACKEND_TAG) \
+		--set frontend.image.tag=$(FRONTEND_TAG) \
+		--set ingest.image.tag=$(INGEST_TAG) \
+		$(HELM_EXTRA_ARGS) \
 		--wait \
 		--timeout 10m
 

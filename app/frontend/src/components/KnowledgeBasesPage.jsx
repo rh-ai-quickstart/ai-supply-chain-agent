@@ -1,3 +1,4 @@
+import PropTypes from "prop-types";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createKnowledgeBase, listKnowledgeBases } from "../services/knowledgeBasesService";
 
@@ -25,7 +26,7 @@ export function KnowledgeBasesPage({ onKnowledgeBaseCreated }) {
   }, []);
 
   useEffect(() => {
-    void refresh();
+    refresh();
   }, [refresh]);
 
   const handleSubmit = async (event) => {
@@ -80,7 +81,7 @@ export function KnowledgeBasesPage({ onKnowledgeBaseCreated }) {
             </ul>
           </div>
         ) : null}
-        <form className="kb-form" onSubmit={(e) => void handleSubmit(e)}>
+        <form className="kb-form" onSubmit={handleSubmit}>
           <label className="kb-label" htmlFor="kb-display-name">
             Display name <span className="kb-required">*</span>
           </label>
@@ -158,3 +159,7 @@ export function KnowledgeBasesPage({ onKnowledgeBaseCreated }) {
     </div>
   );
 }
+
+KnowledgeBasesPage.propTypes = {
+  onKnowledgeBaseCreated: PropTypes.func,
+};

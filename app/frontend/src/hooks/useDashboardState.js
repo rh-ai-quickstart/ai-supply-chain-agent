@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getDashboardState } from "../services/dashboardService";
 
 const REFRESH_INTERVAL_MS = 15000;
@@ -23,21 +23,22 @@ export function useDashboardState() {
   };
 
   useEffect(() => {
-    let cancelled = false;
+    let gen = 0;
 
     const loadState = async () => {
+      const myGen = ++gen;
       try {
         setError("");
         const data = await getDashboardState();
-        if (!cancelled) {
+        if (myGen === gen) {
           setDashboardState(data);
         }
       } catch {
-        if (!cancelled) {
+        if (myGen === gen) {
           setError("Unable to load dashboard state from backend.");
         }
       } finally {
-        if (!cancelled) {
+        if (myGen === gen) {
           setLoading(false);
         }
       }
@@ -47,7 +48,7 @@ export function useDashboardState() {
     const timerId = setInterval(loadState, REFRESH_INTERVAL_MS);
 
     return () => {
-      cancelled = true;
+      gen = Infinity;
       clearInterval(timerId);
     };
   }, []);

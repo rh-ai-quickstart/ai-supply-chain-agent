@@ -19,7 +19,13 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-CORS(app)
+
+# Same-origin through nginx — CORS not required in production.
+# In development, Vite proxies /api to the backend (same origin).
+# Set CORS_ORIGIN env var if running the frontend separately.
+_cors_origin = os.getenv("CORS_ORIGIN")
+if _cors_origin:
+    CORS(app, origins=_cors_origin)
 
 dashboard_service = DashboardService()
 
@@ -42,7 +48,12 @@ def list_vector_stores_safe(chat_service: Any) -> tuple[list[dict[str, Any]], Op
         logger.warning("list_vector_stores failed: %s", exc)
         return ([], str(exc))
 
-_openai_model = os.environ["LLAMA_STACK_OPENAI_MODEL"]
+_openai_model = os.getenv("LLAMA_STACK_OPENAI_MODEL", "")
+if not _openai_model:
+    logger.error(
+        "LLAMA_STACK_OPENAI_MODEL is not set. Set it to the model ID for the OpenAI-compatible endpoint."
+    )
+    _openai_model = "gpt-4o-mini"
 
 chat_service = ChatService(
     LlamaStackClient(label="vllm"),
@@ -73,12 +84,14 @@ def trigger_event():
 def post_simulate():
     payload = request.get_json(silent=True) or {}
     scenario = payload.get("scenario", "none")
-    optimize = bool(payload.get("optimize", False))
+    optimize = payload.get("optimize", False) in (True, "true", "1", 1)
     return jsonify(dashboard_service.simulate(scenario, optimize))
 
 
 def _sse_event(payload: dict[str, Any]) -> str:
-    return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
+    text = json.dumps(payload, ensure_ascii=False)
+    text = text.replace("\n\n", "\n")
+    return f"data: {text}\n\n"
 
 
 def _parse_chat_payload(payload: dict[str, Any]) -> dict[str, Any]:
@@ -177,4 +190,5 @@ def post_simulation():
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5001, debug=True, threaded=True)
+    debug = os.getenv("FLASK_DEBUG", "").lower() in ("1", "true", "yes")
+    app.run(host="0.0.0.0", port=5001, debug=debug, threaded=True)

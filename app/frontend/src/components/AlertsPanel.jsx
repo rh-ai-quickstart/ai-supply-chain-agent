@@ -1,4 +1,6 @@
-export function AlertsPanel({ loading, error, alerts }) {
+import PropTypes from "prop-types";
+
+export function AlertsPanel({ loading = false, error = "", alerts = [] }) {
   return (
     <section className="panel insights-panel">
       <h3>Real-Time Alerts</h3>
@@ -16,3 +18,9 @@ export function AlertsPanel({ loading, error, alerts }) {
     </section>
   );
 }
+
+AlertsPanel.propTypes = {
+  loading: PropTypes.bool,
+  error: PropTypes.string,
+  alerts: PropTypes.array,
+};

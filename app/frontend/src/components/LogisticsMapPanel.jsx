@@ -1,17 +1,20 @@
+import PropTypes from "prop-types";
+import { memo } from "react";
 import { CircleMarker, MapContainer, Marker, Popup, TileLayer } from "react-leaflet";
 import { createAssetDivIcon } from "../utils/mapAssetIcons";
 
-export function LogisticsMapPanel({
-  mapView,
+export const LogisticsMapPanel = memo(function LogisticsMapPanel({
+  mapView = "airFreight",
   onChangeMapView,
-  selectedMapData,
-  assetCounts,
+  selectedMapData = { ports: [] },
+  assetCounts = {},
 }) {
   return (
     <article className="panel map-panel">
       <div className="map-header">
         <h3>Live Logistics Map</h3>
-        <select value={mapView} onChange={(event) => onChangeMapView(event.target.value)}>
+        <label htmlFor="map-view-select" className="sr-only">Map view</label>
+        <select id="map-view-select" value={mapView} onChange={(event) => onChangeMapView(event.target.value)}>
           <option value="airFreight">Global Air Freight</option>
           <option value="global">Global Shipping</option>
           <option value="regional">North America</option>
@@ -76,3 +79,12 @@ export function LogisticsMapPanel({
     </article>
   );
 }
+);
+
+LogisticsMapPanel.displayName = "LogisticsMapPanel";
+LogisticsMapPanel.propTypes = {
+  mapView: PropTypes.string,
+  onChangeMapView: PropTypes.func,
+  selectedMapData: PropTypes.object,
+  assetCounts: PropTypes.object,
+};

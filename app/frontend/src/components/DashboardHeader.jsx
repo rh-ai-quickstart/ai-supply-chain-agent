@@ -1,4 +1,6 @@
-export function DashboardHeader({ isLightTheme, onToggleTheme, activeView = "dashboard", onNavigate }) {
+import PropTypes from "prop-types";
+
+export function DashboardHeader({ isLightTheme = false, onToggleTheme, activeView = "dashboard", onNavigate }) {
   return (
     <header className="dashboard-header panel-lite">
       <div className="dashboard-header-main">
@@ -22,9 +24,16 @@ export function DashboardHeader({ isLightTheme, onToggleTheme, activeView = "das
           </nav>
         ) : null}
       </div>
-      <button className="theme-btn" type="button" onClick={onToggleTheme}>
+      <button className="theme-btn" type="button" onClick={onToggleTheme} aria-label="Toggle theme">
         {isLightTheme ? "🌙" : "☀️"}
       </button>
     </header>
   );
 }
+
+DashboardHeader.propTypes = {
+  isLightTheme: PropTypes.bool,
+  onToggleTheme: PropTypes.func,
+  activeView: PropTypes.string,
+  onNavigate: PropTypes.func,
+};
