@@ -22,7 +22,6 @@ _MAX_VECTOR_STORE_NAME_LENGTH = 48
 
 def _vector_store_slug(display_name: str) -> str:
     slug = re.sub(r"[^a-zA-Z0-9_.-]+", "-", (display_name or "").strip())[:_MAX_VECTOR_STORE_NAME_LENGTH].strip("-_.")
-
     return slug
 
 

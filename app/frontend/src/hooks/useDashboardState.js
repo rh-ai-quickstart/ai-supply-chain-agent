@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getDashboardState } from "../services/dashboardService";
 
 const REFRESH_INTERVAL_MS = 15000;
