@@ -25,6 +25,7 @@ class DashboardService:
     def simulate(self, scenario: str, optimize: bool):
         try:
             result = self._builder.build_state()
+        # Broad catch: build_state may raise varied live-data errors; fall back to static data.
         except Exception as exc:
             logger.warning("simulate: falling back to static data (%s)", exc)
             result = get_static_fallback_data()

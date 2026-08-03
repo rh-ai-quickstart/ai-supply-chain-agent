@@ -28,7 +28,7 @@ class GeneralSimulationClient:
             )
             resp.raise_for_status()
             return dict(resp.json())
-        except Exception as exc:
+        except (requests.RequestException, ValueError) as exc:
             logger.warning("GeneralSimulation health check failed: %s", exc)
             return {"status": "unreachable", "db": "unknown"}
 
@@ -62,6 +62,6 @@ class GeneralSimulationClient:
             detail = exc.response.text[:500] if exc.response.text else ""
             logger.error("GeneralSimulation query HTTP %s: %s", status, detail)
             return {"error": f"HTTP {status}: {detail}"}
-        except Exception as exc:
+        except requests.RequestException as exc:
             logger.error("GeneralSimulation query failed: %s", exc)
             return {"error": str(exc)}

@@ -5,7 +5,7 @@ from collections.abc import Iterator
 from dataclasses import dataclass, field
 from typing import Any
 
-from openai import OpenAI
+from openai import APIError, OpenAI
 
 logger = logging.getLogger(__name__)
 
@@ -141,7 +141,7 @@ class LlamaStackClient:
         try:
             dumped = completion.model_dump(mode="json")
             return dumped if isinstance(dumped, dict) else {"value": dumped}
-        except Exception as exc:
+        except (ValueError, TypeError, AttributeError) as exc:
             logger.warning("LlamaStackClient: could not model_dump completion: %s", exc)
             return {"serialization_error": str(exc)}
 
@@ -228,7 +228,7 @@ class LlamaStackClient:
                 "answer": text,
                 "completion": self._completion_to_json(completion),
             }
-        except Exception as exc:
+        except APIError as exc:
             logger.error("LlamaStackClient[%s]: request failed: %s", self.label, exc)
             return {
                 "answer": f"Darn! Something went wrong: {exc}",
@@ -257,7 +257,7 @@ class LlamaStackClient:
                 **self._completion_kwargs(messages, stream=True),
             )
             yield from self._iter_stream_events(stream)
-        except Exception as exc:
+        except APIError as exc:
             yield from self._stream_error_events(exc, label=self.label)
 
     def list_vector_stores(self, limit: int = 100) -> list[dict[str, Any]]:
@@ -274,7 +274,7 @@ class LlamaStackClient:
                         "created_at": vs.created_at,
                     }
                 )
-        except Exception as exc:
+        except APIError as exc:
             logger.warning("LlamaStack list vector_stores failed: %s", exc)
         return out
 
@@ -302,7 +302,7 @@ class LlamaStackClient:
                         if text.strip():
                             parts.append(text.strip())
             return "\n\n".join(parts)
-        except Exception as exc:
+        except APIError as exc:
             logger.warning(
                 "LlamaStack vector_stores.search failed store=%s: %s",
                 vector_store_id,

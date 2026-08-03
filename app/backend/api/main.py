@@ -33,6 +33,7 @@ _vector_store_client: VectorStoreClient | None = None
 try:
     _vector_store_client = VectorStoreClient()
     logger.info("VectorStoreClient initialised successfully.")
+# Broad catch: best-effort init; external libs may raise varied errors, proceed without RAG context.
 except Exception as _exc:
     logger.warning(
         "VectorStoreClient could not be initialised (%s). "
@@ -44,6 +45,7 @@ def list_vector_stores_safe(chat_service: Any) -> tuple[list[dict[str, Any]], Op
     """Return ``(stores, error_message)``. On failure, ``stores`` is empty and ``error_message`` is set."""
     try:
         return (chat_service.list_vector_stores(), None)
+    # Broad catch: this wrapper is intended to report any failure instead of raising.
     except Exception as exc:
         logger.warning("list_vector_stores failed: %s", exc)
         return ([], str(exc))
@@ -168,6 +170,7 @@ def get_vector_stores():
         if err:
             body["error"] = err
         return jsonify(body)
+    # Broad catch: top-level HTTP boundary; return a 500 for any unexpected handler error.
     except Exception as exc:
         logger.warning("vector_stores.list failed: %s", exc)
         return jsonify({"vector_stores": [], "error": str(exc)}), 500

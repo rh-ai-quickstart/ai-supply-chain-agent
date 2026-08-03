@@ -57,8 +57,9 @@ class VectorStoreClient:
             try:
                 self.vector_store.drop_tables()
                 logger.info("Dropped existing tables for collection '%s'.", _COLLECTION_NAME)
+            # Broad catch: best-effort cleanup; dropping tables is optional, continue on failure.
             except Exception as exc:
-                logger.warning("Could not drop tables: %s", exc)
+                    logger.warning("Could not drop tables: %s", exc)
 
         self.vector_store.create_tables_if_not_exists()
         self.vector_store.create_collection()

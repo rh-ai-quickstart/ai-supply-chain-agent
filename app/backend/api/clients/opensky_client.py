@@ -49,7 +49,7 @@ class OpenSkyClient:
                 "OpenSkyClient: HTTP %s (using cache if present)",
                 response.status_code,
             )
-        except Exception as exc:
+        except (requests.RequestException, ValueError) as exc:
             logger.warning("OpenSkyClient: error %s (using cache if present)", exc)
 
         with self._lock:

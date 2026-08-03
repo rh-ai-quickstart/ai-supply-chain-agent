@@ -124,6 +124,7 @@ class AgentService:
             )
         try:
             return tool.fn(**kwargs)
+        # Broad catch: tool callables are arbitrary; surface any failure as a ToolResult error.
         except Exception as exc:
             logger.error("Tool %s failed: %s", name, exc)
             return ToolResult(

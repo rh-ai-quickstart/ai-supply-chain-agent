@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import openai
 import re
 import uuid
 from typing import Any
@@ -66,7 +67,7 @@ def ingest_uploaded_files(
     store_label = _vector_store_slug(display_name)
     try:
         vector_store_id = llama.create_vector_store(store_label)
-    except Exception as exc:
+    except (openai.APIError, RuntimeError) as exc:
         logger.exception("create_vector_store failed: %s", exc)
         return {"ok": False, "error": str(exc), "warnings": warnings}
 
@@ -76,7 +77,7 @@ def ingest_uploaded_files(
             file_id = llama.upload_file_bytes(filename, content)
             llama.attach_file_to_vector_store(vector_store_id, file_id)
             files_meta.append({"filename": filename, "file_id": file_id, "bytes": len(content)})
-        except Exception as exc:
+        except openai.APIError as exc:
             logger.warning("upload/attach failed for %s: %s", filename, exc)
             warnings.append(f"failed: {filename}: {exc}")
 

@@ -182,7 +182,7 @@ cd ai-supply-chain-agent
 
 ### 2. Edit values
 
-**Only required change:** set your Hugging Face token in `helm/values.yaml` so the `llm-service` sub-chart can pull gated models (for example `meta-llama/Llama-3.2-1B-Instruct`):
+**Only required change:** set your Hugging Face token so the `llm-service` sub-chart can pull gated models (for example `meta-llama/Llama-3.2-1B-Instruct`). Either set it in `helm/values.yaml`:
 
 ```yaml
 llm-service:
@@ -190,7 +190,15 @@ llm-service:
     hf_token: "<your-hf-token>"
 ```
 
-Create a token at [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens) with read access to the models you use.
+or, recommended for production, pre-create the Secret the chart reads (`huggingface-secret`, key `HF_TOKEN`) so the token is never committed:
+
+```bash
+oc create secret generic huggingface-secret \
+  -n supply-chain-dashboard \
+  --from-literal=HF_TOKEN="<your-hf-token>"
+```
+
+Create a token at [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens) with read access to the models you use. If the Secret already exists, the chart uses it as-is and ignores `llm-service.secret.hf_token`.
 
 Everything else in `helm/values.yaml` works with the chart defaults (images, PGVector demo credentials, in-cluster API proxy, Llama Stack URLs). Override those only when you use a custom registry, namespace layout, or GPU settings.
 
@@ -420,7 +428,7 @@ app/
 
 ### Environment variables
 
-**Helm (`helm/values.yaml`)** — the only value you must set before deploy is `llm-service.secret.hf_token` (Hugging Face token for gated models). Other keys below are set by the chart or optional overrides.
+**Helm (`helm/values.yaml`)** — the only value you must set before deploy is the Hugging Face token, either via `llm-service.secret.hf_token` or by pre-creating a `huggingface-secret` Secret (key `HF_TOKEN`). Other keys below are set by the chart or optional overrides.
 
 **Backend**
 

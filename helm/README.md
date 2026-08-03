@@ -15,7 +15,27 @@ Umbrella chart for the AI Supply Chain Agent quickstart. It deploys the applicat
 
 - Helm 3.14+
 - OpenShift CLI (`oc`) for cluster deploys
-- A [Hugging Face token](https://huggingface.co/settings/tokens) in `values.yaml` at `llm-service.secret.hf_token` (required for gated models)
+- A [Hugging Face token](https://huggingface.co/settings/tokens) (required for gated models)
+
+## Provide the Hugging Face token
+
+The `llm-service` sub-chart reads the token from a Secret named `huggingface-secret` (key `HF_TOKEN`). It creates that Secret itself only if it does not already exist, so you can supply the token either way:
+
+**Option A — set it in `values.yaml`** (chart creates the Secret):
+
+```yaml
+llm-service:
+  secret:
+    hf_token: "<your-hf-token>"
+```
+
+**Option B — pre-create the Secret** (recommended for production; the token never touches a values file):
+
+```bash
+oc create secret generic huggingface-secret \
+  -n supply-chain-dashboard \
+  --from-literal=HF_TOKEN="<your-hf-token>"
+```
 
 ## Install
 

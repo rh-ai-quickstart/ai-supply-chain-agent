@@ -26,11 +26,13 @@ numbers for quick navigation.  Work through them in any order — pick what inte
       `app/frontend/` — `npm ci` used in CI requires a lockfile.  Generate and commit one, or
       switch CI to `npm install`.
 
-- [ ] **C6 — API and ingestion use different embedding endpoints**
+- [x] **C6 — API and ingestion use different embedding endpoints**
       `app/backend/api/clients/vector_store_client.py:33` uses
       `{llama_stack_url}/v1/openai/v1` while
       `app/backend/ingestion/clients/vector_store_client.py:33` uses `{llama_stack_url}/v1`.
       One of these is wrong — verify and align them.
+      Aligned both to `{llama_stack_url}/v1` (the OpenAI-SDK base URL for Llama Stack on
+      OpenShift AI 3.4; embeddings are served at `/v1/embeddings`).
 
 ---
 

@@ -63,6 +63,7 @@ def main() -> None:
     except ValueError as exc:
         logger.error("No documents to ingest — %s", exc)
         sys.exit(1)
+    # Broad catch: top-level CLI boundary; log unexpected errors and exit non-zero.
     except Exception as exc:
         logger.exception("Unexpected error during ingestion: %s", exc)
         sys.exit(1)

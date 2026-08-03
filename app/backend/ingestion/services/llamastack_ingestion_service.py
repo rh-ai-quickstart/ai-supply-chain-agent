@@ -1,4 +1,5 @@
 import logging
+import openai
 import re
 import uuid
 from pathlib import Path
@@ -67,7 +68,7 @@ class LlamaStackIngestionService:
                     store_name,
                     vector_store_id,
                 )
-            except Exception as exc:
+            except (openai.APIError, OSError) as exc:
                 logger.error(
                     "Failed to ingest '%s' (store name '%s'): %s",
                     file_path,
