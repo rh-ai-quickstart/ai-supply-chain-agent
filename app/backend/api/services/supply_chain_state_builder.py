@@ -1,4 +1,4 @@
-"""Builds dashboard payloads matching legacy `app/__legacy/app.py` behavior."""
+"""Builds dashboard payloads for the supply chain dashboard."""
 
 from __future__ import annotations
 

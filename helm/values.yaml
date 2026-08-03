@@ -9,6 +9,9 @@ pgvector:
   secret:
     create: true
     user: postgres
+    # ⚠️ Change this for any non-demo deployment.
+    # The Secret is referenced by all three workloads (backend, ingest, frontend
+    # nginx is not affected).
     password: password
     dbname: blueprint
     host: pgvector
@@ -61,6 +64,7 @@ backend:
     # PG_ prefix avoids collision with the Kubernetes service-discovery
     # variable PGVECTOR_PORT=tcp://ip:port that is auto-injected for the
     # pgvector Service, which would corrupt SQLAlchemy URL parsing.
+    GENERAL_SIMULATION_BASE_URL: "http://general-simulation:8000"
     PG_HOST: pgvector
     PG_PORT: "5432"
     PG_USER: postgres

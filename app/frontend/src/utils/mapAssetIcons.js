@@ -1,5 +1,5 @@
 /**
- * Leaflet asset markers aligned with ``app/__legacy/SupplyChainDashboard.html``.
+ * Leaflet asset markers for the supply chain dashboard map.
  */
 import L from "leaflet";
 

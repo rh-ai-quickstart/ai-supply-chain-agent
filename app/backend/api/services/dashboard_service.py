@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 class DashboardService:
-    """Dashboard payloads aligned with legacy `app/__legacy/app.py` (OpenSky + map data)."""
+    """Dashboard payloads combining OpenSky flight data with map data."""
 
     def __init__(self, state_builder: SupplyChainStateBuilder | None = None) -> None:
         self._builder = state_builder or SupplyChainStateBuilder(OpenSkyClient())
