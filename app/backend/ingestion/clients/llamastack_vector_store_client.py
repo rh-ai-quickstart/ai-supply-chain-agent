@@ -45,10 +45,31 @@ class LlamaStackVectorStoreClient:
         logger.info("Created vector store '%s' (id=%s)", name, vector_store.id)
         return vector_store.id
 
-    def upload_file(self, file_path: str) -> str:
-        """Upload a local file to LlamaStack and return the file ID."""
+    def upload_file(self, file_path: str, **metadata) -> str:
+        """Upload a local file to LlamaStack and return the file ID.
+
+        Optional keyword arguments are carried as per-file attributes on the
+        uploaded File object so documents belonging to the same vector store
+        can still be filtered/attributed to their source file.
+
+        Note: the installed openai SDK's ``files.create`` does not expose a
+        dedicated ``attributes``/``metadata`` parameter.  Metadata is therefore
+        sent best-effort via ``extra_body`` (the SDK's documented catch-all for
+        additional JSON request properties).  Whether LlamaStack persists it
+        depends on the server; see the service docstring for the fallback
+        attribution strategy.
+        """
         with open(file_path, "rb") as fh:
-            response = self._client.files.create(file=fh, purpose="assistants")
+            if metadata:
+                response = self._client.files.create(
+                    file=fh,
+                    purpose="assistants",
+                    extra_body={"attributes": metadata},
+                )
+            else:
+                response = self._client.files.create(
+                    file=fh, purpose="assistants"
+                )
         logger.info("Uploaded file '%s' (id=%s)", file_path, response.id)
         return response.id
 
