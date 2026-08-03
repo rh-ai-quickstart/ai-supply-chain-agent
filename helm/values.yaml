@@ -9,11 +9,9 @@ pgvector:
   secret:
     create: true
     user: postgres
-    # ⚠️ Demo default only. Override via helm/secrets.yaml if needed.
-    # Do NOT set password to "" — an empty overlay blanks the Secret and
-    # breaks LlamaStack auth to PGVector.
-    # Changing the password after first install requires deleting PVC
-    # pg-data-pgvector-0 (Postgres applies POSTGRES_PASSWORD only on init).
+    # ⚠️ Change this for any non-demo deployment.
+    # The Secret is referenced by all three workloads (backend, ingest, frontend
+    # nginx is not affected).
     password: password
     dbname: blueprint
     host: pgvector
