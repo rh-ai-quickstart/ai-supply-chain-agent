@@ -19,7 +19,7 @@ const SCENARIO_KEYWORDS = {
 export function SimulationPanel({
   mapView = "airFreight",
   optimize = false,
-  onOptimizeChange,
+  onOptimizeChange: _onOptimizeChange,
   onRunScenario,
   onTriggerEvent,
   simulationLoading = false,

@@ -1,8 +1,8 @@
 import logging
-import openai
 import uuid
 from pathlib import Path
 
+import openai
 from clients.llamastack_vector_store_client import LlamaStackVectorStoreClient
 from config import IngestConfig
 

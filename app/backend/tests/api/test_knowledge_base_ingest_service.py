@@ -57,3 +57,37 @@ def test_ingest_create_store_failure():
     out = ingest_uploaded_files(llama, "KB", [("a.txt", b"ok")])
     assert out["ok"] is False
     assert "upstream" in out["error"]
+
+
+@patch("services.knowledge_base_ingest_service.append_record")
+def test_ingest_upload_failure_cleans_up_store(mock_append, mock_llama_stack_client):
+    """Upload fails partway through — store must be deleted on cleanup."""
+    mock_llama_stack_client.create_vector_store.return_value = "vs_99"
+    mock_llama_stack_client.upload_file_bytes.side_effect = RuntimeError("network error")
+
+    out = ingest_uploaded_files(
+        mock_llama_stack_client,
+        "My Catalog",
+        [("a.txt", b"hello"), ("b.txt", b"world")],
+    )
+    assert out["ok"] is False
+    assert out["error"] == "network error"
+    assert out["vector_store_id"] == "vs_99"
+    mock_llama_stack_client.delete_vector_store.assert_called_once_with("vs_99")
+
+
+@patch("services.knowledge_base_ingest_service.append_record")
+def test_ingest_attach_failure_cleans_up_store(mock_append, mock_llama_stack_client):
+    """Attach fails partway through — all files uploaded but attach fails."""
+    mock_llama_stack_client.create_vector_store.return_value = "vs_99"
+    mock_llama_stack_client.upload_file_bytes.side_effect = ["file_1", RuntimeError("attach broke")]
+
+    out = ingest_uploaded_files(
+        mock_llama_stack_client,
+        "My Catalog",
+        [("a.txt", b"hello"), ("b.txt", b"world")],
+    )
+    assert out["ok"] is False
+    assert out["error"] == "attach broke"
+    assert out["vector_store_id"] == "vs_99"
+    mock_llama_stack_client.delete_vector_store.assert_called_once_with("vs_99")

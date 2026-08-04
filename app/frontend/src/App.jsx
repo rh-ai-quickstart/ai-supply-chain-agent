@@ -27,6 +27,9 @@ function viewFromHash() {
   if (raw === "/knowledge-bases" || raw === "knowledge-bases") {
     return "knowledge-bases";
   }
+  if (raw === "/simulation" || raw === "simulation") {
+    return "simulation";
+  }
   return "dashboard";
 }
 
@@ -41,8 +44,8 @@ function App() {
   const [chatLoading, setChatLoading] = useState(false);
   const [chatError, setChatError] = useState("");
   const [vectorStores, setVectorStores] = useState([]);
-  const [vectorStoresLoading, setVectorStoresLoading] = useState(false);
-  const [vectorStoresError, setVectorStoresError] = useState("");
+  const [_vectorStoresLoading, setVectorStoresLoading] = useState(false);
+  const [_vectorStoresError, setVectorStoresError] = useState("");
   const [selectedVectorStoreId, setSelectedVectorStoreId] = useState("");
   const [activeView, setActiveView] = useState(viewFromHash);
   const { dashboardState, loading, error, setDashboardState } = useDashboardState();
@@ -68,6 +71,7 @@ function App() {
     }
   }, []);
 
+   
   useEffect(() => {
     const controller = new AbortController();
     reloadVectorStores(controller.signal);
@@ -81,7 +85,13 @@ function App() {
   }, []);
 
   const navigate = (view) => {
-    window.location.hash = view === "knowledge-bases" ? "#/knowledge-bases" : "#/";
+    if (view === "knowledge-bases") {
+      window.location.hash = "#/knowledge-bases";
+    } else if (view === "simulation") {
+      window.location.hash = "#/simulation";
+    } else {
+      window.location.hash = "#/";
+    }
   };
 
   const handleRunScenario = async ({ scenario, optimize }) => {
@@ -163,7 +173,19 @@ function App() {
           onNavigate={navigate}
         />
 
-        {activeView === "dashboard" ? (
+        {activeView === "simulation" ? (
+          <SimulationPanel
+            mapView={mapView}
+            optimize={optimize}
+            onOptimizeChange={setOptimize}
+            onRunScenario={handleRunScenario}
+            onTriggerEvent={handleTriggerEvent}
+            simulationLoading={simulationLoading}
+            simulationError={simulationError}
+            vectorStores={vectorStores}
+            setSelectedVectorStoreId={setSelectedVectorStoreId}
+          />
+        ) : activeView === "dashboard" ? (
           <>
             <KpiBar kpis={kpis} />
 

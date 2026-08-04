@@ -1,0 +1,9 @@
+target-version = "py312"
+line-length = 120
+
+[lint]
+select = ["E", "F", "W", "I", "B"]
+ignore = []
+
+[lint.isort]
+known-first-party = ["api", "ingestion"]

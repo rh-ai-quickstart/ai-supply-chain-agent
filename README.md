@@ -180,17 +180,25 @@ git clone https://github.com/rh-ai-quickstart/ai-supply-chain-agent.git
 cd ai-supply-chain-agent
 ```
 
-### 2. Edit values
+### 2. Deploy secrets and values
 
-**Only required change:** set your Hugging Face token so the `llm-service` sub-chart can pull gated models (for example `meta-llama/Llama-3.2-1B-Instruct`). Either set it in `helm/values.yaml`:
+**Required:** set your Hugging Face token so the `llm-service` sub-chart can pull gated models (for example `meta-llama/Llama-3.2-1B-Instruct`).
 
-```yaml
-llm-service:
-  secret:
-    hf_token: "<your-hf-token>"
+**Option A — use `helm/secrets.yaml`** (recommended for local development):
+
+```bash
+cp helm/secrets.example.yaml helm/secrets.yaml
+# Edit helm/secrets.yaml and add your HF token, then save
 ```
 
-or, recommended for production, pre-create the Secret the chart reads (`huggingface-secret`, key `HF_TOKEN`) so the token is never committed:
+Then deploy as usual — the Makefile automatically applies `helm/secrets.yaml` if it exists:
+
+```bash
+make helm-deps
+make helm-install
+```
+
+**Option B — pre-create the Secret** (recommended for production; the token never touches any file):
 
 ```bash
 oc create secret generic huggingface-secret \
@@ -198,7 +206,9 @@ oc create secret generic huggingface-secret \
   --from-literal=HF_TOKEN="<your-hf-token>"
 ```
 
-Create a token at [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens) with read access to the models you use. If the Secret already exists, the chart uses it as-is and ignores `llm-service.secret.hf_token`.
+Create a token at [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens) with read access to the models you use. If the Secret already exists, the chart uses it as-is.
+
+Everything else in `helm/values.yaml` works with the chart defaults (images, PGVector demo credentials, in-cluster API proxy, Llama Stack URLs). Override those only when you use a custom registry, namespace layout, or GPU settings.
 
 Everything else in `helm/values.yaml` works with the chart defaults (images, PGVector demo credentials, in-cluster API proxy, Llama Stack URLs). Override those only when you use a custom registry, namespace layout, or GPU settings.
 
@@ -428,7 +438,7 @@ app/
 
 ### Environment variables
 
-**Helm (`helm/values.yaml`)** — the only value you must set before deploy is the Hugging Face token, either via `llm-service.secret.hf_token` or by pre-creating a `huggingface-secret` Secret (key `HF_TOKEN`). Other keys below are set by the chart or optional overrides.
+**Helm (`helm/secrets.yaml`)** — the only secret you must set before deploy is the Hugging Face token, via `llm-service.secret.hf_token` in `secrets.yaml` (copy from `secrets.example.yaml`) or by pre-creating a `huggingface-secret` Secret (key `HF_TOKEN`). Other keys below are set by the chart or optional overrides.
 
 **Backend**
 

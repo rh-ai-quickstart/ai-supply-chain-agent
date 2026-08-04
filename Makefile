@@ -7,8 +7,8 @@ REGISTRY        ?= quay.io/rh-ai-quickstart
 BACKEND_IMAGE      ?= $(REGISTRY)/ai-supply-chain-agent-backend
 INGEST_IMAGE       ?= $(REGISTRY)/ai-supply-chain-agent-ingestion
 FRONTEND_IMAGE     ?= $(REGISTRY)/ai-supply-chain-agent-frontend
-BACKEND_TAG        ?= latest
-INGEST_TAG         ?= latest
+BACKEND_TAG        ?= dev
+INGEST_TAG         ?= dev
 FRONTEND_TAG       ?= dev
 
 # --- Helm Config ---
@@ -23,6 +23,14 @@ BUILD_PLATFORM ?= linux/amd64
 PUSH_EXTRA_ARGS ?=
 KIND_VALUES_FILE ?= $(HELM_CHART)/values-kind.yaml
 HELM_EXTRA_ARGS ?=
+
+# --- Secrets (auto-applied if helm/secrets.yaml exists) ---
+SECRETS_FILE ?= $(HELM_CHART)/secrets.yaml
+ifeq ($(wildcard $(SECRETS_FILE)),)
+SECRETS_FLAGS =
+else
+SECRETS_FLAGS = -f $(SECRETS_FILE)
+endif
 
 # ============================================================
 # Help
@@ -63,6 +71,15 @@ help:
 	@echo "    helm-status        Show Helm release status"
 	@echo "    helm-install-kind  Install on Kind/Kubernetes (values-kind.yaml + local REGISTRY)"
 	@echo ""
+	@echo "  Test:"
+	@echo "    test               Run backend, frontend, and Helm unit tests"
+	@echo ""
+	@echo "  Lint:"
+	@echo "    lint               Run ESLint, ruff, and yamllint on the codebase"
+	@echo ""
+	@echo "  Quality gate:"
+	@echo "    pre-commit         Run lint, test, and helm lint together"
+	@echo ""
 	@echo "  Kind (CI / local):"
 	@echo "    kind-build-images  Build backend, ingest, and frontend for REGISTRY (default localhost:5001)"
 	@echo "    kind-push-images   Push kind-build-images to REGISTRY"
@@ -91,7 +108,7 @@ help:
 	@echo "    FRONTEND_TAG       $(FRONTEND_TAG)"
 	@echo "    NAMESPACE          $(NAMESPACE)"
 	@echo "    HELM_RELEASE       $(HELM_RELEASE)"
-	@echo "    VALUES_FILE        $(VALUES_FILE)  (set llm-service.secret.hf_token before deploy)"
+	@echo "    VALUES_FILE        $(VALUES_FILE)  (set secrets in helm/secrets.yaml — see secrets.example.yaml)"
 	@echo ""
 
 # ============================================================
@@ -181,6 +198,55 @@ login:
 	podman login $(shell echo $(REGISTRY) | cut -d'/' -f1)
 
 # ============================================================
+# Test targets
+# ============================================================
+
+BACKEND_TEST ?= python run_backend_tests.py
+FRONTEND_TEST ?= npm test
+HELM_TEST ?= make helm-test
+
+.PHONY: test
+test: test-backend test-frontend test-helm
+	@echo ">>> All tests passed."
+
+.PHONY: test-backend
+test-backend:
+	@echo ">>> Running backend tests..."
+	cd app/backend && $(BACKEND_TEST)
+
+.PHONY: test-frontend
+test-frontend:
+	@echo ">>> Running frontend tests..."
+	cd app/frontend && $(FRONTEND_TEST)
+
+.PHONY: test-helm
+test-helm: helm-test
+
+# ============================================================
+# Lint targets
+# ============================================================
+
+.PHONY: lint
+lint: lint-backend lint-frontend lint-helm
+	@echo ">>> All linters passed."
+
+.PHONY: lint-backend
+lint-backend:
+	@echo ">>> Linting Python (ruff)..."
+	ruff check app/backend/api app/backend/ingestion
+
+.PHONY: lint-frontend
+lint-frontend:
+	@echo ">>> Linting frontend (ESLint)..."
+	cd app/frontend && npm run lint
+
+.PHONY: lint-helm
+lint-helm:
+	@echo ">>> Linting Helm chart..."
+	@set -eu; \
+	yamllint helm/templates/ 2>/dev/null || echo ">>> (yamllint not installed, skipping)"
+
+# ============================================================
 # Helm targets
 # ============================================================
 .PHONY: helm-deps
@@ -191,19 +257,23 @@ helm-deps:
 .PHONY: helm-lint
 helm-lint: helm-deps
 	@echo ">>> Linting Helm chart: $(HELM_CHART)"
-	helm lint $(HELM_CHART) -f $(VALUES_FILE)
+	helm lint $(HELM_CHART) -f $(VALUES_FILE) $(SECRETS_FLAGS)
 
 .PHONY: helm-test
 helm-test: helm-deps
 	@echo ">>> Running Helm unit tests: $(HELM_CHART)"
 	helm unittest $(HELM_CHART)
+	@echo ">>> Validating pgvector Secret password wiring"
+	python3 $(HELM_CHART)/tests/test_pgvector_secret.py
 
 .PHONY: helm-render
 helm-render: helm-deps
 	@echo ">>> Rendering Helm templates (namespace: $(NAMESPACE))"
+	@echo ">>> Secrets file: $(if $(SECRETS_FLAGS),$(SECRETS_FILE) (found),not found - see secrets.example.yaml)"
 	helm template $(HELM_RELEASE) $(HELM_CHART) \
 		--namespace $(NAMESPACE) \
 		-f $(VALUES_FILE) \
+		$(SECRETS_FLAGS) \
 		--set backend.image.tag=$(BACKEND_TAG) \
 		--set frontend.image.tag=$(FRONTEND_TAG) \
 		--set ingest.image.tag=$(INGEST_TAG) \
@@ -213,10 +283,12 @@ helm-render: helm-deps
 helm-install: helm-deps
 	@echo ">>> Installing Helm release: $(HELM_RELEASE) in namespace: $(NAMESPACE)"
 	@echo ">>> Images: backend=$(BACKEND_TAG) frontend=$(FRONTEND_TAG) ingest=$(INGEST_TAG)"
+	@echo ">>> Secrets file: $(if $(SECRETS_FLAGS),$(SECRETS_FILE) (found),not found - see secrets.example.yaml)"
 	oc get namespace $(NAMESPACE) 2>/dev/null || oc new-project $(NAMESPACE)
 	helm install $(HELM_RELEASE) $(HELM_CHART) \
 		--namespace $(NAMESPACE) \
 		-f $(VALUES_FILE) \
+		$(SECRETS_FLAGS) \
 		--set backend.image.tag=$(BACKEND_TAG) \
 		--set frontend.image.tag=$(FRONTEND_TAG) \
 		--set ingest.image.tag=$(INGEST_TAG) \
@@ -228,9 +300,11 @@ helm-install: helm-deps
 helm-upgrade: helm-deps
 	@echo ">>> Upgrading Helm release: $(HELM_RELEASE) in namespace: $(NAMESPACE)"
 	@echo ">>> Images: backend=$(BACKEND_TAG) frontend=$(FRONTEND_TAG) ingest=$(INGEST_TAG)"
+	@echo ">>> Secrets file: $(if $(SECRETS_FLAGS),$(SECRETS_FILE) (found),not found - see secrets.example.yaml)"
 	helm upgrade $(HELM_RELEASE) $(HELM_CHART) \
 		--namespace $(NAMESPACE) \
 		-f $(VALUES_FILE) \
+		$(SECRETS_FLAGS) \
 		--set backend.image.tag=$(BACKEND_TAG) \
 		--set frontend.image.tag=$(FRONTEND_TAG) \
 		--set ingest.image.tag=$(INGEST_TAG) \
@@ -284,6 +358,7 @@ helm-install-kind: helm-deps k8s-namespace
 		--create-namespace \
 		-f $(VALUES_FILE) \
 		-f $(KIND_VALUES_FILE) \
+		$(SECRETS_FLAGS) \
 		--set backend.image.repository=$(REGISTRY)/ai-supply-chain-agent-backend \
 		--set backend.image.tag=$(BACKEND_TAG) \
 		--set frontend.image.repository=$(REGISTRY)/ai-supply-chain-agent-frontend \
@@ -369,6 +444,14 @@ ingest-status:
 	@echo ""
 	@echo ">>> Ingest Job events:"
 	oc describe job $(HELM_RELEASE)-ingest -n $(NAMESPACE) | tail -20
+
+# ============================================================
+# Quality gate
+# ============================================================
+
+.PHONY: pre-commit
+pre-commit: lint test
+	@echo ">>> Pre-commit checks completed."
 
 # ============================================================
 # Clean

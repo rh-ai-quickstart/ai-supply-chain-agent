@@ -1,10 +1,8 @@
 import logging
-import openai
-import os
-import uuid
 from pathlib import Path
 from typing import Optional
 
+import openai
 from clients.llama_stack_client import LlamaStackClient
 
 logger = logging.getLogger(__name__)

@@ -16,6 +16,13 @@ export function DashboardHeader({ isLightTheme = false, onToggleTheme, activeVie
             </button>
             <button
               type="button"
+              className={`dashboard-nav-btn${activeView === "simulation" ? " dashboard-nav-btn--active" : ""}`}
+              onClick={() => onNavigate("simulation")}
+            >
+              Simulation
+            </button>
+            <button
+              type="button"
               className={`dashboard-nav-btn${activeView === "knowledge-bases" ? " dashboard-nav-btn--active" : ""}`}
               onClick={() => onNavigate("knowledge-bases")}
             >

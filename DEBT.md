@@ -48,9 +48,11 @@ numbers for quick navigation.  Work through them in any order — pick what inte
       `app/backend/api/main.py:180` — Fixed. Now driven by `FLASK_DEBUG` env var
       (`"1"`, `"true"`, `"yes"`), defaults to `False`.
 
-- [ ] **H3 — 23 bare `except Exception` handlers**
+- [x] **H3 — 23 bare `except Exception` handlers**
       Spread across every backend service file.  These mask `AttributeError`, `TypeError`,
       `KeyError`, etc.  Narrow exception types or at minimum log the full traceback.
+      Narrowed 15 to specific types (e.g. `requests.RequestException`, `openai.APIError`,
+      `OSError`); the remaining 8 are documented boundary/fallback handlers with comments.
 
 - [x] **H4 — No SecurityContext on Helm workloads**
       `helm/templates/backend-deployment.yaml`, `frontend-deployment.yaml`, `ingest-job.yaml` —
@@ -68,9 +70,11 @@ numbers for quick navigation.  Work through them in any order — pick what inte
       raise `RuntimeError` if `PG_PASSWORD` is unset, instead of silently falling back to
       `"password"`.
 
-- [ ] **H7 — Ingestion creates one vector store per file**
+- [x] **H7 — Ingestion creates one vector store per file**
       `app/backend/ingestion/services/llamastack_ingestion_service.py:57-62` — A directory with
       100 files creates 100 separate vector stores.  Batch files into a single store per directory.
+      Now creates ONE store per knowledge base; each uploaded File carries source-filename metadata
+      (best-effort via OpenAI SDK `extra_body`) for attribution/filtering.
 
 - [ ] **H8 — No cleanup of empty vector stores on partial upload failure**
       `app/backend/api/services/knowledge_base_ingest_service.py:63-86` — If vector store
@@ -127,10 +131,13 @@ numbers for quick navigation.  Work through them in any order — pick what inte
       `app/backend/api/services/simulations_store.py` — The tmp-file + `os.replace` pattern is
       identical.  Extract into `app/backend/api/services/_json_store.py` shared helper.
 
-- [ ] **M4 — `SupplyChainStateBuilder` has ~180 lines of hardcoded data**
+- [x] **M4 — `SupplyChainStateBuilder` has ~180 lines of hardcoded data**
       `app/backend/api/services/supply_chain_state_builder.py` — Port coordinates, routes, and
       assets are hardcoded in `_sea_freight_data()` and `_land_freight_data()`.  Move to JSON
       or YAML config files.
+      Moved to `app/backend/api/data/config.json` (cargoWatchlist, airports, airRoutes,
+      fallbackPlaneHubs, seaFreight, landFreight, staticFallback), loaded via a cached
+      `_load_config()` (overridable with `SUPPLY_CHAIN_CONFIG_PATH`).
 
 - [ ] **M5 — Guardrail keyword matching is naive substring check**
       `app/backend/api/services/chat_service.py:114` — `any(keyword in lowered for ...)` matches
@@ -151,9 +158,11 @@ numbers for quick navigation.  Work through them in any order — pick what inte
       `app/backend/api/services/knowledge_base_manager.py:16-24` — The inner `if self._llama_client
       is None` check is unreachable because the caller already guarantees it.  Simplify or remove.
 
-- [ ] **M9 — Simulation scenarios (`port-strike`, `geopolitical`) hardcoded with inline KPI mutations**
+- [x] **M9 — Simulation scenarios (`port-strike`, `geopolitical`) hardcoded with inline KPI mutations**
       `app/backend/api/services/dashboard_service.py:65-86` — Adding a new scenario requires
       code changes.  Consider making scenario definitions data-driven (JSON config or DB table).
+      Moved to declarative `app/backend/api/data/scenarios.json` (op: set/prepend mutation rules),
+      applied generically by `simulate()`.
 
 - [x] **M10 — Missing `__init__.py` in `api/` package**
       `app/backend/api/__init__.py` — Fixed. Empty `__init__.py` added.

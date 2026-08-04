@@ -15,3 +15,5 @@ llama-stack:
   pgvector:
     enabled: true
   secrets: {}
+  # External model API token set at deploy time via --set
+

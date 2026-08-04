@@ -27,6 +27,7 @@ export function ChatBar({
       return;
     }
     logEndRef.current.scrollIntoView?.({ behavior: "smooth", block: "end" });
+     
   }, [chatMessages, chatLoading, isChatModalOpen]);
 
   // When a slow reply finishes, surface the modal once (user can dismiss it afterward).
@@ -34,6 +35,7 @@ export function ChatBar({
     if (wasChatLoadingRef.current && !chatLoading) {
       const last = chatMessages[chatMessages.length - 1];
       if (last?.role === "ai") {
+         
         setIsChatModalOpen(true);
       }
     }

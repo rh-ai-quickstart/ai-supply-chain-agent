@@ -341,3 +341,11 @@ class LlamaStackClient:
             file_id,
             vector_store_id,
         )
+
+    def delete_vector_store(self, vector_store_id: str) -> None:
+        """Delete a vector store by id. Used for cleanup on partial ingestion failure."""
+        try:
+            self._client.vector_stores.delete(vector_store_id)
+            logger.info("LlamaStackClient: deleted vector store id=%s", vector_store_id)
+        except Exception as exc:
+            logger.warning("LlamaStackClient: failed to delete vector store id=%s: %s", vector_store_id, exc)

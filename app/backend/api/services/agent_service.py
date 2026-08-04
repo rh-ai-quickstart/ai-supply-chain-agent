@@ -1,5 +1,5 @@
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Callable, Optional
 
 from clients.general_simulation_client import GeneralSimulationClient
@@ -71,13 +71,21 @@ class AgentService:
 
         general_simulation = ToolSpec(
             name="general_simulation",
-            description="Run a what-if simulation scenario through the general-simulation impact-reasoning engine. Queries a Neo4j graph of supply chain dependencies, runs a quantitative solver, and returns a grounded LLM analysis of the impact.",
+            description=(
+                "Run a what-if simulation scenario through the general-simulation "
+                "impact-reasoning engine. Queries a Neo4j graph of supply chain "
+                "dependencies, runs a quantitative solver, and returns a grounded "
+                "LLM analysis of the impact."
+            ),
             parameters={
                 "type": "object",
                 "properties": {
                     "question": {
                         "type": "string",
-                        "description": "Natural-language question about the simulation scenario (e.g. 'Which flights are affected by the UK airspace closure?')",
+                        "description": (
+                            "Natural-language question about the simulation scenario "
+                            "(e.g. 'Which flights are affected by the UK airspace closure?')"
+                        ),
                     },
                     "scenario_id": {
                         "type": "string",

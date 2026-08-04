@@ -56,6 +56,7 @@ def mock_llama_stack_client():
     client.create_vector_store.return_value = "vs_new"
     client.upload_file_bytes.return_value = "file_1"
     client.attach_file_to_vector_store.return_value = None
+    client.delete_vector_store.return_value = None
     return client
 
 

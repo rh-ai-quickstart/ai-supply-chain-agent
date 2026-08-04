@@ -19,9 +19,24 @@ Umbrella chart for the AI Supply Chain Agent quickstart. It deploys the applicat
 
 ## Provide the Hugging Face token
 
-The `llm-service` sub-chart reads the token from a Secret named `huggingface-secret` (key `HF_TOKEN`). It creates that Secret itself only if it does not already exist, so you can supply the token either way:
+The `llm-service` sub-chart reads the token from a Secret named `huggingface-secret` (key `HF_TOKEN`).
 
-**Option A — set it in `values.yaml`** (chart creates the Secret):
+**Option A — use `helm/secrets.yaml`** (recommended for local development):
+
+1. Copy the example file and edit:
+
+```bash
+cp helm/secrets.example.yaml helm/secrets.yaml
+# Edit helm/secrets.yaml and add your HF token
+```
+
+2. Deploy as usual — the Makefile automatically applies `helm/secrets.yaml` if it exists:
+
+```bash
+make helm-install
+```
+
+**Option B — set it in `values.yaml`** (not recommended):
 
 ```yaml
 llm-service:
@@ -29,7 +44,7 @@ llm-service:
     hf_token: "<your-hf-token>"
 ```
 
-**Option B — pre-create the Secret** (recommended for production; the token never touches a values file):
+**Option C — pre-create the Secret** (recommended for production; the token never touches a values file or secrets.yaml):
 
 ```bash
 oc create secret generic huggingface-secret \

@@ -3,17 +3,17 @@ import logging
 import os
 from typing import Any, Optional
 
-from flask import Flask, Response, jsonify, request, stream_with_context
-from flask_cors import CORS
-
 from clients.llama_stack_client import LlamaStackClient
 from clients.vector_store_client import VectorStoreClient
+from flask import Flask, Response, jsonify, request, stream_with_context
+from flask_cors import CORS
 from services.chat_service import ChatService
 from services.dashboard_service import DashboardService
 from services.knowledge_base_ingest_service import ingest_uploaded_files
 from services.knowledge_bases_store import load_all as load_knowledge_bases
 from services.route_service import RouteService
-from services.simulations_store import append_simulation, load_all as load_simulations
+from services.simulations_store import append_simulation
+from services.simulations_store import load_all as load_simulations
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

@@ -12,6 +12,9 @@ pgvector:
   secret:
     create: true
     user: postgres
+    # Demo default — override via helm/secrets.yaml if needed.
+    # Do not set password to "" (blank overlay wipes the Secret).
+    # Changing after first install requires deleting PVC pg-data-pgvector-0.
     password: password
     dbname: blueprint
     host: pgvector
@@ -28,8 +31,7 @@ llm-service:
   enabled: true
   device: gpu # Change to gpu (Change #models.llama-3-2-1b-instruct.device to gpu if you change this)
   secret:
-    # Required: set your Hugging Face token (https://huggingface.co/settings/tokens) for gated models.
-    hf_token: ""
+    # hf_token set in helm/secrets.yaml (copy from secrets.example.yaml)
     enabled: true
   models:
     llama-3-2-1b-instruct:

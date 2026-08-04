@@ -33,6 +33,9 @@ package-lock.json
 .env.*
 !.env.example
 
+# Helm secrets (not for CI)
+helm/secrets.yaml
+
 # Python test cache
 .pytest_cache/
 

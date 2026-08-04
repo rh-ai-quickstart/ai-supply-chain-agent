@@ -23,8 +23,10 @@ export function KnowledgeBasesPage({ onKnowledgeBaseCreated }) {
     } finally {
       setLoading(false);
     }
+     
   }, []);
 
+   
   useEffect(() => {
     refresh();
   }, [refresh]);
