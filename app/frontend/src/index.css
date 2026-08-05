@@ -780,6 +780,10 @@ body,
   grid-template-rows: auto 1fr;
 }
 
+.dashboard-wrapper--simulation {
+  grid-template-rows: auto 1fr;
+}
+
 /* --- Knowledge bases page (Vite app) --- */
 .kb-page-root {
   min-height: 0;
@@ -916,4 +920,97 @@ body,
   gap: 1rem;
   padding: 2rem;
   text-align: center;
+}
+
+/* --- Impact simulation workspace (#/simulation) --- */
+.impact-simulation-grid {
+  min-height: 0;
+  height: 100%;
+}
+
+.impact-query-panel,
+.impact-results-panel {
+  overflow-y: auto;
+}
+
+.impact-select,
+.impact-textarea {
+  width: 100%;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-input-bg);
+  color: var(--color-text-primary);
+  padding: 8px 10px;
+  margin-bottom: 12px;
+  font: inherit;
+}
+
+.impact-textarea {
+  resize: vertical;
+  min-height: 140px;
+  line-height: 1.4;
+}
+
+.impact-kpi-strip {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.impact-kpi-strip .kpi-card {
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-input-bg);
+  padding: 8px 10px;
+}
+
+.impact-section-title {
+  margin: 0 0 8px;
+  font-size: 0.9rem;
+  color: var(--color-text-header);
+}
+
+.impact-section {
+  margin-top: 14px;
+}
+
+.impact-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.impact-entity-ids {
+  margin: 0;
+  word-break: break-word;
+  font-size: 0.85rem;
+}
+
+.impact-trace {
+  margin-top: 14px;
+  color: var(--color-text-secondary);
+}
+
+.impact-trace-pre {
+  margin: 6px 0 0;
+  padding: 8px;
+  border-radius: 6px;
+  background: var(--color-input-bg);
+  border: 1px solid var(--color-border);
+  overflow: auto;
+  max-height: 180px;
+  font-size: 0.75rem;
+  color: var(--color-text-primary);
+}
+
+.impact-answer {
+  margin-top: 8px;
+}
+
+.impact-map-panel {
+  height: 100%;
 }

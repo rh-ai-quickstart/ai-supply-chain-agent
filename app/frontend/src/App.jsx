@@ -7,6 +7,7 @@ import { ErrorBoundary } from "./components/ErrorBoundary";
 import { KnowledgeBasesPage } from "./components/KnowledgeBasesPage";
 import { KpiBar } from "./components/KpiBar";
 import { LogisticsMapPanel } from "./components/LogisticsMapPanel";
+import { ImpactSimulationPage } from "./components/ImpactSimulationPage";
 import { SimulationPanel } from "./components/SimulationPanel";
 import { useDashboardState } from "./hooks/useDashboardState";
 import {
@@ -164,7 +165,13 @@ function App() {
     <div className={`dashboard-root ${isLightTheme ? "light-theme" : ""}`}>
       <ErrorBoundary>
       <div
-        className={`dashboard-wrapper${activeView === "knowledge-bases" ? " dashboard-wrapper--kb" : ""}`}
+        className={`dashboard-wrapper${
+          activeView === "knowledge-bases"
+            ? " dashboard-wrapper--kb"
+            : activeView === "simulation"
+              ? " dashboard-wrapper--simulation"
+              : ""
+        }`}
       >
         <DashboardHeader
           isLightTheme={isLightTheme}
@@ -174,17 +181,7 @@ function App() {
         />
 
         {activeView === "simulation" ? (
-          <SimulationPanel
-            mapView={mapView}
-            optimize={optimize}
-            onOptimizeChange={setOptimize}
-            onRunScenario={handleRunScenario}
-            onTriggerEvent={handleTriggerEvent}
-            simulationLoading={simulationLoading}
-            simulationError={simulationError}
-            vectorStores={vectorStores}
-            setSelectedVectorStoreId={setSelectedVectorStoreId}
-          />
+          <ImpactSimulationPage />
         ) : activeView === "dashboard" ? (
           <>
             <KpiBar kpis={kpis} />
