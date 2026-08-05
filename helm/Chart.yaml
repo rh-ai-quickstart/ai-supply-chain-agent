@@ -18,10 +18,10 @@ dependencies:
     version: 0.5.9
     repository: https://rh-ai-quickstart.github.io/ai-architecture-charts
     condition: llm-service.enabled
-  # Published from robertsandoval/general-simulation (GitHub Pages).
-  # A vendored copy lives in helm/charts/ until the first chart-v* tag is
-  # published; after that, `helm dependency update` refreshes from Pages.
+  # Sibling checkout under the same parent directory (forks/). Switch back to
+  # https://robertsandoval.github.io/general-simulation after publishing a
+  # chart that includes api.waitFor + lifespan DB retries.
   - name: general-simulation
     version: 0.1.0
-    repository: https://robertsandoval.github.io/general-simulation
+    repository: "file://../../general-simulation/deploy/helm/general-simulation"
     condition: general-simulation.enabled

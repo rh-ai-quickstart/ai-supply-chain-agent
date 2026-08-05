@@ -61,7 +61,7 @@ describe("App chat", () => {
       onEvent({
         type: "done",
         answer: "Fuel prices vary by region.",
-        completion: { model: "meta-llama/Llama-3.2-1B-Instruct", usage: { total_tokens: 10 } },
+        completion: { model: "meta-llama/Llama-3.2-3B-Instruct", usage: { total_tokens: 10 } },
       });
     });
 

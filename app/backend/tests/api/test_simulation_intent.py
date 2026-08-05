@@ -27,3 +27,37 @@ def test_resolve_scenario_id_from_text():
     assert resolve_scenario_id("simulate the port strike in LA") == "supply-chain-port-strike-la"
     assert resolve_scenario_id("what-if the Suez Canal is blocked") == "supply-chain-suez-blockage"
     assert resolve_scenario_id("simulate something") == ""
+
+
+def test_normalize_scenario_id_prefers_active_ui_scenario():
+    from services.simulation_intent import normalize_scenario_id
+
+    assert (
+        normalize_scenario_id(
+            "UK NATS GPS failure",
+            active_scenario_id="opensky-uk-closure-001",
+            question="Which flights are affected?",
+        )
+        == "opensky-uk-closure-001"
+    )
+
+
+def test_normalize_scenario_id_maps_invented_labels():
+    from services.simulation_intent import normalize_scenario_id
+
+    assert (
+        normalize_scenario_id(
+            "UK NATS GPS failure",
+            active_scenario_id="",
+            question="Which flights are affected?",
+        )
+        == "opensky-uk-closure-001"
+    )
+    assert (
+        normalize_scenario_id(
+            "port strike LA",
+            active_scenario_id="",
+            question="",
+        )
+        == "supply-chain-port-strike-la"
+    )

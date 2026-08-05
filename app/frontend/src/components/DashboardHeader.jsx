@@ -21,6 +21,13 @@ export function DashboardHeader({ isLightTheme = false, onToggleTheme, activeVie
             >
               Knowledge bases
             </button>
+            <button
+              type="button"
+              className={`dashboard-nav-btn${activeView === "create-scenario" ? " dashboard-nav-btn--active" : ""}`}
+              onClick={() => onNavigate("create-scenario")}
+            >
+              Create scenario
+            </button>
           </nav>
         ) : null}
       </div>

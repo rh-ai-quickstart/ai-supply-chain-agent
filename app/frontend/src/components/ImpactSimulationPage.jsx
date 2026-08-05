@@ -17,7 +17,7 @@ import {
   diversionKey,
 } from "../utils/impactEntityUtils";
 
-export const DEFAULT_GEOJSON_LIMIT = 3000;
+export const DEFAULT_GEOJSON_LIMIT = 1000;
 
 function pickScenarioId(list, preferred) {
   if (!Array.isArray(list) || list.length === 0) return "";
@@ -51,6 +51,7 @@ export function ImpactSimulationPage({
   initialScenarioId = "",
   onScenarioChange,
   chatSimulation = null,
+  chatLoading = false,
 }) {
   const [scenarios, setScenarios] = useState([]);
   const [scenariosLoading, setScenariosLoading] = useState(true);
@@ -62,6 +63,7 @@ export function ImpactSimulationPage({
   const [mapLoading, setMapLoading] = useState(false);
   const [mapError, setMapError] = useState("");
   const [mapWarning, setMapWarning] = useState("");
+  const [mapScenarioId, setMapScenarioId] = useState("");
 
   const [queryLoading, setQueryLoading] = useState(false);
   const [queryError, setQueryError] = useState("");
@@ -116,7 +118,15 @@ export function ImpactSimulationPage({
   useEffect(() => {
     if (!scenarioId) {
       setCollection({ type: "FeatureCollection", features: [] });
+      setMapScenarioId("");
       setMapLoading(false);
+      return;
+    }
+    // Defer heavy bbox loads while chat is using the LLM / gen-sim stack.
+    if (chatLoading) {
+      return;
+    }
+    if (mapScenarioId === scenarioId) {
       return;
     }
     const controller = new AbortController();
@@ -136,6 +146,7 @@ export function ImpactSimulationPage({
           return;
         }
         setCollection(geoRes.geojson || { type: "FeatureCollection", features: [] });
+        setMapScenarioId(scenarioId);
         setResult(null);
         setFocusedEntityId("");
         setSelectedDiversionKey("");
@@ -150,10 +161,11 @@ export function ImpactSimulationPage({
       }
     })();
     return () => controller.abort();
-  }, [scenarioId]);
+  }, [scenarioId, chatLoading, mapScenarioId]);
 
   const handleChangeScenarioId = useCallback((nextId) => {
     setScenarioId(nextId);
+    setMapScenarioId("");
     setQuestion(questionForScenario(nextId));
     setQueryError("");
   }, []);
@@ -200,6 +212,7 @@ export function ImpactSimulationPage({
   }, [chatSimulation, applySimulationResult]);
 
   const handleRunQuery = useCallback(async () => {
+    if (chatLoading) return;
     setQueryError("");
     setMapWarning("");
     setQueryLoading(true);
@@ -215,7 +228,7 @@ export function ImpactSimulationPage({
     } finally {
       setQueryLoading(false);
     }
-  }, [question, scenarioId, applySimulationResult]);
+  }, [question, scenarioId, applySimulationResult, chatLoading]);
 
   const highlightedIds = useMemo(
     () => (Array.isArray(result?.affected_entities) ? result.affected_entities : []),
@@ -262,6 +275,7 @@ export function ImpactSimulationPage({
         onChangeQuestion={setQuestion}
         onRunQuery={handleRunQuery}
         queryLoading={queryLoading}
+        chatBusy={chatLoading}
         queryError={queryError}
       />
 
@@ -297,4 +311,5 @@ ImpactSimulationPage.propTypes = {
   initialScenarioId: PropTypes.string,
   onScenarioChange: PropTypes.func,
   chatSimulation: PropTypes.object,
+  chatLoading: PropTypes.bool,
 };

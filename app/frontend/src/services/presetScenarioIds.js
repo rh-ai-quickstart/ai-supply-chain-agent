@@ -39,11 +39,31 @@ export const SCENARIO_VECTOR_STORE_KEYWORDS = {
 export const GLOBAL_DEMO_BBOX = "-130,20,50,62";
 
 export function labelForScenario(scenarioId) {
-  return SCENARIO_LABELS[scenarioId] || scenarioId;
+  if (!scenarioId) return "";
+  if (SCENARIO_LABELS[scenarioId]) {
+    return SCENARIO_LABELS[scenarioId];
+  }
+  return humanizeScenarioId(scenarioId);
+}
+
+/** Turn ``france-airspace-closure`` into ``France Airspace Closure``. */
+export function humanizeScenarioId(scenarioId) {
+  return String(scenarioId)
+    .split(/[-_]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(" ");
 }
 
 export function questionForScenario(scenarioId) {
-  return SCENARIO_QUESTIONS[scenarioId] || SCENARIO_QUESTIONS["opensky-uk-closure-001"];
+  if (SCENARIO_QUESTIONS[scenarioId]) {
+    return SCENARIO_QUESTIONS[scenarioId];
+  }
+  const label = labelForScenario(scenarioId);
+  return (
+    `${label} is active. Which entities are affected, what diversions or mitigations ` +
+    "should be issued, and what is the estimated cost of impact?"
+  );
 }
 
 export function bboxForScenario(scenarioId) {

@@ -16,7 +16,7 @@ A Helm install (`supply-chain-dashboard` in `./helm`) brings up the application 
 | **Frontend** (`supply-chain-dashboard-frontend`) | React SPA on port 8080 — operator dashboard (standalone Route) |
 | **PGVector** (subchart) | PostgreSQL with pgvector; used for LangChain ingest and default chat RAG when no vector store is selected |
 | **Llama Stack** (subchart) | LLM and vector-store APIs for chat and ingestion |
-| **LLM service** (subchart) | Model serving (e.g. Llama 3.2 1B) backing Llama Stack |
+| **LLM service** (subchart) | Model serving (e.g. llama-3-2-3b-instruct) backing Llama Stack |
 | **Ingest Job** (optional, `ingest.enabled`) | Post-install job that loads bundled `.txt` documents (`ingest.strategy`: **`llamastack`** by default → Llama Stack vector stores; set `langchain` for PGVector) |
 
 OpenShift **Routes** (main Helm release `supply-chain-dashboard`):

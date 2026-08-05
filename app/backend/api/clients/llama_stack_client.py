@@ -94,7 +94,7 @@ class LlamaStackClient:
         self.label = label
         self.model = model or os.getenv(
             "LLAMA_STACK_MODEL",
-            "llama-3-2-1b-instruct/meta-llama/Llama-3.2-1B-Instruct",
+            "llama-3-2-3b-instruct/meta-llama/Llama-3.2-3B-Instruct",
         )
         self._timeout = (
             timeout_seconds
@@ -124,23 +124,37 @@ class LlamaStackClient:
         context: str = "",
         conversation_messages: list[dict] | None = None,
     ) -> list[dict]:
-        messages: list[dict] = [{"role": "system", "content": SYSTEM_PROMPT}]
-
-        if context:
-            messages.append(
-                {
-                    "role": "system",
-                    "content": f"Relevant context from the knowledge base:\n{context}",
-                }
+        # LiteMaaS / Qwen require a single system message at the start.
+        # A second role=system (e.g. RAG context) triggers:
+        # "System message must be at the beginning."
+        system_parts = [SYSTEM_PROMPT]
+        if context and str(context).strip():
+            system_parts.append(
+                f"Relevant context from the knowledge base:\n{str(context).strip()}"
             )
+        messages: list[dict] = [
+            {"role": "system", "content": "\n\n".join(system_parts)}
+        ]
 
         turns = conversation_messages if conversation_messages else []
         if turns:
-            messages.extend(turns)
+            messages.extend(self._sanitize_conversation_turns(turns))
         else:
             messages.append({"role": "user", "content": user_input})
 
         return messages
+
+    @staticmethod
+    def _sanitize_conversation_turns(turns: list[dict]) -> list[dict]:
+        """Keep only chat turns that are valid after a leading system message."""
+        allowed = {"user", "assistant", "tool"}
+        out: list[dict] = []
+        for turn in turns:
+            role = (turn.get("role") or "").strip()
+            if role not in allowed:
+                continue
+            out.append(turn)
+        return out
 
     @staticmethod
     def _completion_to_json(completion: Any) -> dict[str, Any]:

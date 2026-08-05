@@ -8,8 +8,8 @@ An AI-powered supply chain intelligence dashboard that combines real-time logist
 - [Architecture diagrams](#architecture-diagrams)
 - [Requirements](#requirements)
 - [Deploy](#deploy)
-  - [Option A: Local CPU/GPU](#option-a-local-cpugpu)
-  - [Option B: External GPU model](#option-b-external-gpu-model)
+  - [Option A: MaaS / external model (default)](#option-a-maas--external-model-default)
+  - [Option B: Local CPU/GPU](#option-b-local-cpugpu)
 - [References](#references)
 - [Technical details](#technical-details)
 - [Tags](#tags)
@@ -52,13 +52,12 @@ flowchart TB
       subgraph data["Data & AI (Helm subcharts)"]
         PG[("PGVector<br/>PostgreSQL + pgvector")]
         LS["Llama Stack<br/>:8321"]
-        LLM["LLM service<br/>Llama 3.2 1B"]
       end
     end
   end
 
   subgraph external["External"]
-    HF["Hugging Face<br/>model weights"]
+    MAAS["LiteMaaS / OpenAI-compatible<br/>inference (default)"]
   end
 
   U1 --> R_FE --> FE
@@ -68,8 +67,7 @@ flowchart TB
 
   BE -->|"RAG similarity search"| PG
   BE -->|"chat, vector stores, ingest API"| LS
-  LS --> LLM
-  LLM --> HF
+  LS --> MAAS
 
   ING -->|"llamastack or langchain strategy"| LS
   ING -.->|"langchain path"| PG
@@ -78,10 +76,12 @@ flowchart TB
   classDef app fill:#f3e8fd,stroke:#7c3aed,color:#111
   classDef data fill:#ecfdf5,stroke:#059669,color:#111
   classDef route fill:#fff7ed,stroke:#ea580c,color:#111
+  classDef ext fill:#eff6ff,stroke:#2563eb,color:#111
   class U1 user
   class FE,BE,ING app
-  class PG,LS,LLM data
+  class PG,LS data
   class R_FE,R_BE route
+  class MAAS ext
 ```
 
 #### RAG chat and dashboard refresh
@@ -93,7 +93,7 @@ sequenceDiagram
   participant BE as Backend (Flask)
   participant PG as PGVector
   participant LS as Llama Stack
-  participant LLM as LLM service
+  participant LLM as MaaS / external model
 
   Note over UI,LLM: Dashboard — every 15s
   UI->>BE: GET /api/v1/state
@@ -123,17 +123,16 @@ sequenceDiagram
 
 ### Minimum hardware requirements
 
-| Resource | Minimum |
-|----------|---------|
-| GPU | 1× NVIDIA A10G (24 GB VRAM) or equivalent for LLM inference |
-| CPU | 8 vCPU |
-| RAM | 32 GB |
-| Storage | 50 GB (model weights + PGVector data) |
+| Resource | Minimum (MaaS default) | With local `llm-service` |
+|----------|------------------------|---------------------------|
+| GPU | Not required | 1× NVIDIA A10G (24 GB VRAM) or equivalent, or larger CPU nodes |
+| CPU | 4 vCPU | 8+ vCPU |
+| RAM | 16 GB | 32+ GB (CPU vLLM needs more) |
+| Storage | 20 GB (PGVector + app) | 50 GB (model weights + PGVector) |
 
-**Important:** The app can be deployed on clusters without a GPU and run the LLM in CPU mode. This is the default set up in helm/values.yaml  
-**Important:** If deploying this in AWS in CPU Mode: Instances must support AVX-512 instruction set. Testing was done using m6i instance types.  
+**Default:** `helm/values.yaml` uses LiteMaaS (`global.models.external-model`) and leaves `llm-service.enabled: false`, so no in-cluster model or GPU is required.
 
-For setting up GPU infrastructure in AWS please see [AWS Setup](./infra/prereqs/ocp-gpu-setup/README.md)  
+**Optional local model:** re-enable `llm-service` and a gated Hugging Face model (CPU or GPU). On AWS CPU mode, instances must support AVX-512 (tested on m6i). For GPU infrastructure in AWS see [AWS Setup](./infra/prereqs/ocp-gpu-setup/README.md).
 
 ### Minimum software requirements
 
@@ -169,8 +168,10 @@ Run `make help` for the full target list.
 
 For step 4, choose one of two deployment options:
 
-- **[Option A](#option-a-local-cpugpu)** — deploy with a local LLM (CPU or GPU via KServe). Requires a Hugging Face token.
-- **[Option B](#option-b-external-gpu-model)** — point the quickstart at an external vLLM-compatible endpoint. No local model deployment required.
+- **[Option A](#option-a-maas--external-model-default)** — default. Llama Stack calls LiteMaaS (or another OpenAI-compatible endpoint). No local model pod. Requires an API token.
+- **[Option B](#option-b-local-cpugpu)** — deploy an in-cluster LLM via `llm-service` (CPU or GPU). Requires a Hugging Face token for gated models.
+
+General Simulation (optional subchart) uses its **own** OpenAI credentials (`api.llm` / `ingestion.llm` in secrets) — not LiteMaaS.
 
 ### 1. Clone the repository
 
@@ -181,13 +182,13 @@ cd ai-supply-chain-agent
 
 ### 2. Deploy secrets and values
 
-**Required:** set your Hugging Face token so the `llm-service` sub-chart can pull gated models (for example `meta-llama/Llama-3.2-1B-Instruct`).
+**Required (Option A / default):** set your MaaS / LiteMaaS API token so Llama Stack can call `global.models.external-model`.
 
-**Option A — use `helm/secrets.yaml`** (recommended for local development):
+**Option A secrets — use `helm/secrets.yaml`** (recommended for local development):
 
 ```bash
 cp helm/secrets.example.yaml helm/secrets.yaml
-# Edit helm/secrets.yaml and add your HF token, then save
+# Edit helm/secrets.yaml and set global.models.external-model.apiToken
 ```
 
 Then deploy as usual — the Makefile automatically applies `helm/secrets.yaml` if it exists:
@@ -197,29 +198,33 @@ make helm-deps
 make helm-install
 ```
 
-**Option B — pre-create the Secret** (recommended for production; the token never touches any file):
+**Option A secrets — pre-create / override at install** (token never needs to sit in a file):
 
 ```bash
-oc create secret generic huggingface-secret \
-  -n supply-chain-dashboard \
-  --from-literal=HF_TOKEN="<your-hf-token>"
+helm upgrade --install supply-chain-dashboard ./helm \
+  -f helm/values.yaml \
+  --set global.models.external-model.apiToken="<your-maas-token>" \
+  --namespace supply-chain-dashboard \
+  --create-namespace \
+  --wait \
+  --timeout 10m
 ```
 
-Create a token at [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens) with read access to the models you use. If the Secret already exists, the chart uses it as-is.
+**Only when using Option B (local model):** also set a Hugging Face token so `llm-service` can pull gated weights (`llm-service.secret.hf_token` in `secrets.yaml`, or pre-create Secret `huggingface-secret` with key `HF_TOKEN`).
 
-Everything else in `helm/values.yaml` works with the chart defaults (images, PGVector demo credentials, in-cluster API proxy, Llama Stack URLs). Override those only when you use a custom registry, namespace layout, or GPU settings.
-
-Everything else in `helm/values.yaml` works with the chart defaults (images, PGVector demo credentials, in-cluster API proxy, Llama Stack URLs). Override those only when you use a custom registry, namespace layout, or GPU settings.
+Everything else in `helm/values.yaml` works with the chart defaults (images, PGVector demo credentials, in-cluster API proxy, Llama Stack URLs). Override those only when you use a custom registry, namespace layout, or a local GPU model.
 
 | Optional override | When you need it |
 |-------------------|------------------|
 | `backend.image.repository` / `tag`, `frontend.image.*`, `ingest.image.*` | Images built and pushed to your own registry (defaults: `quay.io/rh-ai-quickstart/...`) |
 | `frontend.apiProxyUpstream` | Backend Service is not `http://<release>-backend:<port>` in the release namespace |
+| `global.models.external-model.id` / `url` | Different MaaS model or endpoint |
 | `backend.env.LLAMA_STACK_MODEL` / `EMBED_MODEL` | Different model or embedding IDs |
 | `backend.env.LLAMA_STACK_URL` | Release installed outside `supply-chain-dashboard` namespace (default URL is namespace-scoped) |
 | `pgvector.secret.*` | Non-demo database credentials |
-| `llm-service.device` / `llm-service.models.<model-name>.device` | GPU inference instead of CPU |
+| `llm-service.enabled` + `device` / per-model `device` | Local inference instead of MaaS |
 | `ingest.strategy` | `langchain` for PGVector ingest instead of default `llamastack` |
+| `general-simulation.api.llm.*` | Gen-sim OpenAI endpoint / model overrides (`apiKey` in secrets) |
 
 
 ### 3. Install Helm dependencies
@@ -236,7 +241,9 @@ make helm-deps
 
 ### 4. Deploy the application
 
-#### Option A: Local CPU/GPU
+#### Option A: MaaS / external model (default)
+
+`helm/values.yaml` already enables `global.models.external-model` (LiteMaaS) and disables `llm-service`. After setting `global.models.external-model.apiToken` (step 2):
 
 **Helm (install or upgrade):**
 
@@ -269,38 +276,51 @@ The umbrella chart in `helm/` deploys:
 - **Backend** — Flask API (port 5001), Route `supply-chain-dashboard-backend`
 - **Frontend** — React SPA served by nginx (port 8080), Route `supply-chain-dashboard-frontend`
 - **PGVector** — PostgreSQL + pgvector (subchart)
-- **Llama Stack** + **LLM service** — inference (subcharts)
+- **Llama Stack** — inference API (subchart); default provider is MaaS / external-model
+- **General Simulation** — optional subchart (OpenAI LLM via secrets; not wired to MaaS)
 - **Ingest Job** — optional post-install job (`ingest.enabled`) that loads the knowledge base
 
-#### Option B: External GPU model
-
-If you have an external vLLM-compatible inference endpoint (for example, a model already deployed on a GPU cluster or a managed inference service), you can point the quickstart at it instead of deploying a local LLM service.
-
-Use `helm/gpu-values.yaml` as your values file.
-
-**Helm (install or upgrade):**
+To point at a non-default OpenAI-compatible endpoint (same pattern as `helm/gpu-values.yaml`):
 
 ```bash
 helm upgrade --install supply-chain-dashboard ./helm \
-  -f helm/gpu-values.yaml \
+  -f helm/values.yaml \
   --set global.models.external-model.id=<your-model-id> \
   --set global.models.external-model.url=https://<your-endpoint>/v1 \
   --set global.models.external-model.apiToken=<your-token> \
-  --set llama-stack.secrets.EXTERNAL_MODEL_API_TOKEN=<your-token> \
-  --set backend.env.LLAMA_STACK_MODEL=external-model/<your-model-id> \
   --namespace supply-chain-dashboard \
   --create-namespace \
   --wait \
   --timeout 10m
 ```
 
-Replace:
-- `<your-model-id>` — the model ID as served by your endpoint (e.g. `meta-llama/Llama-3.1-8B-Instruct`)
-- `https://<your-endpoint>/v1` — the base URL of your vLLM-compatible inference endpoint
-- `<your-token>` — your API token; passed twice: once as `apiToken` for the init container health check, and once into the `llama-stack-env` Secret for LlamaStack runtime use
-
 Once deployed, continue from [step 5](#5-access-the-dashboard).
 
+#### Option B: Local CPU/GPU
+
+Re-enable the in-cluster model and disable MaaS, for example:
+
+```yaml
+# overrides or edit values.yaml
+global:
+  models:
+    llama-3-2-3b-instruct:
+      enabled: true
+    external-model:
+      enabled: false
+llm-service:
+  enabled: true
+  models:
+    llama-3-2-3b-instruct:
+      enabled: true
+backend:
+  env:
+    LLAMA_STACK_MODEL: llama-3-2-3b-instruct/meta-llama/Llama-3.2-3B-Instruct
+```
+
+Set `llm-service.secret.hf_token` (or Secret `huggingface-secret`), then install with the same `helm upgrade --install` / `make helm-install` commands as Option A. Use `llm-service.device: gpu` (and matching per-model `device`) when GPUs are available.
+
+Once deployed, continue from [step 5](#5-access-the-dashboard).
 ### 5. Access the dashboard
 
 **See detailed walkthrough [here](/docs/WHAT_TO_EXPECT.md)**
@@ -436,7 +456,7 @@ app/
 
 ### Environment variables
 
-**Helm (`helm/secrets.yaml`)** — the only secret you must set before deploy is the Hugging Face token, via `llm-service.secret.hf_token` in `secrets.yaml` (copy from `secrets.example.yaml`) or by pre-creating a `huggingface-secret` Secret (key `HF_TOKEN`). Other keys below are set by the chart or optional overrides.
+**Helm (`helm/secrets.yaml`)** — for the default MaaS path, set `global.models.external-model.apiToken` to a literal token (copy from `secrets.example.yaml`). Do not use `${env.VAR}` — the llama-stack init script will hit bash `bad substitution`. A Hugging Face token (`llm-service.secret.hf_token` or Secret `huggingface-secret` / `HF_TOKEN`) is only required when you re-enable local `llm-service`. Other keys below are set by the chart or optional overrides.
 
 **Backend**
 

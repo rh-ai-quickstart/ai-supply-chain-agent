@@ -37,9 +37,31 @@ def flask_client(monkeypatch, mock_llama_stack_client, mock_route_service):
     }
 
     chat = ChatService(mock_llama_stack_client, mock_route_service, vector_store_client=None)
+    scenario_svc = MagicMock()
+    scenario_svc.propose.return_value = {
+        "success": True,
+        "draft": {
+            "name": "France Closure",
+            "scenario_id": "france-closure",
+            "description": "Closed.",
+            "affect_bbox": "-5.0,42.0,8.0,51.0",
+            "place_summary": "France",
+            "rationale": "FIR",
+        },
+    }
+    scenario_svc.create.return_value = {
+        "success": True,
+        "scenario_id": "france-closure",
+        "event_id": "evt-france-closure",
+        "name": "France Closure",
+        "affect_bbox": "-5.0,42.0,8.0,51.0",
+        "affected_count": 2,
+    }
+
     monkeypatch.setattr(app_main, "dashboard_service", dash)
     monkeypatch.setattr(app_main, "general_simulation_service", sim)
     monkeypatch.setattr(app_main, "chat_service", chat)
+    monkeypatch.setattr(app_main, "scenario_create_service", scenario_svc)
     app_main.app.config["TESTING"] = True
     return app_main.app.test_client(), app_main
 
@@ -257,3 +279,38 @@ def test_get_general_simulation_entities_geojson_bad_limit(flask_client):
     )
     assert rv.status_code == 400
     assert "limit" in rv.get_json()["error"]
+
+
+def test_post_scenarios_propose(flask_client):
+    client, app_main = flask_client
+    rv = client.post("/api/v1/scenarios/propose", json={"prompt": "Close French airspace"})
+    assert rv.status_code == 200
+    body = rv.get_json()
+    assert body["success"] is True
+    assert body["draft"]["scenario_id"] == "france-closure"
+    app_main.scenario_create_service.propose.assert_called_once_with("Close French airspace")
+
+
+def test_post_scenarios_propose_error(flask_client):
+    client, app_main = flask_client
+    app_main.scenario_create_service.propose.return_value = {
+        "success": False,
+        "error": "prompt is required",
+    }
+    rv = client.post("/api/v1/scenarios/propose", json={})
+    assert rv.status_code == 400
+
+
+def test_post_scenarios_create(flask_client):
+    client, app_main = flask_client
+    draft = {
+        "name": "France Closure",
+        "scenario_id": "france-closure",
+        "description": "Closed.",
+        "affect_bbox": "-5,42,8,51",
+    }
+    rv = client.post("/api/v1/scenarios", json=draft)
+    assert rv.status_code == 201
+    body = rv.get_json()
+    assert body["scenario_id"] == "france-closure"
+    app_main.scenario_create_service.create.assert_called_once()

@@ -7,6 +7,7 @@ from clients.llama_stack_client import LlamaStackClient
 from clients.vector_store_client import VectorStoreClient
 from services.agent_service import AgentService, ToolResult
 from services.route_service import RouteService
+from services.simulation_intent import normalize_scenario_id
 
 logger = logging.getLogger(__name__)
 
@@ -67,10 +68,13 @@ class _ToolSideEffects:
                     "Choose a scenario with a matched knowledge base, or pass vector_store_id."
                 )
         elif name == "general_simulation":
-            if not (bound.get("scenario_id") or "").strip() and self.scenario_id:
-                bound["scenario_id"] = self.scenario_id
-            if not (bound.get("question") or "").strip():
-                bound["question"] = self.latest_user
+            question = (bound.get("question") or "").strip() or self.latest_user
+            bound["question"] = question
+            bound["scenario_id"] = normalize_scenario_id(
+                bound.get("scenario_id") or "",
+                active_scenario_id=self.scenario_id,
+                question=question,
+            )
             if not (bound.get("scenario_id") or "").strip():
                 return (
                     "Error: no active scenario. Select a scenario in Impact Query "

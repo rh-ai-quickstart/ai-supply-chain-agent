@@ -35,6 +35,8 @@ _SCENARIO_CLUES: list[tuple[re.Pattern[str], str]] = [
     ),
 ]
 
+KNOWN_SCENARIO_IDS: frozenset[str] = frozenset(sid for _, sid in _SCENARIO_CLUES)
+
 
 def is_simulation_intent(text: str) -> bool:
     return bool(text and _SIMULATION_INTENT_RE.search(text))
@@ -48,3 +50,23 @@ def resolve_scenario_id(text: str, preferred: Optional[str] = None) -> str:
         if pattern.search(text or ""):
             return scenario_id
     return ""
+
+
+def normalize_scenario_id(
+    model_scenario_id: str = "",
+    *,
+    active_scenario_id: str = "",
+    question: str = "",
+) -> str:
+    """Resolve a tool ``scenario_id``, fixing labels invented by small models.
+
+    Prefer the UI-selected scenario. Accept known seeded IDs from the model.
+    Otherwise map free-text labels (e.g. ``\"UK NATS GPS failure\"``) via clues.
+    """
+    active = (active_scenario_id or "").strip()
+    if active:
+        return active
+    raw = (model_scenario_id or "").strip()
+    if raw in KNOWN_SCENARIO_IDS:
+        return raw
+    return resolve_scenario_id(f"{raw} {question}".strip())

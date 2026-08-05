@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { applyChatStreamEvent } from "./utils/chatStream.js";
 import { ChatBar } from "./components/ChatBar";
+import { CreateScenarioPage } from "./components/CreateScenarioPage";
 import { DashboardHeader } from "./components/DashboardHeader";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { KnowledgeBasesPage } from "./components/KnowledgeBasesPage";
@@ -23,6 +24,9 @@ function viewFromHash() {
   const { path } = hashPathAndQuery();
   if (path === "knowledge-bases") {
     return "knowledge-bases";
+  }
+  if (path === "create-scenario") {
+    return "create-scenario";
   }
   return "simulation";
 }
@@ -50,12 +54,14 @@ function App() {
   const [newsLoading, setNewsLoading] = useState(true);
   const chatAbortRef = useRef(null);
   const newsAbortRef = useRef(null);
+  const chatLoadingRef = useRef(false);
 
   const chatKey = chatKeyForScenario(activeScenarioId);
   const chatMessages = chatMessagesByScenario[chatKey] || [];
   const chatInput = chatInputByScenario[chatKey] || "";
   const chatError = chatErrorByScenario[chatKey] || "";
   const chatLoading = Boolean(chatLoadingByScenario[chatKey]);
+  chatLoadingRef.current = chatLoading;
   const matchedVectorStoreId = findVectorStoreIdForScenario(vectorStores, activeScenarioId);
   const chatRagHint = (() => {
     if (vectorStoresError) {
@@ -117,6 +123,8 @@ function App() {
   }, []);
 
   const loadNews = useCallback(async () => {
+    // Skip RSS refresh while chat is using the shared CPU/network budget.
+    if (chatLoadingRef.current) return;
     newsAbortRef.current?.abort();
     const controller = new AbortController();
     newsAbortRef.current = controller;
@@ -150,9 +158,20 @@ function App() {
       window.location.hash = "#/knowledge-bases";
       return;
     }
+    if (view === "create-scenario") {
+      window.location.hash = "#/create-scenario";
+      return;
+    }
     const qs = scenarioId ? `?scenario=${encodeURIComponent(scenarioId)}` : "";
     window.location.hash = `#/simulation${qs}`;
   };
+
+  const handleScenarioCreated = useCallback((scenarioId) => {
+    const nextId = scenarioId || "";
+    setActiveScenarioId(nextId);
+    const qs = nextId ? `?scenario=${encodeURIComponent(nextId)}` : "";
+    window.location.hash = `#/simulation${qs}`;
+  }, []);
 
   const handleActiveScenarioChange = useCallback((scenarioId) => {
     const nextId = scenarioId || "";
@@ -247,7 +266,7 @@ function App() {
       <ErrorBoundary>
         <div
           className={`dashboard-wrapper${
-            activeView === "knowledge-bases"
+            activeView === "knowledge-bases" || activeView === "create-scenario"
               ? " dashboard-wrapper--kb"
               : " dashboard-wrapper--simulation"
           }`}
@@ -261,6 +280,8 @@ function App() {
 
           {activeView === "knowledge-bases" ? (
             <KnowledgeBasesPage onKnowledgeBaseCreated={reloadVectorStores} />
+          ) : activeView === "create-scenario" ? (
+            <CreateScenarioPage onCreated={handleScenarioCreated} />
           ) : (
             <>
               <NewsTicker items={newsItems} loading={newsLoading} />
@@ -268,6 +289,7 @@ function App() {
                 initialScenarioId={activeScenarioId}
                 onScenarioChange={handleActiveScenarioChange}
                 chatSimulation={chatSimulation}
+                chatLoading={chatLoading}
               />
               <ChatBar
                 chatInput={chatInput}

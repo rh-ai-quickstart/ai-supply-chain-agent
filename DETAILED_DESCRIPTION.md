@@ -65,11 +65,11 @@ Throughout this quickstart, you'll gain hands-on experience with modern AI and c
 
 **AI & LLM Technologies:**
 - **[Llama Stack](https://github.com/meta-llama/llama-stack)** — OpenAI-compatible API for chat completions, embeddings, and vector store management
-- **[vLLM](https://docs.vllm.ai/)** — High-throughput LLM serving engine; the default inference backend for `meta-llama/Llama-3.2-1B-Instruct`
+- **[vLLM](https://docs.vllm.ai/)** — High-throughput LLM serving engine; the default inference backend for `meta-llama/Llama-3.2-3B-Instruct`
 - **[LLM-D](https://github.com/llm-d/llm-d)** — Distributed LLM inference for disaggregated prefill/decode; demonstrated via the performance comparison toggle
 - **[RAG (Retrieval-Augmented Generation)](https://www.redhat.com/en/topics/ai/what-is-retrieval-augmented-generation)** — Dual-path RAG with Llama Stack vector stores (default) and LangChain + PGVector (alternative strategy)
 - **[LangChain](https://python.langchain.com/)** — Embeddings pipeline and PGVector similarity search integration
-- **[Llama 3.2](https://llama.meta.com/)** — 1B-parameter instruction-tuned model for supply chain query answering
+- **[Llama 3.2](https://huggingface.co/meta-llama/Llama-3.2-3B-Instruct)** — Default tool-capable instruct model for supply chain query answering
 
 **Frontend & Visualization:**
 - **[React 19](https://react.dev/) + [Vite 7](https://vitejs.dev/)** — Standalone operator SPA

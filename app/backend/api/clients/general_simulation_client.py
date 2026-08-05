@@ -127,3 +127,77 @@ class GeneralSimulationClient:
         except (requests.RequestException, ValueError, TypeError) as exc:
             logger.error("GeneralSimulation get_entities_geojson failed: %s", exc)
             return {"error": str(exc)}
+
+    def create_event(
+        self,
+        *,
+        event_id: str,
+        scenario_id: str,
+        description: str,
+        bbox: str,
+        attributes: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Inject a SimulationEvent via ``POST /admin/graph/events`` (bbox required)."""
+        payload: dict[str, Any] = {
+            "id": event_id,
+            "scenario_id": scenario_id,
+            "description": description,
+            "bbox": bbox,
+            "affected_entity_ids": [],
+            "attributes": attributes or {},
+        }
+        try:
+            logger.info(
+                "GeneralSimulation create_event: scenario=%s event=%s bbox=%s",
+                scenario_id,
+                event_id,
+                bbox,
+            )
+            resp = self._session.post(
+                f"{self.base_url}/admin/graph/events",
+                json=payload,
+                timeout=self.timeout,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            if isinstance(data, dict):
+                return data
+            return {"error": "Unexpected create_event response shape"}
+        except requests.Timeout:
+            logger.error("GeneralSimulation create_event timed out after %ss", self.timeout)
+            return {"error": f"Request timed out after {self.timeout}s"}
+        except requests.HTTPError as exc:
+            status = exc.response.status_code
+            detail = exc.response.text[:500] if exc.response.text else ""
+            logger.error("GeneralSimulation create_event HTTP %s: %s", status, detail)
+            return {"error": f"HTTP {status}: {detail}"}
+        except (requests.RequestException, ValueError, TypeError) as exc:
+            logger.error("GeneralSimulation create_event failed: %s", exc)
+            return {"error": str(exc)}
+
+    def sync_spatial(self, scenario_id: str) -> dict[str, Any]:
+        """Refresh AFFECTED_BY edges for a scenario's bbox overlays."""
+        sid = (scenario_id or "").strip()
+        if not sid:
+            return {"error": "scenario_id is required"}
+        try:
+            resp = self._session.post(
+                f"{self.base_url}/admin/graph/scenarios/{sid}/sync-spatial",
+                timeout=self.timeout,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            if isinstance(data, dict):
+                return data
+            return {"error": "Unexpected sync_spatial response shape"}
+        except requests.Timeout:
+            logger.error("GeneralSimulation sync_spatial timed out after %ss", self.timeout)
+            return {"error": f"Request timed out after {self.timeout}s"}
+        except requests.HTTPError as exc:
+            status = exc.response.status_code
+            detail = exc.response.text[:500] if exc.response.text else ""
+            logger.error("GeneralSimulation sync_spatial HTTP %s: %s", status, detail)
+            return {"error": f"HTTP {status}: {detail}"}
+        except (requests.RequestException, ValueError, TypeError) as exc:
+            logger.error("GeneralSimulation sync_spatial failed: %s", exc)
+            return {"error": str(exc)}

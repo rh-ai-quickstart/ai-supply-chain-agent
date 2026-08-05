@@ -14,6 +14,7 @@ from services.knowledge_base_ingest_service import ingest_uploaded_files
 from services.knowledge_bases_store import load_all as load_knowledge_bases
 from services.news_service import NewsService
 from services.route_service import RouteService
+from services.scenario_create_service import ScenarioCreateService
 from services.simulations_store import append_simulation
 from services.simulations_store import load_all as load_simulations
 
@@ -82,6 +83,7 @@ chat_service = ChatService(
     vector_store_client=_vector_store_client,
     openai_client=LlamaStackClient(model=_openai_model, label="openai"),
 )
+scenario_create_service = ScenarioCreateService(llama_stack_client=_primary_client)
 
 
 @app.route("/healthz", methods=["GET"])
@@ -225,6 +227,26 @@ def post_simulation():
     description = payload.get("description", "")
     record = append_simulation(name, str(description))
     return jsonify({"simulation": record}), 201
+
+
+@app.route("/api/v1/scenarios/propose", methods=["POST"])
+def post_scenarios_propose():
+    """LLM draft for a new general-simulation overlay (name, id, bbox, description)."""
+    payload = request.get_json(silent=True) or {}
+    prompt = payload.get("prompt") or payload.get("description") or ""
+    result = scenario_create_service.propose(str(prompt))
+    status = 200 if result.get("success") else 400
+    return jsonify(result), status
+
+
+@app.route("/api/v1/scenarios", methods=["POST"])
+def post_scenarios_create():
+    """Persist a confirmed draft into general-simulation (Neo4j + PostGIS bbox sync)."""
+    payload = request.get_json(silent=True) or {}
+    draft = payload.get("draft") if isinstance(payload.get("draft"), dict) else payload
+    result = scenario_create_service.create(draft if isinstance(draft, dict) else {})
+    status = 201 if result.get("success") else 400
+    return jsonify(result), status
 
 
 @app.route("/api/v1/general-simulation/query", methods=["POST"])

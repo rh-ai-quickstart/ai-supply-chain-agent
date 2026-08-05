@@ -191,6 +191,55 @@ def test_llm_tool_calling_runs_general_simulation(mock_llama_stack_client, mock_
     )
 
 
+def test_llm_tool_calling_overrides_invented_scenario_id(
+    mock_llama_stack_client, mock_route_service
+):
+    """Small models invent labels like 'UK NATS GPS failure'; prefer UI scenario."""
+    mock_route_service.is_route_query.return_value = False
+    agent = MagicMock()
+    agent.openai_tools.return_value = []
+    agent.run_tool.return_value = ToolResult(
+        success=True,
+        output="summary",
+        data={
+            "success": True,
+            "answer": "ok",
+            "scenario_id": "opensky-uk-closure-001",
+            "question": "Which flights are affected?",
+            "affected_entities": [],
+            "solver": {},
+            "tool_call_trace": [],
+        },
+    )
+
+    def _ask_with_tools(*_args, execute_tool=None, **_kwargs):
+        execute_tool(
+            "general_simulation",
+            {
+                "question": "Which flights are affected by the UK airspace closure?",
+                "scenario_id": "UK NATS GPS failure",
+            },
+        )
+        return {"answer": "ok", "completion": None, "tool_calls_made": []}
+
+    mock_llama_stack_client.ask_with_tools.side_effect = _ask_with_tools
+    svc = ChatService(
+        mock_llama_stack_client,
+        mock_route_service,
+        agent_service=agent,
+    )
+    svc.reply(
+        "Which flights are affected?",
+        chat_history=[],
+        scenario_id="opensky-uk-closure-001",
+    )
+    agent.run_tool.assert_called_once_with(
+        "general_simulation",
+        question="Which flights are affected by the UK airspace closure?",
+        scenario_id="opensky-uk-closure-001",
+    )
+
+
 def test_llm_tool_calling_binds_vector_store_for_knowledge_base(
     mock_llama_stack_client, mock_route_service
 ):

@@ -9,7 +9,7 @@ dependencies:
   repository: https://rh-ai-quickstart.github.io/ai-architecture-charts
   version: 0.5.9
 - name: general-simulation
-  repository: https://robertsandoval.github.io/general-simulation
+  repository: file://../../general-simulation/deploy/helm/general-simulation
   version: 0.1.0
-digest: sha256:6b553ae4ccd7dfb57364a3121a737f21f6fafd2b632bdccc0c4cb887d95da3f4
-generated: "2026-08-05T14:53:56.825683-04:00"
+digest: sha256:5059b714c576c189860994de9070c1289759121e088838b274ed403c69f8c87f
+generated: "2026-08-05T16:41:58.403644-04:00"

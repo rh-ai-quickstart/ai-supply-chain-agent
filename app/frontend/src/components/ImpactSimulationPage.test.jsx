@@ -149,11 +149,34 @@ describe("ImpactSimulationPage", () => {
       expect(getImpactEntitiesGeoJson).toHaveBeenCalledWith(
         expect.objectContaining({
           bbox: "-15,35,40,62",
-          limit: 3000,
+          limit: 1000,
         }),
       );
     });
     expect(getImpactEntitiesGeoJson).toHaveBeenCalledTimes(1);
+  });
+
+  it("defers heavy map bbox load while chat is in progress", async () => {
+    const { rerender } = render(<ImpactSimulationPage chatLoading />);
+
+    await waitFor(() => {
+      expect(listImpactScenarios).toHaveBeenCalled();
+    });
+    expect(getImpactEntitiesGeoJson).not.toHaveBeenCalled();
+    expect(
+      screen.getByText(/Chat in progress — map refresh and impact query paused/i),
+    ).toBeInTheDocument();
+
+    rerender(<ImpactSimulationPage chatLoading={false} />);
+
+    await waitFor(() => {
+      expect(getImpactEntitiesGeoJson).toHaveBeenCalledWith(
+        expect.objectContaining({
+          bbox: "-15,35,40,62",
+          limit: 1000,
+        }),
+      );
+    });
   });
 
   it("surfaces backend error text when the impact query fails", async () => {

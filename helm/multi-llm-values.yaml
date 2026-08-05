@@ -1,7 +1,7 @@
 global:
   models:
-    llama-3-2-1b-instruct:
-      id: meta-llama/Llama-3.2-1B-Instruct
+    llama-3-2-3b-instruct:
+      id: meta-llama/Llama-3.2-3B-Instruct
       enabled: true
     external-model:
       enabled: true
@@ -29,14 +29,31 @@ llama-stack:
 
 llm-service:
   enabled: true
-  device: gpu # Change to gpu (Change #models.llama-3-2-1b-instruct.device to gpu if you change this)
+  device: cpu
   secret:
     # hf_token set in helm/secrets.yaml (copy from secrets.example.yaml)
     enabled: true
   models:
-    llama-3-2-1b-instruct:
+    llama-3-2-3b-instruct:
       enabled: true
-      device: gpu # Change to gpu for better performance
+      device: cpu
+      resources:
+        limits:
+          cpu: "4"
+          memory: 48Gi
+        requests:
+          cpu: "2"
+          memory: 24Gi
+      args:
+        - --enable-auto-tool-choice
+        - --chat-template
+        - /chat-templates/tool_chat_template_llama3.2_json.jinja
+        - --tool-call-parser
+        - llama3_json
+        - --max-model-len
+        - "8192"
+        - --max-num-seqs
+        - "8"
 
 imagePullSecrets: []
 
@@ -58,7 +75,7 @@ backend:
   pgvectorSecretName: pgvector
   env:
     LLAMA_STACK_URL: http://llamastack.supply-chain-dashboard.svc.cluster.local:8321
-    LLAMA_STACK_MODEL: meta-llama/Llama-3.2-1B-Instruct
+    LLAMA_STACK_MODEL: llama-3-2-3b-instruct/meta-llama/Llama-3.2-3B-Instruct
     # OpenAI client timeout (seconds) for chat and vector-store API calls.
     LLAMA_STACK_TIMEOUT_SECONDS: "300"
     EMBED_MODEL: all-MiniLM-L6-v2

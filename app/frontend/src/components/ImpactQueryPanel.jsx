@@ -14,9 +14,11 @@ export function ImpactQueryPanel({
   onChangeQuestion,
   onRunQuery,
   queryLoading = false,
+  chatBusy = false,
   queryError = "",
 }) {
-  const canRun = Boolean(scenarioId.trim()) && Boolean(question.trim()) && !queryLoading;
+  const locked = queryLoading || chatBusy;
+  const canRun = Boolean(scenarioId.trim()) && Boolean(question.trim()) && !locked;
 
   return (
     <section className="panel impact-query-panel">
@@ -41,7 +43,7 @@ export function ImpactQueryPanel({
               type="button"
               className={`btn${scenarioId === id ? " btn--active" : ""}`}
               onClick={() => onChangeScenarioId(id)}
-              disabled={queryLoading}
+              disabled={locked}
               aria-pressed={scenarioId === id}
             >
               {labelForScenario(id)}
@@ -60,7 +62,7 @@ export function ImpactQueryPanel({
         rows={8}
         value={question}
         onChange={(event) => onChangeQuestion(event.target.value)}
-        disabled={queryLoading}
+        disabled={locked}
       />
 
       <div className="stack">
@@ -69,6 +71,9 @@ export function ImpactQueryPanel({
         </button>
       </div>
       {queryLoading ? <p className="muted">Running impact query…</p> : null}
+      {chatBusy && !queryLoading ? (
+        <p className="muted">Chat in progress — map refresh and impact query paused…</p>
+      ) : null}
       {queryError ? <p className="error">{queryError}</p> : null}
     </section>
   );
@@ -84,5 +89,6 @@ ImpactQueryPanel.propTypes = {
   onChangeQuestion: PropTypes.func,
   onRunQuery: PropTypes.func,
   queryLoading: PropTypes.bool,
+  chatBusy: PropTypes.bool,
   queryError: PropTypes.string,
 };

@@ -172,3 +172,35 @@ def test_ask_with_tools_without_tools_falls_back_to_ask():
     ask.assert_called_once()
     assert out["answer"] == "plain"
     assert out["tool_calls_made"] == []
+
+
+def test_build_messages_uses_single_leading_system_message():
+    """Qwen / LiteMaaS reject a second role=system mid-list."""
+    client = LlamaStackClient.__new__(LlamaStackClient)
+    messages = client._build_messages(
+        "what about ports?",
+        context="Port strike risk is elevated.",
+        conversation_messages=None,
+    )
+    assert len(messages) == 2
+    assert messages[0]["role"] == "system"
+    assert "supply chain command center" in messages[0]["content"]
+    assert "Port strike risk is elevated." in messages[0]["content"]
+    assert messages[1] == {"role": "user", "content": "what about ports?"}
+    assert sum(1 for m in messages if m["role"] == "system") == 1
+
+
+def test_build_messages_drops_system_turns_from_history():
+    client = LlamaStackClient.__new__(LlamaStackClient)
+    messages = client._build_messages(
+        "ignored when history present",
+        context="",
+        conversation_messages=[
+            {"role": "system", "content": "should drop"},
+            {"role": "user", "content": "hello"},
+            {"role": "assistant", "content": "hi"},
+        ],
+    )
+    assert messages[0]["role"] == "system"
+    assert [m["role"] for m in messages[1:]] == ["user", "assistant"]
+    assert all(m["role"] != "system" for m in messages[1:])
