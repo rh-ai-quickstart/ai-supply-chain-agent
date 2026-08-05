@@ -31,9 +31,16 @@ def _make_mock_sim_client() -> MagicMock:
 class TestAgentService:
     def test_tools_are_registered(self):
         service = AgentService(_make_mock_llama_stack())
-        assert len(service.tools) == 3
+        assert len(service.tools) == 4
         names = {t.name for t in service.tools}
-        assert names == {"knowledge_base", "general_simulation", "unknown"}
+        assert names == {"knowledge_base", "general_simulation", "fetch_news", "unknown"}
+
+    def test_openai_tools_excludes_unknown(self):
+        service = AgentService(_make_mock_llama_stack())
+        schemas = service.openai_tools()
+        names = {s["function"]["name"] for s in schemas}
+        assert names == {"knowledge_base", "general_simulation", "fetch_news"}
+        assert all(s["type"] == "function" for s in schemas)
 
     def test_get_tool_returns_spec(self):
         service = AgentService(_make_mock_llama_stack())
@@ -218,4 +225,22 @@ class TestAgentService:
         assert tool is not None
         assert "question" in tool.parameters["properties"]
         assert "scenario_id" in tool.parameters["properties"]
-        assert tool.parameters["required"] == ["question", "scenario_id"]
+        assert tool.parameters["required"] == ["question"]
+
+    def test_fetch_news_tool_success(self):
+        news_client = MagicMock()
+        news_client.fetch_headlines.return_value = [
+            {
+                "title": "Port strike disrupts shipping",
+                "link": "https://example.com/1",
+                "source": "BBC",
+                "summary": "Dockworkers walk out",
+                "published_at": "2026-08-05T12:00:00+00:00",
+            }
+        ]
+        news_client.cache_age_seconds.return_value = 0.1
+        service = AgentService(_make_mock_llama_stack(), news_client=news_client)
+        result = service.run_tool("fetch_news", limit=12)
+        assert result.success is True
+        assert "Port strike" in result.output
+        assert isinstance(result.data, list)

@@ -46,9 +46,25 @@ def mock_llama_stack_client():
         yield {"type": "delta", "content": "answer"}
         yield {"type": "done", "answer": "mocked answer", "completion": None}
 
+    def _ask_stream_with_tools(*_args, **_kwargs):
+        yield {"type": "delta", "content": "mocked "}
+        yield {"type": "delta", "content": "answer"}
+        yield {
+            "type": "done",
+            "answer": "mocked answer",
+            "completion": None,
+            "tool_calls_made": [],
+        }
+
     client = MagicMock()
     client.ask.return_value = {"answer": "mocked answer", "completion": None}
+    client.ask_with_tools.return_value = {
+        "answer": "mocked answer",
+        "completion": None,
+        "tool_calls_made": [],
+    }
     client.ask_stream.side_effect = _ask_stream
+    client.ask_stream_with_tools.side_effect = _ask_stream_with_tools
     client.list_vector_stores.return_value = [
         {"id": "vs_1", "name": "Demo KB", "status": "ready", "created_at": 0}
     ]

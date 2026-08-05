@@ -109,3 +109,66 @@ def test_stream_accumulator_absorbs_chunks():
     assert acc.answer == "tok"
     assert acc.completion["model"] == "m1"
     assert acc.completion["finish_reason"] == "stop"
+
+
+def test_ask_with_tools_executes_tool_then_returns_final_answer():
+    client = LlamaStackClient.__new__(LlamaStackClient)
+    client.base_url = "http://stack/v1"
+    client.label = "test"
+    client.model = "test-model"
+    client._timeout = 30
+    client._client = MagicMock()
+
+    tool_call = MagicMock()
+    tool_call.id = "call_1"
+    tool_call.function.name = "fetch_news"
+    tool_call.function.arguments = '{"limit": 5}'
+
+    first = MagicMock()
+    first.model = "test-model"
+    first.choices = [MagicMock(message=MagicMock(content=None, tool_calls=[tool_call]))]
+    first.model_dump.return_value = {"id": "c1"}
+
+    second = MagicMock()
+    second.model = "test-model"
+    second.choices = [
+        MagicMock(message=MagicMock(content="Here are the headlines.", tool_calls=None))
+    ]
+    second.model_dump.return_value = {"id": "c2"}
+
+    client._client.chat.completions.create.side_effect = [first, second]
+    executed = []
+
+    def execute_tool(name, args):
+        executed.append((name, args))
+        return "headline list"
+
+    with patch.object(
+        LlamaStackClient,
+        "_build_messages",
+        return_value=[{"role": "user", "content": "news?"}],
+    ):
+        out = client.ask_with_tools(
+            "news?",
+            tools=[{"type": "function", "function": {"name": "fetch_news"}}],
+            execute_tool=execute_tool,
+        )
+
+    assert out["answer"] == "Here are the headlines."
+    assert executed == [("fetch_news", {"limit": 5})]
+    assert out["tool_calls_made"][0]["name"] == "fetch_news"
+    assert client._client.chat.completions.create.call_count == 2
+
+
+def test_ask_with_tools_without_tools_falls_back_to_ask():
+    client = LlamaStackClient.__new__(LlamaStackClient)
+    client.base_url = "http://stack/v1"
+    client.label = "test"
+    client.model = "test-model"
+    client._timeout = 30
+    client._client = MagicMock()
+    with patch.object(client, "ask", return_value={"answer": "plain", "completion": None}) as ask:
+        out = client.ask_with_tools("hi", tools=None, execute_tool=None)
+    ask.assert_called_once()
+    assert out["answer"] == "plain"
+    assert out["tool_calls_made"] == []

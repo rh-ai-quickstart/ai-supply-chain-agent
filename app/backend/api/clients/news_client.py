@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import threading
 import time
 import xml.etree.ElementTree as ET
@@ -13,12 +14,37 @@ import requests
 
 logger = logging.getLogger(__name__)
 
-# Stable free RSS feeds (no API key).
+# Stable free RSS feeds (no API key). Override with NEWS_FEED_URLS in OpenShift
+# if the cluster cannot reach these hosts (format: "Name|url;Name|url").
 DEFAULT_FEEDS: tuple[tuple[str, str], ...] = (
     ("BBC World", "https://feeds.bbci.co.uk/news/world/rss.xml"),
     ("BBC Business", "https://feeds.bbci.co.uk/news/business/rss.xml"),
     ("The Guardian World", "https://www.theguardian.com/world/rss"),
 )
+
+_DEFAULT_USER_AGENT = (
+    "ai-supply-chain-agent/1.0 (+https://github.com/rh-ai-quickstart/ai-supply-chain-agent; news-ticker)"
+)
+
+
+def feeds_from_env(raw: str | None = None) -> tuple[tuple[str, str], ...] | None:
+    """Parse ``NEWS_FEED_URLS`` as ``Name|url;Name|url`` (newlines also allowed)."""
+    text = (raw if raw is not None else os.getenv("NEWS_FEED_URLS", "")).strip()
+    if not text:
+        return None
+    feeds: list[tuple[str, str]] = []
+    for part in text.replace("\n", ";").split(";"):
+        entry = part.strip()
+        if not entry:
+            continue
+        if "|" in entry:
+            name, url = entry.split("|", 1)
+            name, url = name.strip(), url.strip()
+            if name and url:
+                feeds.append((name, url))
+        elif entry.startswith("http://") or entry.startswith("https://"):
+            feeds.append(("News", entry))
+    return tuple(feeds) if feeds else None
 
 
 class NewsClient:
@@ -32,7 +58,11 @@ class NewsClient:
         feeds: tuple[tuple[str, str], ...] | None = None,
     ) -> None:
         self._session = session or requests.Session()
-        self._feeds = feeds or DEFAULT_FEEDS
+        if "User-Agent" not in self._session.headers:
+            self._session.headers["User-Agent"] = os.getenv(
+                "NEWS_USER_AGENT", _DEFAULT_USER_AGENT
+            )
+        self._feeds = feeds or feeds_from_env() or DEFAULT_FEEDS
         self._lock = threading.Lock()
         self._cached_items: list[dict[str, Any]] | None = None
         self._last_fetch: float = 0.0

@@ -311,4 +311,23 @@ describe("ChatBar", () => {
     fireEvent.change(input, { target: { value: "hello" } });
     expect(onChangeChatInput).toHaveBeenCalledWith("hello");
   });
+
+  it.each(["general_simulation", "fetch_news", "knowledge_base"])(
+    "shows tool badge for %s",
+    (tool) => {
+      render(
+        <ChatBar
+          chatInput=""
+          onChangeChatInput={vi.fn()}
+          onSubmitChat={vi.fn()}
+          chatLoading={false}
+          chatMessages={[
+            { role: "human", content: "hi" },
+            { role: "ai", content: "Done.", tool },
+          ]}
+        />,
+      );
+      expect(screen.getByText(`Used tool: ${tool}`)).toBeInTheDocument();
+    },
+  );
 });

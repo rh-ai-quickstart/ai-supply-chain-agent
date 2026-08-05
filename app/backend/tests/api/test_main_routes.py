@@ -87,7 +87,7 @@ def test_post_chat(flask_client, mock_llama_stack_client):
     assert rv.status_code == 200
     body = rv.get_json()
     assert body["answer"] == "mocked answer"
-    mock_llama_stack_client.ask.assert_called()
+    mock_llama_stack_client.ask_with_tools.assert_called()
 
 
 def test_post_chat_stream(flask_client, mock_llama_stack_client):
@@ -99,8 +99,8 @@ def test_post_chat_stream(flask_client, mock_llama_stack_client):
     assert '"type": "delta"' in body
     assert '"type": "done"' in body
     assert '"answer": "mocked answer"' in body
-    mock_llama_stack_client.ask_stream.assert_called()
-    mock_llama_stack_client.ask.assert_not_called()
+    mock_llama_stack_client.ask_stream_with_tools.assert_called()
+    mock_llama_stack_client.ask_with_tools.assert_not_called()
 
 
 def test_post_simulate(flask_client):

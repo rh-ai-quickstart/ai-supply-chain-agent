@@ -58,6 +58,17 @@ tests:
               secretKeyRef:
                 name: pgvector
                 key: password
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: NEWS_FEED_URLS
+            value: ""
+      - equal:
+          path: spec.template.spec.containers[0].livenessProbe.httpGet.path
+          value: /healthz
+      - equal:
+          path: spec.template.spec.containers[0].readinessProbe.httpGet.path
+          value: /healthz
 
   - it: does not render when backend is disabled
     set:

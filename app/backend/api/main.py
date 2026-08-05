@@ -61,8 +61,23 @@ if not _openai_model:
     )
     _openai_model = "gpt-4o-mini"
 
+_llama_stack_url = (os.getenv("LLAMA_STACK_URL") or "").rstrip("/")
+# Local OpenAI-only setups often point LLAMA_STACK_URL at api.openai.com. The default
+# Llama Stack model ID is invalid there, so use the OpenAI model for the primary client.
+_stack_is_openai = "api.openai.com" in _llama_stack_url
+if _stack_is_openai:
+    logger.warning(
+        "LLAMA_STACK_URL points at OpenAI (%s); using model %s for the primary chat client "
+        "instead of LLAMA_STACK_MODEL.",
+        _llama_stack_url,
+        _openai_model,
+    )
+    _primary_client = LlamaStackClient(model=_openai_model, label="vllm")
+else:
+    _primary_client = LlamaStackClient(label="vllm")
+
 chat_service = ChatService(
-    LlamaStackClient(label="vllm"),
+    _primary_client,
     RouteService(),
     vector_store_client=_vector_store_client,
     openai_client=LlamaStackClient(model=_openai_model, label="openai"),

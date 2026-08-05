@@ -11,5 +11,5 @@ dependencies:
 - name: general-simulation
   repository: https://robertsandoval.github.io/general-simulation
   version: 0.1.0
-digest: sha256:949ebe58ec4bd11b6830f37ddad27b08a26ee85e038f97e725c062be4a6081d6
-generated: "2026-08-05T11:14:06.211167-05:00"
+digest: sha256:6b553ae4ccd7dfb57364a3121a737f21f6fafd2b632bdccc0c4cb887d95da3f4
+generated: "2026-08-05T14:53:56.825683-04:00"

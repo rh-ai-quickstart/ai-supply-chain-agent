@@ -35,6 +35,7 @@ def _ok_response(text: str = SAMPLE_RSS) -> MagicMock:
 
 def test_fetch_headlines_parses_and_caches():
     session = MagicMock()
+    session.headers = {}
     session.get.return_value = _ok_response()
     client = NewsClient(
         session=session,
@@ -53,6 +54,7 @@ def test_fetch_headlines_parses_and_caches():
 
 def test_fetch_headlines_returns_stale_cache_on_error():
     session = MagicMock()
+    session.headers = {}
     ok = _ok_response()
     bad = MagicMock()
     bad.status_code = 503
@@ -70,9 +72,30 @@ def test_fetch_headlines_returns_stale_cache_on_error():
 
 def test_fetch_headlines_empty_on_network_error_without_cache():
     session = MagicMock()
+    session.headers = {}
     session.get.side_effect = requests.RequestException("down")
     client = NewsClient(
         session=session,
         feeds=(("Test", "https://example.com/rss"),),
     )
     assert client.fetch_headlines() == []
+
+
+def test_feeds_from_env_parses_name_url_pairs():
+    from clients.news_client import feeds_from_env
+
+    feeds = feeds_from_env(
+        "BBC|https://example.com/a;Biz|https://example.com/b"
+    )
+    assert feeds == (
+        ("BBC", "https://example.com/a"),
+        ("Biz", "https://example.com/b"),
+    )
+
+
+def test_news_client_sets_user_agent():
+    session = MagicMock()
+    session.headers = {}
+    session.get.return_value = _ok_response()
+    NewsClient(session=session, feeds=(("Test", "https://example.com/rss"),))
+    assert "User-Agent" in session.headers

@@ -31,6 +31,22 @@ spec:
           imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
           ports:
             - containerPort: {{ .Values.backend.service.port }}
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: {{ .Values.backend.service.port }}
+            initialDelaySeconds: 20
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: {{ .Values.backend.service.port }}
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
           env:
             - name: LLAMA_STACK_URL
               value: {{ .Values.backend.env.LLAMA_STACK_URL | quote }}
@@ -55,6 +71,11 @@ spec:
               {{- end }}
             - name: GENERAL_SIMULATION_BASE_URL
               value: {{ .Values.backend.env.GENERAL_SIMULATION_BASE_URL | quote }}
+            # Optional override for air-gapped / egress-restricted clusters.
+            # Format: "Name|https://feed.example/rss;Other|https://..."
+            # Empty uses built-in BBC + Guardian feeds (requires HTTPS egress).
+            - name: NEWS_FEED_URLS
+              value: {{ .Values.backend.env.NEWS_FEED_URLS | default "" | quote }}
             # PG_ prefix avoids collision with the Kubernetes-injected
             # PGVECTOR_PORT=tcp://ip:port service-discovery variable.
             - name: PG_HOST

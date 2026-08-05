@@ -1,7 +1,8 @@
 import io
+import json
 import logging
 import os
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -14,12 +15,18 @@ SYSTEM_PROMPT = (
     "You help operators understand logistics data, demand forecasting, "
     "inventory levels, supplier risk, and shipping routes. "
     "Answer concisely and only about supply chain topics. "
-    "If asked about unrelated topics, politely redirect to supply chain matters."
+    "If asked about unrelated topics, politely redirect to supply chain matters. "
+    "You have tools: "
+    "general_simulation (what-if / impact analysis for an active scenario), "
+    "knowledge_base (search uploaded documents), "
+    "and fetch_news (latest world/business headlines that may affect logistics). "
+    "Call a tool when it will improve your answer; otherwise reply directly."
 )
 
 _NO_ENDPOINT_ANSWER = "Something went wrong. There is no endpoint configured."
 _EMPTY_COMPLETION_ANSWER = "Darn! Something went wrong."
 _CHAT_TEMPERATURE = 0.1
+_DEFAULT_TOOL_MAX_ROUNDS = 3
 
 # Default matches frontend nginx proxy_read_timeout (300s) for slow CPU/GPU inference.
 _DEFAULT_TIMEOUT_SECONDS = 300
@@ -158,7 +165,14 @@ class LlamaStackClient:
             message_count,
         )
 
-    def _completion_kwargs(self, messages: list[dict], *, stream: bool) -> dict[str, Any]:
+    def _completion_kwargs(
+        self,
+        messages: list[dict],
+        *,
+        stream: bool,
+        tools: list[dict[str, Any]] | None = None,
+        tool_choice: str | None = None,
+    ) -> dict[str, Any]:
         kwargs: dict[str, Any] = {
             "model": self.model,
             "messages": messages,
@@ -168,7 +182,230 @@ class LlamaStackClient:
         if stream:
             kwargs["stream"] = True
             kwargs["stream_options"] = {"include_usage": True}
+        if tools:
+            kwargs["tools"] = tools
+            if tool_choice is not None:
+                kwargs["tool_choice"] = tool_choice
         return kwargs
+
+    @staticmethod
+    def _assistant_message_dict(message: Any) -> dict[str, Any]:
+        """Serialize an OpenAI assistant message (including tool_calls) for the next turn."""
+        payload: dict[str, Any] = {
+            "role": "assistant",
+            "content": message.content,
+        }
+        tool_calls = getattr(message, "tool_calls", None) or []
+        if tool_calls:
+            serialized = []
+            for tc in tool_calls:
+                serialized.append(
+                    {
+                        "id": tc.id,
+                        "type": "function",
+                        "function": {
+                            "name": tc.function.name,
+                            "arguments": tc.function.arguments or "{}",
+                        },
+                    }
+                )
+            payload["tool_calls"] = serialized
+        return payload
+
+    @staticmethod
+    def _parse_tool_arguments(raw: str | None) -> dict[str, Any]:
+        if not raw or not str(raw).strip():
+            return {}
+        try:
+            parsed = json.loads(raw)
+            return parsed if isinstance(parsed, dict) else {}
+        except (TypeError, ValueError, json.JSONDecodeError):
+            logger.warning("LlamaStackClient: invalid tool arguments JSON: %r", raw)
+            return {}
+
+    def _execute_tool_round(
+        self,
+        message: Any,
+        execute_tool: Callable[[str, dict[str, Any]], str],
+        tool_calls_made: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        """Run each tool_call; return tool-role messages to append."""
+        tool_messages: list[dict[str, Any]] = []
+        for tc in message.tool_calls or []:
+            name = tc.function.name
+            args = self._parse_tool_arguments(tc.function.arguments)
+            logger.info("LlamaStackClient[%s]: executing tool %s", self.label, name)
+            try:
+                result_text = execute_tool(name, args)
+            except Exception as exc:
+                logger.error("LlamaStackClient[%s]: tool %s raised: %s", self.label, name, exc)
+                result_text = f"Error running tool {name}: {exc}"
+            summary = (result_text or "")[:500]
+            tool_calls_made.append(
+                {"name": name, "args": args, "result_summary": summary}
+            )
+            tool_messages.append(
+                {
+                    "role": "tool",
+                    "tool_call_id": tc.id,
+                    "content": result_text or "",
+                }
+            )
+        return tool_messages
+
+    def ask_with_tools(
+        self,
+        user_input: str,
+        context: str = "",
+        conversation_messages: list[dict] | None = None,
+        tools: list[dict[str, Any]] | None = None,
+        execute_tool: Callable[[str, dict[str, Any]], str] | None = None,
+        max_rounds: int = _DEFAULT_TOOL_MAX_ROUNDS,
+    ) -> dict[str, Any]:
+        """Chat completion with an OpenAI-style tool loop.
+
+        Returns ``answer``, ``completion``, and ``tool_calls_made``.
+        """
+        if not self.base_url:
+            return {
+                "answer": _NO_ENDPOINT_ANSWER,
+                "completion": None,
+                "tool_calls_made": [],
+            }
+
+        messages = self._build_messages(user_input, context, conversation_messages)
+        tool_schemas = tools or []
+        tool_calls_made: list[dict[str, Any]] = []
+        rounds = max(1, int(max_rounds or _DEFAULT_TOOL_MAX_ROUNDS))
+
+        if not tool_schemas or execute_tool is None:
+            plain = self.ask(user_input, context=context, conversation_messages=conversation_messages)
+            plain["tool_calls_made"] = []
+            return plain
+
+        try:
+            for _ in range(rounds):
+                self._log_chat_request(streaming=False, message_count=len(messages))
+                completion = self._client.chat.completions.create(
+                    **self._completion_kwargs(
+                        messages,
+                        stream=False,
+                        tools=tool_schemas,
+                        tool_choice="auto",
+                    ),
+                )
+                message = completion.choices[0].message
+                if not getattr(message, "tool_calls", None):
+                    text = message.content or _EMPTY_COMPLETION_ANSWER
+                    logger.info(
+                        "LlamaStackClient[%s]: tool loop finished — model=%s tools=%d",
+                        self.label,
+                        completion.model,
+                        len(tool_calls_made),
+                    )
+                    return {
+                        "answer": text,
+                        "completion": self._completion_to_json(completion),
+                        "tool_calls_made": tool_calls_made,
+                    }
+
+                messages.append(self._assistant_message_dict(message))
+                messages.extend(
+                    self._execute_tool_round(message, execute_tool, tool_calls_made)
+                )
+
+            # Max rounds with tools exhausted — one final call without tools.
+            self._log_chat_request(streaming=False, message_count=len(messages))
+            completion = self._client.chat.completions.create(
+                **self._completion_kwargs(messages, stream=False),
+            )
+            text = completion.choices[0].message.content or _EMPTY_COMPLETION_ANSWER
+            return {
+                "answer": text,
+                "completion": self._completion_to_json(completion),
+                "tool_calls_made": tool_calls_made,
+            }
+        except APIError as exc:
+            logger.error("LlamaStackClient[%s]: ask_with_tools failed: %s", self.label, exc)
+            return {
+                "answer": f"Darn! Something went wrong: {exc}",
+                "completion": None,
+                "tool_calls_made": tool_calls_made,
+            }
+
+    def ask_stream_with_tools(
+        self,
+        user_input: str,
+        context: str = "",
+        conversation_messages: list[dict] | None = None,
+        tools: list[dict[str, Any]] | None = None,
+        execute_tool: Callable[[str, dict[str, Any]], str] | None = None,
+        max_rounds: int = _DEFAULT_TOOL_MAX_ROUNDS,
+    ) -> Iterator[dict[str, Any]]:
+        """Run non-streamed tool rounds, then stream the final assistant answer.
+
+        Yields optional ``{"type": "tool", "name": ...}`` events, then the usual
+        ``delta`` / ``done`` events. ``done`` includes ``tool_calls_made``.
+        """
+        if not self.base_url:
+            yield {"type": "done", "answer": _NO_ENDPOINT_ANSWER, "completion": None, "tool_calls_made": []}
+            return
+
+        tool_schemas = tools or []
+        if not tool_schemas or execute_tool is None:
+            yield from self.ask_stream(user_input, context=context, conversation_messages=conversation_messages)
+            return
+
+        messages = self._build_messages(user_input, context, conversation_messages)
+        tool_calls_made: list[dict[str, Any]] = []
+        rounds = max(1, int(max_rounds or _DEFAULT_TOOL_MAX_ROUNDS))
+
+        try:
+            for _ in range(rounds):
+                self._log_chat_request(streaming=False, message_count=len(messages))
+                completion = self._client.chat.completions.create(
+                    **self._completion_kwargs(
+                        messages,
+                        stream=False,
+                        tools=tool_schemas,
+                        tool_choice="auto",
+                    ),
+                )
+                message = completion.choices[0].message
+                if not getattr(message, "tool_calls", None):
+                    text = message.content or _EMPTY_COMPLETION_ANSWER
+                    if text:
+                        yield {"type": "delta", "content": text}
+                    yield {
+                        "type": "done",
+                        "answer": text,
+                        "completion": self._completion_to_json(completion),
+                        "tool_calls_made": tool_calls_made,
+                    }
+                    return
+
+                for tc in message.tool_calls:
+                    yield {"type": "tool", "name": tc.function.name}
+
+                messages.append(self._assistant_message_dict(message))
+                messages.extend(
+                    self._execute_tool_round(message, execute_tool, tool_calls_made)
+                )
+
+            # Stream final answer after tool results (no tools on this call).
+            self._log_chat_request(streaming=True, message_count=len(messages))
+            stream = self._client.chat.completions.create(
+                **self._completion_kwargs(messages, stream=True),
+            )
+            for event in self._iter_stream_events(stream):
+                if event.get("type") == "done":
+                    event = {**event, "tool_calls_made": tool_calls_made}
+                yield event
+        except APIError as exc:
+            for event in self._stream_error_events(exc, label=self.label):
+                if event.get("type") == "done":
+                    event = {**event, "tool_calls_made": tool_calls_made}
+                yield event
 
     def _iter_stream_events(self, stream: Any) -> Iterator[dict[str, Any]]:
         accumulator = _StreamAccumulator()

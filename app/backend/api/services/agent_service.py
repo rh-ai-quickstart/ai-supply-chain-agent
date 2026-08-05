@@ -4,9 +4,14 @@ from typing import Any, Callable, Optional
 
 from clients.general_simulation_client import GeneralSimulationClient
 from clients.llama_stack_client import LlamaStackClient
+from clients.news_client import NewsClient
 from services.general_simulation_service import GeneralSimulationService
+from services.news_service import NewsService
 
 logger = logging.getLogger(__name__)
+
+# Tools exposed to the LLM (excludes the ``unknown`` stub).
+_LLM_TOOL_NAMES = ("knowledge_base", "general_simulation", "fetch_news")
 
 
 @dataclass(frozen=True)
@@ -35,7 +40,10 @@ def _default_kb_params() -> dict[str, Any]:
             },
             "vector_store_id": {
                 "type": "string",
-                "description": "The vector store ID to search in",
+                "description": (
+                    "The vector store ID to search in. "
+                    "Optional when the UI already selected a knowledge base."
+                ),
             },
             "max_results": {
                 "type": "integer",
@@ -43,7 +51,7 @@ def _default_kb_params() -> dict[str, Any]:
                 "default": 5,
             },
         },
-        "required": ["query", "vector_store_id"],
+        "required": ["query"],
     }
 
 
@@ -52,18 +60,23 @@ class AgentService:
         self,
         llama_stack_client: LlamaStackClient,
         general_simulation_client: GeneralSimulationClient | None = None,
+        news_client: NewsClient | None = None,
     ):
         self._llama_client = llama_stack_client
         self._sim_service = GeneralSimulationService(
             client=general_simulation_client or GeneralSimulationClient(),
         )
+        self._news_service = NewsService(client=news_client or NewsClient())
         self._tools: dict[str, ToolSpec] = {}
         self._register_tools()
 
     def _register_tools(self) -> None:
         knowledge_base = ToolSpec(
             name="knowledge_base",
-            description="Search the knowledge base for relevant supply chain information",
+            description=(
+                "Search the knowledge base for relevant supply chain information "
+                "from uploaded documents."
+            ),
             parameters=_default_kb_params(),
             fn=self._run_knowledge_base,
         )
@@ -72,10 +85,9 @@ class AgentService:
         general_simulation = ToolSpec(
             name="general_simulation",
             description=(
-                "Run a what-if simulation scenario through the general-simulation "
-                "impact-reasoning engine. Queries a Neo4j graph of supply chain "
-                "dependencies, runs a quantitative solver, and returns a grounded "
-                "LLM analysis of the impact."
+                "Run a what-if / impact simulation for an active scenario "
+                "(airspace closure, port strike, canal blockage, etc.). "
+                "Use for questions about affected entities, value at risk, or diversions."
             ),
             parameters={
                 "type": "object",
@@ -89,14 +101,38 @@ class AgentService:
                     },
                     "scenario_id": {
                         "type": "string",
-                        "description": "ID of the simulation scenario to reason about (e.g. 'opensky-uk-closure-001')",
+                        "description": (
+                            "ID of the simulation scenario. Optional when the UI already "
+                            "has an active scenario selected."
+                        ),
                     },
                 },
-                "required": ["question", "scenario_id"],
+                "required": ["question"],
             },
             fn=self._run_general_simulation,
         )
         self._tools[general_simulation.name] = general_simulation
+
+        fetch_news = ToolSpec(
+            name="fetch_news",
+            description=(
+                "Fetch the latest world and business news headlines from RSS feeds "
+                "and summarize those most likely to affect supply chains."
+            ),
+            parameters={
+                "type": "object",
+                "properties": {
+                    "limit": {
+                        "type": "integer",
+                        "description": "Maximum headlines to include (default 12)",
+                        "default": 12,
+                    },
+                },
+                "required": [],
+            },
+            fn=self._run_fetch_news,
+        )
+        self._tools[fetch_news.name] = fetch_news
 
         unknown = ToolSpec(
             name="unknown",
@@ -122,6 +158,25 @@ class AgentService:
     def get_tool(self, name: str) -> Optional[ToolSpec]:
         return self._tools.get(name)
 
+    def openai_tools(self) -> list[dict[str, Any]]:
+        """OpenAI-compatible tool schemas for chat completions ``tools=``."""
+        out: list[dict[str, Any]] = []
+        for name in _LLM_TOOL_NAMES:
+            tool = self._tools.get(name)
+            if tool is None:
+                continue
+            out.append(
+                {
+                    "type": "function",
+                    "function": {
+                        "name": tool.name,
+                        "description": tool.description,
+                        "parameters": tool.parameters,
+                    },
+                }
+            )
+        return out
+
     def run_tool(self, name: str, **kwargs: Any) -> ToolResult:
         tool = self.get_tool(name)
         if tool is None:
@@ -144,7 +199,7 @@ class AgentService:
     def _run_knowledge_base(
         self,
         query: str,
-        vector_store_id: str,
+        vector_store_id: str = "",
         max_results: int = 5,
     ) -> ToolResult:
         if not query or not query.strip():
@@ -170,7 +225,7 @@ class AgentService:
             data=context,
         )
 
-    def _run_general_simulation(self, question: str, scenario_id: str) -> ToolResult:
+    def _run_general_simulation(self, question: str, scenario_id: str = "") -> ToolResult:
         if not question or not question.strip():
             return ToolResult(success=False, output="", error="question is required")
         if not scenario_id or not scenario_id.strip():
@@ -202,6 +257,22 @@ class AgentService:
             success=True,
             output=summary,
             data=result,
+        )
+
+    def _run_fetch_news(self, limit: int = 12) -> ToolResult:
+        payload = self._news_service.get_headlines(limit=max(int(limit or 12), 12))
+        items = payload.get("items") or []
+        if not items:
+            return ToolResult(
+                success=False,
+                output="",
+                error="No news headlines available",
+            )
+        answer = self._news_service.format_for_chat(items, limit=limit)
+        return ToolResult(
+            success=True,
+            output=answer,
+            data=items,
         )
 
     def _run_unknown(self, input: str = "") -> ToolResult:
