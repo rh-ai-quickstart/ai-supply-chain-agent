@@ -3,23 +3,29 @@ import logging
 import os
 from typing import Any, Optional
 
-from flask import Flask, Response, jsonify, request, stream_with_context
-from flask_cors import CORS
-
 from clients.llama_stack_client import LlamaStackClient
 from clients.vector_store_client import VectorStoreClient
+from flask import Flask, Response, jsonify, request, stream_with_context
+from flask_cors import CORS
 from services.chat_service import ChatService
 from services.dashboard_service import DashboardService
 from services.knowledge_base_ingest_service import ingest_uploaded_files
 from services.knowledge_bases_store import load_all as load_knowledge_bases
 from services.route_service import RouteService
-from services.simulations_store import append_simulation, load_all as load_simulations
+from services.simulations_store import append_simulation
+from services.simulations_store import load_all as load_simulations
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-CORS(app)
+
+# Same-origin through nginx — CORS not required in production.
+# In development, Vite proxies /api to the backend (same origin).
+# Set CORS_ORIGIN env var if running the frontend separately.
+_cors_origin = os.getenv("CORS_ORIGIN")
+if _cors_origin:
+    CORS(app, origins=_cors_origin)
 
 dashboard_service = DashboardService()
 
@@ -27,6 +33,7 @@ _vector_store_client: VectorStoreClient | None = None
 try:
     _vector_store_client = VectorStoreClient()
     logger.info("VectorStoreClient initialised successfully.")
+# Broad catch: best-effort init; external libs may raise varied errors, proceed without RAG context.
 except Exception as _exc:
     logger.warning(
         "VectorStoreClient could not be initialised (%s). "
@@ -38,11 +45,17 @@ def list_vector_stores_safe(chat_service: Any) -> tuple[list[dict[str, Any]], Op
     """Return ``(stores, error_message)``. On failure, ``stores`` is empty and ``error_message`` is set."""
     try:
         return (chat_service.list_vector_stores(), None)
+    # Broad catch: this wrapper is intended to report any failure instead of raising.
     except Exception as exc:
         logger.warning("list_vector_stores failed: %s", exc)
         return ([], str(exc))
 
-_openai_model = os.environ["LLAMA_STACK_OPENAI_MODEL"]
+_openai_model = os.getenv("LLAMA_STACK_OPENAI_MODEL", "")
+if not _openai_model:
+    logger.error(
+        "LLAMA_STACK_OPENAI_MODEL is not set. Set it to the model ID for the OpenAI-compatible endpoint."
+    )
+    _openai_model = "gpt-4o-mini"
 
 chat_service = ChatService(
     LlamaStackClient(label="vllm"),
@@ -73,12 +86,14 @@ def trigger_event():
 def post_simulate():
     payload = request.get_json(silent=True) or {}
     scenario = payload.get("scenario", "none")
-    optimize = bool(payload.get("optimize", False))
+    optimize = payload.get("optimize", False) in (True, "true", "1", 1)
     return jsonify(dashboard_service.simulate(scenario, optimize))
 
 
 def _sse_event(payload: dict[str, Any]) -> str:
-    return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
+    text = json.dumps(payload, ensure_ascii=False)
+    text = text.replace("\n\n", "\n")
+    return f"data: {text}\n\n"
 
 
 def _parse_chat_payload(payload: dict[str, Any]) -> dict[str, Any]:
@@ -155,6 +170,7 @@ def get_vector_stores():
         if err:
             body["error"] = err
         return jsonify(body)
+    # Broad catch: top-level HTTP boundary; return a 500 for any unexpected handler error.
     except Exception as exc:
         logger.warning("vector_stores.list failed: %s", exc)
         return jsonify({"vector_stores": [], "error": str(exc)}), 500
@@ -177,4 +193,5 @@ def post_simulation():
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5001, debug=True, threaded=True)
+    debug = os.getenv("FLASK_DEBUG", "").lower() in ("1", "true", "yes")
+    app.run(host="0.0.0.0", port=5001, debug=debug, threaded=True)

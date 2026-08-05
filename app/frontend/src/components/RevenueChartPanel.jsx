@@ -1,6 +1,15 @@
+import PropTypes from "prop-types";
 import { Bar } from "react-chartjs-2";
 
 export function RevenueChartPanel({ data }) {
+  if (!data) {
+    return (
+      <article className="panel chart-panel">
+        <h3>Revenue Impact</h3>
+        <p className="muted">No revenue data available.</p>
+      </article>
+    );
+  }
   return (
     <article className="panel chart-panel">
       <h3>Revenue Impact</h3>
@@ -17,3 +26,7 @@ export function RevenueChartPanel({ data }) {
     </article>
   );
 }
+
+RevenueChartPanel.propTypes = {
+  data: PropTypes.object,
+};

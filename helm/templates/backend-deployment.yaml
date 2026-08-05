@@ -17,8 +17,16 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: backend
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
           image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}"
           imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
           ports:
@@ -45,6 +53,8 @@ spec:
               {{- else }}
               value: {{ printf "external-model/%s" (required "global.models.external-model.id is required when llama-3-2-1b-instruct is disabled" $extId) | quote }}
               {{- end }}
+            - name: GENERAL_SIMULATION_BASE_URL
+              value: {{ .Values.backend.env.GENERAL_SIMULATION_BASE_URL | quote }}
             # PG_ prefix avoids collision with the Kubernetes-injected
             # PGVECTOR_PORT=tcp://ip:port service-discovery variable.
             - name: PG_HOST

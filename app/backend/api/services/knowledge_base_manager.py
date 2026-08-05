@@ -1,9 +1,8 @@
 import logging
-import os
-import uuid
 from pathlib import Path
 from typing import Optional
 
+import openai
 from clients.llama_stack_client import LlamaStackClient
 
 logger = logging.getLogger(__name__)
@@ -110,7 +109,7 @@ class KnowledgeBaseManager:
                 )
                 return str(vector_store_id)  # Return ID even if empty for consistency
 
-        except Exception as e:
+        except openai.APIError as e:
             logger.error(
                 "Failed to register knowledge base via LlamaStack",
                 kb_name=kb_name,
@@ -165,7 +164,7 @@ class KnowledgeBaseManager:
                         file_path=str(file_path),
                     )
 
-                except Exception as e:
+                except (openai.APIError, OSError) as e:
                     logger.error(
                         "Failed to upload file to LlamaStack",
                         file_path=str(file_path),

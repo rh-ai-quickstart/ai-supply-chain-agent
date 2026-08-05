@@ -185,6 +185,7 @@ class ChatService:
         try:
             docs = self.vector_store_client.similarity_search(query, k=3)
             return "\n\n".join(doc.page_content for doc in docs)
+        # Broad catch: best-effort RAG retrieval (langchain/DB) may raise varied errors; degrade to no context.
         except Exception as exc:
             logger.warning("Vector store retrieval failed: %s", exc)
             return ""

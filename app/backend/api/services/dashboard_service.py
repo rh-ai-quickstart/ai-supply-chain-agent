@@ -1,5 +1,7 @@
+import json
 import logging
 import random
+from pathlib import Path
 
 from clients.opensky_client import OpenSkyClient
 from services.supply_chain_state_builder import (
@@ -9,9 +11,42 @@ from services.supply_chain_state_builder import (
 
 logger = logging.getLogger(__name__)
 
+_SCENARIOS_PATH = Path(__file__).resolve().parent.parent / "data" / "scenarios.json"
+
+_scenarios_cache: dict | None = None
+
+
+def _load_scenarios() -> dict:
+    global _scenarios_cache
+    if _scenarios_cache is None:
+        with _SCENARIOS_PATH.open("r", encoding="utf-8") as handle:
+            _scenarios_cache = json.load(handle)
+    return _scenarios_cache
+
+
+def _apply_mutation(payload: dict, mutation: dict) -> None:
+    op = mutation["op"]
+    path = mutation["path"]
+    value = mutation["value"]
+
+    parent = payload
+    for key in path[:-1]:
+        parent = parent.setdefault(key, {})
+
+    if op == "set":
+        parent[path[-1]] = value
+    elif op == "prepend":
+        container = parent.get(path[-1])
+        if not isinstance(container, list):
+            container = []
+            parent[path[-1]] = container
+        container.insert(0, value)
+    else:
+        raise ValueError(f"Unsupported scenario mutation op: {op}")
+
 
 class DashboardService:
-    """Dashboard payloads aligned with legacy `app/__legacy/app.py` (OpenSky + map data)."""
+    """Dashboard payloads combining OpenSky flight data with map data."""
 
     def __init__(self, state_builder: SupplyChainStateBuilder | None = None) -> None:
         self._builder = state_builder or SupplyChainStateBuilder(OpenSkyClient())
@@ -25,42 +60,15 @@ class DashboardService:
     def simulate(self, scenario: str, optimize: bool):
         try:
             result = self._builder.build_state()
+        # Broad catch: build_state may raise varied live-data errors; fall back to static data.
         except Exception as exc:
             logger.warning("simulate: falling back to static data (%s)", exc)
             result = get_static_fallback_data()
 
-        if scenario == "port-strike":
-            result["kpis"]["lostSales"] = {
-                "value": "$4.2M",
-                "trendSymbol": "▲",
-                "trendClass": "down",
-            }
-            if "global" in result.get("alerts", {}):
-                result["alerts"]["global"].insert(
-                    0,
-                    {
-                        "type": "critical",
-                        "text": "SIMULATION: Port Strike impact high. Rerouting recommended.",
-                    },
-                )
-            if "revenue" in result.get("charts", {}):
-                result["charts"]["revenue"]["revenueData"] = [60, 50, 40, 80, 70]
-                result["charts"]["revenue"]["colors"] = ["red", "red", "red", "red", "red"]
-
-        elif scenario == "geopolitical":
-            result["kpis"]["turnover"] = {
-                "value": "3.1x",
-                "trendSymbol": "▼",
-                "trendClass": "down",
-            }
-            if "global" in result.get("alerts", {}):
-                result["alerts"]["global"].insert(
-                    0,
-                    {
-                        "type": "critical",
-                        "text": "SIMULATION: Suez blockage. 14-day delay projected.",
-                    },
-                )
+        scenario_config = _load_scenarios().get(scenario)
+        if scenario_config:
+            for mutation in scenario_config.get("mutations", []):
+                _apply_mutation(result, mutation)
 
         if optimize:
             total_tokens = random.randint(3500, 4200)

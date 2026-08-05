@@ -47,3 +47,45 @@ def test_simulate_uses_static_fallback_when_builder_raises():
     out = svc.simulate("none", optimize=False)
     assert "kpis" in out
     assert "mapData" in out
+
+
+def test_simulate_mutations_are_data_driven(monkeypatch):
+    from services import dashboard_service
+
+    monkeypatch.setattr(
+        dashboard_service,
+        "_scenarios_cache",
+        {
+            "custom-scenario": {
+                "mutations": [
+                    {
+                        "op": "set",
+                        "path": ["kpis", "onTime"],
+                        "value": {"value": "42%"},
+                    },
+                    {
+                        "op": "prepend",
+                        "path": ["alerts", "global"],
+                        "value": {"type": "warning", "text": "SIMULATION: Custom scenario applied."},
+                    },
+                ]
+            }
+        },
+    )
+    builder = MagicMock()
+    builder.build_state.return_value = {
+        "kpis": {"onTime": {"value": "90%"}},
+        "alerts": {"global": []},
+    }
+    svc = DashboardService(state_builder=builder)
+    out = svc.simulate("custom-scenario", optimize=False)
+    assert out["kpis"]["onTime"]["value"] == "42%"
+    assert out["alerts"]["global"][0]["text"] == "SIMULATION: Custom scenario applied."
+
+
+def test_scenarios_file_defines_port_strike_values():
+    from services import dashboard_service
+
+    scenarios = dashboard_service._load_scenarios()
+    assert scenarios["port-strike"]["mutations"][0]["value"]["value"] == "$4.2M"
+    assert scenarios["geopolitical"]["mutations"][0]["value"]["value"] == "3.1x"

@@ -1,0 +1,40 @@
+name: Frontend unit tests
+
+on:
+  push:
+    branches: [main, master, development]
+    paths:
+      - "app/frontend/**"
+      - ".github/workflows/frontend-tests.yml"
+  pull_request:
+    branches: [main, master, development]
+    paths:
+      - "app/frontend/**"
+      - ".github/workflows/frontend-tests.yml"
+  workflow_dispatch:
+
+jobs:
+  frontend-unit:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app/frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: app/frontend/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Vitest (React dashboard)
+        run: pnpm test

@@ -14,8 +14,8 @@ export function getDashboardState() {
   return apiGet("/api/v1/state");
 }
 
-export function getVectorStores() {
-  return apiGet("/api/v1/vector_stores");
+export function getVectorStores({ signal } = {}) {
+  return apiGet("/api/v1/vector_stores", { signal });
 }
 
 export async function triggerWorldEvent(mapView) {

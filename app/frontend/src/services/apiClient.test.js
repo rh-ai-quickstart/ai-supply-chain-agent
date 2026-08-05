@@ -18,7 +18,7 @@ describe("apiClient", () => {
         json: () => Promise.resolve({ ok: true }),
       });
       await expect(apiGet("/api/v1/state")).resolves.toEqual({ ok: true });
-      expect(globalThis.fetch).toHaveBeenCalledWith("/api/v1/state");
+      expect(globalThis.fetch).toHaveBeenCalledWith("/api/v1/state", { signal: undefined });
     });
   });
 

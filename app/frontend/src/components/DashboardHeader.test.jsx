@@ -26,7 +26,7 @@ describe("DashboardHeader", () => {
     const user = userEvent.setup();
     const onToggleTheme = vi.fn();
     render(<DashboardHeader isLightTheme={false} onToggleTheme={onToggleTheme} />);
-    await user.click(screen.getByRole("button", { name: "☀️" }));
+    await user.click(screen.getByRole("button", { name: /toggle theme/i }));
     expect(onToggleTheme).toHaveBeenCalled();
   });
 });
