@@ -20,6 +20,13 @@ def _make_mock_client() -> MagicMock:
         "solver": {"impact_score": 0.6},
         "tool_call_trace": [],
     }
+    client.list_scenarios.return_value = {
+        "scenarios": ["opensky-uk-closure-001", "port-strike"],
+    }
+    client.get_entities_geojson.return_value = {
+        "type": "FeatureCollection",
+        "features": [],
+    }
     return client
 
 
@@ -112,3 +119,48 @@ class TestGeneralSimulationServiceRunSimulation:
         service = GeneralSimulationService(client)
         service.run_simulation("  hi  ", "  s1  ")
         client.query.assert_called_once_with("hi", "s1")
+
+
+class TestGeneralSimulationServiceListScenarios:
+    def test_success(self):
+        client = _make_mock_client()
+        service = GeneralSimulationService(client)
+        result = service.list_scenarios()
+        assert result["success"] is True
+        assert result["scenarios"] == ["opensky-uk-closure-001", "port-strike"]
+        client.list_scenarios.assert_called_once_with()
+
+    def test_client_error(self):
+        client = _make_mock_client()
+        client.list_scenarios.return_value = {"error": "unreachable"}
+        service = GeneralSimulationService(client)
+        result = service.list_scenarios()
+        assert result["success"] is False
+        assert result["error"] == "unreachable"
+        assert result["scenarios"] == []
+
+
+class TestGeneralSimulationServiceGetEntitiesGeojson:
+    def test_success(self):
+        client = _make_mock_client()
+        service = GeneralSimulationService(client)
+        result = service.get_entities_geojson(
+            bbox="-15,35,40,62",
+            ids=["e1"],
+            limit=10,
+        )
+        assert result["success"] is True
+        assert result["geojson"]["type"] == "FeatureCollection"
+        client.get_entities_geojson.assert_called_once_with(
+            bbox="-15,35,40,62",
+            ids=["e1"],
+            limit=10,
+        )
+
+    def test_client_error(self):
+        client = _make_mock_client()
+        client.get_entities_geojson.return_value = {"error": "timeout"}
+        service = GeneralSimulationService(client)
+        result = service.get_entities_geojson()
+        assert result["success"] is False
+        assert result["error"] == "timeout"

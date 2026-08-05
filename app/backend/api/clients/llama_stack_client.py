@@ -95,8 +95,10 @@ class LlamaStackClient:
             else timeout_seconds_from_env()
         )
 
+        # Local Llama Stack ignores the key; OpenAI (and other hosted APIs) require
+        # a real one via OPENAI_API_KEY.
         self._client = OpenAI(
-            api_key="not-required",
+            api_key=os.getenv("OPENAI_API_KEY") or "not-required",
             base_url=self.base_url,
             timeout=self._timeout,
         )

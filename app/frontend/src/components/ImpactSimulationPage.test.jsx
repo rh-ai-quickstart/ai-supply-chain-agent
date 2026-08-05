@@ -9,7 +9,8 @@ vi.mock("react-leaflet", () => ({
   TileLayer: () => null,
   CircleMarker: ({ children }) => <div>{children}</div>,
   Popup: ({ children }) => <div>{children}</div>,
-  useMap: () => ({ setView: vi.fn(), fitBounds: vi.fn() }),
+  Polyline: () => <div data-testid="diversion-route" />,
+  useMap: () => ({ setView: vi.fn(), fitBounds: vi.fn(), getZoom: () => 5 }),
 }));
 
 vi.mock("./ChatMarkdownBody.jsx", () => ({
@@ -56,7 +57,10 @@ describe("ImpactSimulationPage", () => {
     render(<ImpactSimulationPage />);
 
     await waitFor(() => {
-      expect(screen.getByLabelText(/Scenario/i)).toHaveValue("opensky-uk-closure-001");
+      expect(screen.getByRole("button", { name: "UK Airspace Closure" })).toHaveAttribute(
+        "aria-pressed",
+        "true",
+      );
     });
 
     await userEvent.click(screen.getByRole("button", { name: /Run impact query/i }));
@@ -74,5 +78,95 @@ describe("ImpactSimulationPage", () => {
       );
     });
     expect(screen.getByText("0.650")).toBeInTheDocument();
+  });
+
+  it("shows a diversion route on the map when a recommended diversion is clicked", async () => {
+    render(<ImpactSimulationPage />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /Run impact query/i })).toBeInTheDocument();
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: /Run impact query/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /opensky-407290.*Dublin/i })).toBeInTheDocument();
+    });
+
+    expect(screen.queryByTestId("diversion-route")).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /opensky-407290.*Dublin/i }));
+
+    expect(screen.getByTestId("diversion-route")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /opensky-407290.*Dublin/i })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+  });
+
+  it("prefers initialScenarioId when present in the loaded list", async () => {
+    listImpactScenarios.mockResolvedValue({
+      success: true,
+      scenarios: ["supply-chain-port-strike-la", "opensky-uk-closure-001"],
+    });
+
+    render(<ImpactSimulationPage initialScenarioId="opensky-uk-closure-001" />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "UK Airspace Closure" })).toHaveAttribute(
+        "aria-pressed",
+        "true",
+      );
+    });
+    expect(screen.getByRole("button", { name: "UK Airspace Closure" })).toHaveClass("btn--active");
+  });
+
+  it("notifies parent when the active scenario changes", async () => {
+    listImpactScenarios.mockResolvedValue({
+      success: true,
+      scenarios: ["opensky-uk-closure-001", "supply-chain-port-strike-la"],
+    });
+    const onScenarioChange = vi.fn();
+    render(<ImpactSimulationPage onScenarioChange={onScenarioChange} />);
+
+    await waitFor(() => {
+      expect(onScenarioChange).toHaveBeenCalledWith("opensky-uk-closure-001");
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: "Port Strike LA" }));
+    await waitFor(() => {
+      expect(onScenarioChange).toHaveBeenCalledWith("supply-chain-port-strike-la");
+    });
+  });
+
+  it("loads map entities once for the selected scenario bbox", async () => {
+    render(<ImpactSimulationPage />);
+
+    await waitFor(() => {
+      expect(listImpactScenarios).toHaveBeenCalled();
+    });
+    await waitFor(() => {
+      expect(getImpactEntitiesGeoJson).toHaveBeenCalledWith(
+        expect.objectContaining({
+          bbox: "-15,35,40,62",
+          limit: 3000,
+        }),
+      );
+    });
+    expect(getImpactEntitiesGeoJson).toHaveBeenCalledTimes(1);
+  });
+
+  it("surfaces backend error text when the impact query fails", async () => {
+    runImpactQuery.mockRejectedValue(new Error("solver unavailable"));
+    render(<ImpactSimulationPage />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /Run impact query/i })).toBeEnabled();
+    });
+    await userEvent.click(screen.getByRole("button", { name: /Run impact query/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText("solver unavailable")).toBeInTheDocument();
+    });
   });
 });

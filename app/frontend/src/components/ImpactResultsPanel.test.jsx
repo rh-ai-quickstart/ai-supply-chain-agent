@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { QUERY_RESPONSE_FIXTURE } from "../test/fixtures/queryResponse";
 import { ImpactResultsPanel } from "./ImpactResultsPanel";
@@ -29,8 +30,39 @@ describe("ImpactResultsPanel", () => {
       "Three aircraft are affected by the UK airspace closure.",
     );
     expect(screen.getByText(/emergency_response/i)).toBeInTheDocument();
-    expect(screen.getAllByText(/opensky-407290/).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Recommended Diversions/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /opensky-407290.*Dublin/i })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /opensky-407290/ }).length).toBeGreaterThan(0);
     expect(screen.getByText(/Tool call trace \(1\)/i)).toBeInTheDocument();
     expect(screen.getByText(/Affected entities \(3\)/i)).toBeInTheDocument();
+  });
+
+  it("calls onFocusEntity when an affected entity link is clicked", async () => {
+    const onFocusEntity = vi.fn();
+    render(
+      <ImpactResultsPanel result={QUERY_RESPONSE_FIXTURE} onFocusEntity={onFocusEntity} />,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "opensky-471f52" }));
+    expect(onFocusEntity).toHaveBeenCalledWith("opensky-471f52");
+  });
+
+  it("calls onFocusDiversion when a recommended diversion is clicked", async () => {
+    const onFocusDiversion = vi.fn();
+    render(
+      <ImpactResultsPanel
+        result={QUERY_RESPONSE_FIXTURE}
+        onFocusDiversion={onFocusDiversion}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: /opensky-407290.*Dublin/i }));
+    expect(onFocusDiversion).toHaveBeenCalledWith(
+      expect.objectContaining({
+        entity_id: "opensky-407290",
+        target_id: "EIDW",
+        target_label: "Dublin (EIDW)",
+      }),
+    );
   });
 });

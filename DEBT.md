@@ -22,9 +22,9 @@ numbers for quick navigation.  Work through them in any order — pick what inte
       `app/frontend/src/App.jsx` — Fixed. Added `<ErrorBoundary>` component wrapping the app
       shell (`app/frontend/src/components/ErrorBoundary.jsx`).
 
-- [ ] **C5 — No `package-lock.json` committed**
-      `app/frontend/` — `npm ci` used in CI requires a lockfile.  Generate and commit one, or
-      switch CI to `npm install`.
+- [x] **C5 — No `package-lock.json` committed**
+      `app/frontend/` — Resolved by using `pnpm-lock.yaml` with CI/Containerfile
+      `pnpm install --frozen-lockfile`. Root `.gitignore` ignores `package-lock.json`.
 
 - [x] **C6 — API and ingestion use different embedding endpoints**
       `app/backend/api/clients/vector_store_client.py:33` uses
@@ -71,10 +71,10 @@ numbers for quick navigation.  Work through them in any order — pick what inte
       `"password"`.
 
 - [x] **H7 — Ingestion creates one vector store per file**
-      `app/backend/ingestion/services/llamastack_ingestion_service.py:57-62` — A directory with
-      100 files creates 100 separate vector stores.  Batch files into a single store per directory.
-      Now creates ONE store per knowledge base; each uploaded File carries source-filename metadata
-      (best-effort via OpenAI SDK `extra_body`) for attribution/filtering.
+      `app/backend/ingestion/services/llamastack_ingestion_service.py` — Intentionally one
+      store per bundled document so simulation scenarios can select the matching knowledge
+      base by filename keywords (UK NATS, Port Strike LA, Suez). Store names use the file
+      stem plus a short uuid. Partial upload failure deletes the empty store.
 
 - [ ] **H8 — No cleanup of empty vector stores on partial upload failure**
       `app/backend/api/services/knowledge_base_ingest_service.py:63-86` — If vector store
@@ -181,22 +181,17 @@ numbers for quick navigation.  Work through them in any order — pick what inte
       `app/frontend/src/hooks/useDashboardState.js` — Fixed. Uses a generation counter:
       `++gen` before each fetch, discards stale responses where `myGen !== gen`.
 
-- [ ] **M14 — Map assets use `index` in React `key`**
-      `app/frontend/src/components/LogisticsMapPanel.jsx:56` — Currently `asset.id` is the
-      primary key with `name-index` as fallback.  Acceptable for now as assets always carry IDs
-      from the backend.
+- [x] **M14 — Map assets use `index` in React `key`**
+      Orphaned `LogisticsMapPanel` removed with the legacy dashboard cleanup.
 
 - [x] **M15 — `LogisticsMapPanel` re-creates `MapContainer` on every render**
-      `app/frontend/src/components/LogisticsMapPanel.jsx` — Wrapped component in `React.memo`
-      so the `MapContainer` tree is only re-rendered when its actual props change.
+      Orphaned component removed.
 
-- [ ] **M16 — Unsafe HTML interpolation in Leaflet `divIcon`**
-      All interpolated values (`asset.track`, `colors.fill`) are internally-controlled numbers
-      or hardcoded strings — no user-input vector.  Marked low-risk / no-fix.
+- [x] **M16 — Unsafe HTML interpolation in Leaflet `divIcon`**
+      Orphaned `mapAssetIcons` / LogisticsMap removed; Impact map uses CircleMarker (no divIcon HTML).
 
-- [ ] **M17 — Dead exports: `chartSetup.js`, `toDemandChartData`, `toRevenueChartData`, `toSystemHealthMetrics`**
-      `chartSetup.js` is imported in `main.jsx`.  The three mapper functions have full test
-      coverage and represent a public API.  Keeping them.
+- [x] **M17 — Dead exports: `chartSetup.js`, `toDemandChartData`, `toRevenueChartData`, `toSystemHealthMetrics`**
+      Chart.js stack and dashboard mappers removed with the legacy dashboard.
 
 - [x] **M18 — Theme toggle has no accessible label**
       `app/frontend/src/components/DashboardHeader.jsx:25-27` — Fixed. Added
@@ -224,9 +219,9 @@ numbers for quick navigation.  Work through them in any order — pick what inte
 - [x] **M23 — `.gitignore` missing `.env`, `.pytest_cache`, `.cursor/`**
       `.gitignore` — Fixed. Added `.env`, `.env.*`, `.pytest_cache/`, and `.cursor/` entries.
 
-- [ ] **M24 — No `test` or `lint` target in Makefile**
-      `make test` should run backend + frontend + Helm tests.  `make lint` should run
-      `ruff`, `eslint`, `yamllint`.  Currently only `make helm-lint` exists.
+- [x] **M24 — No `test` or `lint` target in Makefile**
+      `make test` / `make lint` exist and cover backend, frontend (pnpm), and Helm.
+      Frontend CI also runs Vitest, ESLint, and production build.
 
 - [x] **M25 — `CORS(app)` allows all origins**
       `app/backend/api/main.py:22` — Default CORS removed.  Now only enabled when

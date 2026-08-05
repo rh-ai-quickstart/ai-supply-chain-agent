@@ -1,16 +1,30 @@
-# React + Vite
+# AI Supply Chain Agent — Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React 19 + Vite SPA for impact simulation, streaming chat, and knowledge-base management.
 
-Currently, two official plugins are available:
+## Scripts
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+```bash
+pnpm install
+pnpm dev          # Vite on :5173, proxies /api → http://127.0.0.1:5001
+pnpm test         # Vitest (jsdom)
+pnpm run lint     # ESLint
+pnpm run build    # Production bundle → dist/
+```
 
-## React Compiler
+Override the API proxy target with `VITE_DEV_API_PROXY_TARGET` (see `vite.config.js`).
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Views
 
-## Expanding the ESLint configuration
+Hash routes (no React Router):
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+| Hash | View |
+|------|------|
+| `#/simulation?scenario=…` | Impact query + map + results, plus chat dock |
+| `#/knowledge-bases` | Create/list Llama Stack knowledge bases |
+
+Chat auto-selects a vector store for the active scenario by keyword match on store names.
+
+## Production image
+
+`Containerfile` builds with pnpm and serves `dist/` via nginx-unprivileged on port 8080. Nginx proxies `/api/` to `BACKEND_UPSTREAM` (set by Helm).

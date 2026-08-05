@@ -65,3 +65,65 @@ class GeneralSimulationClient:
         except requests.RequestException as exc:
             logger.error("GeneralSimulation query failed: %s", exc)
             return {"error": str(exc)}
+
+    def list_scenarios(self) -> dict[str, Any]:
+        try:
+            resp = self._session.get(
+                f"{self.base_url}/admin/graph/scenarios",
+                timeout=30,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            if isinstance(data, list):
+                return {"scenarios": [str(item) for item in data]}
+            return {"error": "Unexpected scenarios response shape"}
+        except requests.Timeout:
+            logger.error("GeneralSimulation list_scenarios timed out")
+            return {"error": "Request timed out after 30s"}
+        except requests.HTTPError as exc:
+            status = exc.response.status_code
+            detail = exc.response.text[:500] if exc.response.text else ""
+            logger.error("GeneralSimulation list_scenarios HTTP %s: %s", status, detail)
+            return {"error": f"HTTP {status}: {detail}"}
+        except (requests.RequestException, ValueError, TypeError) as exc:
+            logger.error("GeneralSimulation list_scenarios failed: %s", exc)
+            return {"error": str(exc)}
+
+    def get_entities_geojson(
+        self,
+        *,
+        bbox: str | None = None,
+        ids: list[str] | None = None,
+        limit: int | None = None,
+    ) -> dict[str, Any]:
+        params: dict[str, Any] = {}
+        if bbox:
+            params["bbox"] = bbox
+        if ids:
+            params["ids"] = ",".join(ids)
+        if limit is not None:
+            params["limit"] = limit
+        try:
+            resp = self._session.get(
+                f"{self.base_url}/admin/entities/geojson",
+                params=params,
+                timeout=60,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            if isinstance(data, dict):
+                return data
+            return {"error": "Unexpected geojson response shape"}
+        except requests.Timeout:
+            logger.error("GeneralSimulation get_entities_geojson timed out")
+            return {"error": "Request timed out after 60s"}
+        except requests.HTTPError as exc:
+            status = exc.response.status_code
+            detail = exc.response.text[:500] if exc.response.text else ""
+            logger.error(
+                "GeneralSimulation get_entities_geojson HTTP %s: %s", status, detail
+            )
+            return {"error": f"HTTP {status}: {detail}"}
+        except (requests.RequestException, ValueError, TypeError) as exc:
+            logger.error("GeneralSimulation get_entities_geojson failed: %s", exc)
+            return {"error": str(exc)}

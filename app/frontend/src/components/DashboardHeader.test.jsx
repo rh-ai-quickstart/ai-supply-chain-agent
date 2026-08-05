@@ -12,14 +12,15 @@ describe("DashboardHeader", () => {
       <DashboardHeader
         isLightTheme={false}
         onToggleTheme={onToggleTheme}
-        activeView="dashboard"
+        activeView="simulation"
         onNavigate={onNavigate}
-      />
+      />,
     );
     await user.click(screen.getByRole("button", { name: /knowledge bases/i }));
     expect(onNavigate).toHaveBeenCalledWith("knowledge-bases");
-    await user.click(screen.getByRole("button", { name: /^dashboard$/i }));
-    expect(onNavigate).toHaveBeenCalledWith("dashboard");
+    await user.click(screen.getByRole("button", { name: /^simulation$/i }));
+    expect(onNavigate).toHaveBeenCalledWith("simulation");
+    expect(screen.queryByRole("button", { name: /^dashboard$/i })).not.toBeInTheDocument();
   });
 
   it("toggles theme from the theme control", async () => {

@@ -1,19 +1,12 @@
 import PropTypes from "prop-types";
 
-export function DashboardHeader({ isLightTheme = false, onToggleTheme, activeView = "dashboard", onNavigate }) {
+export function DashboardHeader({ isLightTheme = false, onToggleTheme, activeView = "simulation", onNavigate }) {
   return (
     <header className="dashboard-header panel-lite">
       <div className="dashboard-header-main">
         <h1>Supply Chain Command Center</h1>
         {onNavigate ? (
           <nav className="dashboard-nav" aria-label="Main">
-            <button
-              type="button"
-              className={`dashboard-nav-btn${activeView === "dashboard" ? " dashboard-nav-btn--active" : ""}`}
-              onClick={() => onNavigate("dashboard")}
-            >
-              Dashboard
-            </button>
             <button
               type="button"
               className={`dashboard-nav-btn${activeView === "simulation" ? " dashboard-nav-btn--active" : ""}`}

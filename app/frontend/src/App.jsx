@@ -1,78 +1,80 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { applyChatStreamEvent } from "./utils/chatStream.js";
-import { AlertsPanel } from "./components/AlertsPanel";
 import { ChatBar } from "./components/ChatBar";
 import { DashboardHeader } from "./components/DashboardHeader";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { KnowledgeBasesPage } from "./components/KnowledgeBasesPage";
-import { KpiBar } from "./components/KpiBar";
-import { LogisticsMapPanel } from "./components/LogisticsMapPanel";
 import { ImpactSimulationPage } from "./components/ImpactSimulationPage";
-import { SimulationPanel } from "./components/SimulationPanel";
-import { useDashboardState } from "./hooks/useDashboardState";
-import {
-  getAssetCounts,
-  getFlattenedAlerts,
-  getKpis,
-  getSelectedMapData,
-} from "./services/dashboardMappers";
-import {
-  getVectorStores,
-  runSimulation,
-  sendChatMessageStream,
-  triggerWorldEvent,
-} from "./services/dashboardService";
+import { findVectorStoreIdForScenario } from "./services/presetScenarioIds";
+import { getVectorStores, sendChatMessageStream } from "./services/dashboardService";
+
+function hashPathAndQuery() {
+  const raw = window.location.hash.replace(/^#/, "");
+  const [pathPart, queryPart = ""] = raw.split("?");
+  const path = pathPart.replace(/^\//, "");
+  return { path, query: new URLSearchParams(queryPart) };
+}
 
 function viewFromHash() {
-  const raw = window.location.hash.replace(/^#/, "");
-  if (raw === "/knowledge-bases" || raw === "knowledge-bases") {
+  const { path } = hashPathAndQuery();
+  if (path === "knowledge-bases") {
     return "knowledge-bases";
   }
-  if (raw === "/simulation" || raw === "simulation") {
-    return "simulation";
-  }
-  return "dashboard";
+  return "simulation";
+}
+
+function scenarioIdFromHash() {
+  return hashPathAndQuery().query.get("scenario") || "";
+}
+
+function chatKeyForScenario(scenarioId) {
+  return scenarioId || "_default";
 }
 
 function App() {
   const [isLightTheme, setIsLightTheme] = useState(false);
-  const [optimize, setOptimize] = useState(false);
-  const [mapView, setMapView] = useState("airFreight");
-  const [simulationLoading, setSimulationLoading] = useState(false);
-  const [simulationError, setSimulationError] = useState("");
-  const [chatInput, setChatInput] = useState("");
-  const [chatMessages, setChatMessages] = useState([]);
-  const [chatLoading, setChatLoading] = useState(false);
-  const [chatError, setChatError] = useState("");
+  const [chatMessagesByScenario, setChatMessagesByScenario] = useState({});
+  const [chatInputByScenario, setChatInputByScenario] = useState({});
+  const [chatErrorByScenario, setChatErrorByScenario] = useState({});
+  const [chatLoadingByScenario, setChatLoadingByScenario] = useState({});
   const [vectorStores, setVectorStores] = useState([]);
-  const [_vectorStoresLoading, setVectorStoresLoading] = useState(false);
-  const [_vectorStoresError, setVectorStoresError] = useState("");
-  const [selectedVectorStoreId, setSelectedVectorStoreId] = useState("");
+  const [vectorStoresError, setVectorStoresError] = useState("");
   const [activeView, setActiveView] = useState(viewFromHash);
-  const { dashboardState, loading, error, setDashboardState } = useDashboardState();
+  const [activeScenarioId, setActiveScenarioId] = useState(scenarioIdFromHash);
+  const chatAbortRef = useRef(null);
+
+  const chatKey = chatKeyForScenario(activeScenarioId);
+  const chatMessages = chatMessagesByScenario[chatKey] || [];
+  const chatInput = chatInputByScenario[chatKey] || "";
+  const chatError = chatErrorByScenario[chatKey] || "";
+  const chatLoading = Boolean(chatLoadingByScenario[chatKey]);
+  const matchedVectorStoreId = findVectorStoreIdForScenario(vectorStores, activeScenarioId);
+  const chatRagHint = (() => {
+    if (vectorStoresError) {
+      return vectorStoresError;
+    }
+    if (!activeScenarioId || vectorStores.length === 0) {
+      return "";
+    }
+    if (!matchedVectorStoreId) {
+      return "No knowledge base matched this scenario; chat will run without document retrieval.";
+    }
+    return "";
+  })();
 
   const reloadVectorStores = useCallback(async (signal) => {
-    setVectorStoresLoading(true);
-    setVectorStoresError("");
     try {
       const res = await getVectorStores({ signal });
       if (signal?.aborted) return;
       setVectorStores(Array.isArray(res.vector_stores) ? res.vector_stores : []);
-      if (res.error) {
-        setVectorStoresError(res.error);
-      }
+      setVectorStoresError("");
     } catch (err) {
       if (err?.name === "AbortError") return;
-      setVectorStoresError("Unable to load vector stores from LlamaStack.");
       setVectorStores([]);
-    } finally {
-      if (!signal?.aborted) {
-        setVectorStoresLoading(false);
-      }
+      setVectorStoresError("Unable to load knowledge bases for chat retrieval.");
     }
   }, []);
 
-   
   useEffect(() => {
     const controller = new AbortController();
     reloadVectorStores(controller.signal);
@@ -80,46 +82,64 @@ function App() {
   }, [reloadVectorStores]);
 
   useEffect(() => {
-    const onHashChange = () => setActiveView(viewFromHash());
+    const onHashChange = () => {
+      setActiveView(viewFromHash());
+      const fromHash = scenarioIdFromHash();
+      if (fromHash) {
+        setActiveScenarioId(fromHash);
+      }
+    };
     window.addEventListener("hashchange", onHashChange);
     return () => window.removeEventListener("hashchange", onHashChange);
   }, []);
 
-  const navigate = (view) => {
+  useEffect(() => {
+    const { path } = hashPathAndQuery();
+    if (path === "" || path === "dashboard") {
+      const scenario = scenarioIdFromHash();
+      const qs = scenario ? `?scenario=${encodeURIComponent(scenario)}` : "";
+      window.location.hash = `#/simulation${qs}`;
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      chatAbortRef.current?.abort();
+    };
+  }, []);
+
+  const navigate = (view, { scenarioId } = {}) => {
     if (view === "knowledge-bases") {
       window.location.hash = "#/knowledge-bases";
-    } else if (view === "simulation") {
-      window.location.hash = "#/simulation";
-    } else {
-      window.location.hash = "#/";
+      return;
     }
+    const qs = scenarioId ? `?scenario=${encodeURIComponent(scenarioId)}` : "";
+    window.location.hash = `#/simulation${qs}`;
   };
 
-  const handleRunScenario = async ({ scenario, optimize }) => {
-    setSimulationError("");
-    setSimulationLoading(true);
-    try {
-      const result = await runSimulation({ scenario, optimize });
-      setDashboardState(result);
-    } catch {
-      setSimulationError("Failed to run simulation.");
-    } finally {
-      setSimulationLoading(false);
+  const handleActiveScenarioChange = useCallback((scenarioId) => {
+    const nextId = scenarioId || "";
+    setActiveScenarioId((prev) => {
+      if (prev !== nextId) {
+        chatAbortRef.current?.abort();
+        chatAbortRef.current = null;
+      }
+      return nextId;
+    });
+    if (nextId) {
+      const current = scenarioIdFromHash();
+      if (current !== nextId) {
+        window.location.hash = `#/simulation?scenario=${encodeURIComponent(nextId)}`;
+      }
     }
-  };
+  }, []);
 
-  const handleTriggerEvent = async (selectedMapView) => {
-    setSimulationError("");
-    setSimulationLoading(true);
-    try {
-      const result = await triggerWorldEvent(selectedMapView);
-      setDashboardState(result);
-    } catch {
-      setSimulationError("Failed to trigger event.");
-    } finally {
-      setSimulationLoading(false);
-    }
-  };
+  const handleChangeChatInput = useCallback(
+    (value) => {
+      setChatInputByScenario((prev) => ({ ...prev, [chatKey]: value }));
+    },
+    [chatKey],
+  );
 
   const handleSubmitChat = async () => {
     const question = chatInput.trim();
@@ -127,103 +147,94 @@ function App() {
       return;
     }
 
+    const scenarioKey = chatKey;
+    const vectorStoreId = matchedVectorStoreId;
     const humanMessage = { role: "human", content: question };
-    const historyForApi = [...chatMessages, humanMessage];
+    const historyForApi = [...(chatMessagesByScenario[scenarioKey] || []), humanMessage];
     const aiPlaceholder = { role: "ai", content: "", completion: null };
 
-    setChatMessages([...historyForApi, aiPlaceholder]);
-    setChatInput("");
-    setChatError("");
-    setChatLoading(true);
+    chatAbortRef.current?.abort();
+    const controller = new AbortController();
+    chatAbortRef.current = controller;
+
+    setChatMessagesByScenario((prev) => ({
+      ...prev,
+      [scenarioKey]: [...historyForApi, aiPlaceholder],
+    }));
+    setChatInputByScenario((prev) => ({ ...prev, [scenarioKey]: "" }));
+    setChatErrorByScenario((prev) => ({ ...prev, [scenarioKey]: "" }));
+    setChatLoadingByScenario((prev) => ({ ...prev, [scenarioKey]: true }));
     try {
       await sendChatMessageStream(
         question,
         historyForApi,
-        selectedVectorStoreId.trim() || undefined,
-        optimize,
+        vectorStoreId.trim() || undefined,
+        true,
         (event) => {
-          setChatMessages((prev) => applyChatStreamEvent(prev, event) ?? prev);
+          if (controller.signal.aborted) return;
+          setChatMessagesByScenario((prev) => {
+            const current = prev[scenarioKey] || [];
+            const next = applyChatStreamEvent(current, event);
+            return next ? { ...prev, [scenarioKey]: next } : prev;
+          });
         },
+        { signal: controller.signal },
       );
-    } catch {
-      setChatError("Failed to send chat request.");
-      setChatMessages(historyForApi);
+    } catch (err) {
+      if (err?.name === "AbortError") return;
+      setChatErrorByScenario((prev) => ({
+        ...prev,
+        [scenarioKey]:
+          err instanceof Error && err.message
+            ? err.message
+            : "Failed to send chat request.",
+      }));
+      setChatMessagesByScenario((prev) => ({ ...prev, [scenarioKey]: historyForApi }));
     } finally {
-      setChatLoading(false);
+      if (chatAbortRef.current === controller) {
+        chatAbortRef.current = null;
+      }
+      setChatLoadingByScenario((prev) => ({ ...prev, [scenarioKey]: false }));
     }
   };
-
-  const kpis = useMemo(() => getKpis(dashboardState), [dashboardState]);
-  const alerts = useMemo(() => getFlattenedAlerts(dashboardState), [dashboardState]);
-  const assetCounts = useMemo(() => getAssetCounts(dashboardState), [dashboardState]);
-  const selectedMapData = useMemo(
-    () => getSelectedMapData(dashboardState, mapView),
-    [dashboardState, mapView]
-  );
 
   return (
     <div className={`dashboard-root ${isLightTheme ? "light-theme" : ""}`}>
       <ErrorBoundary>
-      <div
-        className={`dashboard-wrapper${
-          activeView === "knowledge-bases"
-            ? " dashboard-wrapper--kb"
-            : activeView === "simulation"
-              ? " dashboard-wrapper--simulation"
-              : ""
-        }`}
-      >
-        <DashboardHeader
-          isLightTheme={isLightTheme}
-          onToggleTheme={() => setIsLightTheme((value) => !value)}
-          activeView={activeView}
-          onNavigate={navigate}
-        />
+        <div
+          className={`dashboard-wrapper${
+            activeView === "knowledge-bases"
+              ? " dashboard-wrapper--kb"
+              : " dashboard-wrapper--simulation"
+          }`}
+        >
+          <DashboardHeader
+            isLightTheme={isLightTheme}
+            onToggleTheme={() => setIsLightTheme((value) => !value)}
+            activeView={activeView}
+            onNavigate={navigate}
+          />
 
-        {activeView === "simulation" ? (
-          <ImpactSimulationPage />
-        ) : activeView === "dashboard" ? (
-          <>
-            <KpiBar kpis={kpis} />
-
-            <main className="dashboard-grid">
-              <SimulationPanel
-                mapView={mapView}
-                optimize={optimize}
-                onOptimizeChange={setOptimize}
-                onRunScenario={handleRunScenario}
-                onTriggerEvent={handleTriggerEvent}
-                simulationLoading={simulationLoading}
-                simulationError={simulationError}
-                vectorStores={vectorStores}
-                setSelectedVectorStoreId={setSelectedVectorStoreId}
+          {activeView === "knowledge-bases" ? (
+            <KnowledgeBasesPage onKnowledgeBaseCreated={reloadVectorStores} />
+          ) : (
+            <>
+              <ImpactSimulationPage
+                initialScenarioId={activeScenarioId}
+                onScenarioChange={handleActiveScenarioChange}
               />
-
-              <section className="center-content">
-                <LogisticsMapPanel
-                  mapView={mapView}
-                  onChangeMapView={setMapView}
-                  selectedMapData={selectedMapData}
-                  assetCounts={assetCounts}
-                />
-              </section>
-
-              <AlertsPanel loading={loading} error={error} alerts={alerts} />
-            </main>
-
-            <ChatBar
-              chatInput={chatInput}
-              onChangeChatInput={setChatInput}
-              onSubmitChat={handleSubmitChat}
-              chatLoading={chatLoading}
-              chatError={chatError}
-              chatMessages={chatMessages}
-            />
-          </>
-        ) : (
-          <KnowledgeBasesPage onKnowledgeBaseCreated={reloadVectorStores} />
-        )}
-      </div>
+              <ChatBar
+                chatInput={chatInput}
+                onChangeChatInput={handleChangeChatInput}
+                onSubmitChat={handleSubmitChat}
+                chatLoading={chatLoading}
+                chatError={chatError}
+                chatMessages={chatMessages}
+                chatRagHint={chatRagHint}
+              />
+            </>
+          )}
+        </div>
       </ErrorBoundary>
     </div>
   );

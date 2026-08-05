@@ -5,6 +5,10 @@ server {
     root /usr/share/nginx/html;
     index index.html;
 
+    add_header X-Content-Type-Options nosniff always;
+    add_header Referrer-Policy strict-origin-when-cross-origin always;
+    add_header X-Frame-Options SAMEORIGIN always;
+
     # Same-origin API proxy: browser calls /api/...; nginx forwards to the backend Service.
     # BACKEND_UPSTREAM and API_PROXY_* timeouts are substituted at container start (helm frontend-deployment).
     #

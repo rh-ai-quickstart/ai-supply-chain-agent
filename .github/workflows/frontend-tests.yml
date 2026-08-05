@@ -38,3 +38,9 @@ jobs:
 
       - name: Vitest (React dashboard)
         run: pnpm test
+
+      - name: ESLint
+        run: pnpm run lint
+
+      - name: Production build
+        run: pnpm run build

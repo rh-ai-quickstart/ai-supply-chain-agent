@@ -9,8 +9,8 @@ If ingestion fails partway through, empty vector stores are left behind. Add a t
 
 ## Medium Priority
 
-### M1. Add `docker-compose.yml` for local development (Debt M22)
-Contributors must spin up OpenShift or Kind to run the full stack. A `docker-compose.yml` with PostgreSQL/pgvector, backend, and frontend would dramatically lower the contribution barrier.
+### M1. Add `podman-compose.yml` for local development (Debt M22)
+Contributors must spin up OpenShift or Kind to run the full stack. A `podman-compose.yml` with PostgreSQL/pgvector, backend, and frontend would dramatically lower the contribution barrier.
 
 ### M2. Add `make test` and `make lint` targets (Debt M24)
 No one-command way to run all checks. Add Makefile targets:

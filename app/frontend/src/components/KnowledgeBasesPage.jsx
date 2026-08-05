@@ -66,7 +66,8 @@ export function KnowledgeBasesPage({ onKnowledgeBaseCreated }) {
         <h2 className="kb-card-title">Create knowledge base</h2>
         <p className="kb-help muted">
           Upload text or PDF files. The API creates a LlamaStack vector store, ingests your documents, and
-          records a catalog entry (demo JSON under /tmp by default). Use the new vector store ID in chat.
+          records a catalog entry (demo JSON under /tmp by default). Chat auto-selects a matching store
+          for the active impact scenario by name keywords (UK/NATS, port strike, Suez).
         </p>
         {submitError ? (
           <p className="kb-alert error" role="alert">
@@ -137,7 +138,7 @@ export function KnowledgeBasesPage({ onKnowledgeBaseCreated }) {
               </thead>
               <tbody>
                 {rows.map((row) => (
-                  <tr key={row.id}>
+                  <tr key={row.id || row.vector_store_id || row.name}>
                     <td>{row.name}</td>
                     <td>
                       <code className="kb-code">{row.vector_store_id}</code>

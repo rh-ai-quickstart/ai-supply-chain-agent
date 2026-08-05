@@ -17,8 +17,28 @@ def flask_client(monkeypatch, mock_llama_stack_client, mock_route_service):
     dash.trigger_event.return_value = {"after": "event"}
     dash.simulate.return_value = {"scenario": "done"}
 
+    sim = MagicMock()
+    sim.run_simulation.return_value = {
+        "success": True,
+        "answer": "Impact analysis complete.",
+        "scenario_id": "opensky-uk-closure-001",
+        "question": "What is affected?",
+        "affected_entities": ["opensky-1"],
+        "solver": {"impact_score": 0.5},
+        "tool_call_trace": [],
+    }
+    sim.list_scenarios.return_value = {
+        "success": True,
+        "scenarios": ["opensky-uk-closure-001"],
+    }
+    sim.get_entities_geojson.return_value = {
+        "success": True,
+        "geojson": {"type": "FeatureCollection", "features": []},
+    }
+
     chat = ChatService(mock_llama_stack_client, mock_route_service, vector_store_client=None)
     monkeypatch.setattr(app_main, "dashboard_service", dash)
+    monkeypatch.setattr(app_main, "general_simulation_service", sim)
     monkeypatch.setattr(app_main, "chat_service", chat)
     app_main.app.config["TESTING"] = True
     return app_main.app.test_client(), app_main
@@ -143,3 +163,74 @@ def test_list_vector_stores_safe_on_exception():
     stores, err = app_main.list_vector_stores_safe(cs)
     assert stores == []
     assert "bad" in err
+
+
+def test_post_general_simulation_query(flask_client):
+    client, app_main = flask_client
+    rv = client.post(
+        "/api/v1/general-simulation/query",
+        json={"question": "What is affected?", "scenario_id": "opensky-uk-closure-001"},
+    )
+    assert rv.status_code == 200
+    body = rv.get_json()
+    assert body["success"] is True
+    assert body["answer"] == "Impact analysis complete."
+    app_main.general_simulation_service.run_simulation.assert_called_once_with(
+        "What is affected?",
+        "opensky-uk-closure-001",
+    )
+
+
+def test_post_general_simulation_query_validation_error(flask_client):
+    client, app_main = flask_client
+    app_main.general_simulation_service.run_simulation.return_value = {
+        "success": False,
+        "error": "question is required",
+    }
+    rv = client.post("/api/v1/general-simulation/query", json={"scenario_id": "s1"})
+    assert rv.status_code == 400
+    assert rv.get_json()["error"] == "question is required"
+
+
+def test_get_general_simulation_scenarios(flask_client):
+    client, app_main = flask_client
+    rv = client.get("/api/v1/general-simulation/scenarios")
+    assert rv.status_code == 200
+    assert rv.get_json()["scenarios"] == ["opensky-uk-closure-001"]
+    app_main.general_simulation_service.list_scenarios.assert_called_once_with()
+
+
+def test_get_general_simulation_scenarios_upstream_error(flask_client):
+    client, app_main = flask_client
+    app_main.general_simulation_service.list_scenarios.return_value = {
+        "success": False,
+        "error": "unreachable",
+        "scenarios": [],
+    }
+    rv = client.get("/api/v1/general-simulation/scenarios")
+    assert rv.status_code == 502
+
+
+def test_get_general_simulation_entities_geojson(flask_client):
+    client, app_main = flask_client
+    rv = client.get(
+        "/api/v1/general-simulation/entities/geojson",
+        query_string={"bbox": "-15,35,40,62", "ids": "a,b", "limit": "10"},
+    )
+    assert rv.status_code == 200
+    assert rv.get_json()["geojson"]["type"] == "FeatureCollection"
+    app_main.general_simulation_service.get_entities_geojson.assert_called_once_with(
+        bbox="-15,35,40,62",
+        ids=["a", "b"],
+        limit=10,
+    )
+
+
+def test_get_general_simulation_entities_geojson_bad_limit(flask_client):
+    client, _ = flask_client
+    rv = client.get(
+        "/api/v1/general-simulation/entities/geojson",
+        query_string={"limit": "nope"},
+    )
+    assert rv.status_code == 400
+    assert "limit" in rv.get_json()["error"]

@@ -9,6 +9,7 @@ from flask import Flask, Response, jsonify, request, stream_with_context
 from flask_cors import CORS
 from services.chat_service import ChatService
 from services.dashboard_service import DashboardService
+from services.general_simulation_service import GeneralSimulationService
 from services.knowledge_base_ingest_service import ingest_uploaded_files
 from services.knowledge_bases_store import load_all as load_knowledge_bases
 from services.route_service import RouteService
@@ -28,6 +29,7 @@ if _cors_origin:
     CORS(app, origins=_cors_origin)
 
 dashboard_service = DashboardService()
+general_simulation_service = GeneralSimulationService()
 
 _vector_store_client: VectorStoreClient | None = None
 try:
@@ -190,6 +192,44 @@ def post_simulation():
     description = payload.get("description", "")
     record = append_simulation(name, str(description))
     return jsonify({"simulation": record}), 201
+
+
+@app.route("/api/v1/general-simulation/query", methods=["POST"])
+def post_general_simulation_query():
+    payload = request.get_json(silent=True) or {}
+    question = payload.get("question", "")
+    scenario_id = payload.get("scenario_id") or payload.get("scenarioId") or ""
+    result = general_simulation_service.run_simulation(question, scenario_id)
+    status = 200 if result.get("success") else 400
+    return jsonify(result), status
+
+
+@app.route("/api/v1/general-simulation/scenarios", methods=["GET"])
+def get_general_simulation_scenarios():
+    result = general_simulation_service.list_scenarios()
+    status = 200 if result.get("success") else 502
+    return jsonify(result), status
+
+
+@app.route("/api/v1/general-simulation/entities/geojson", methods=["GET"])
+def get_general_simulation_entities_geojson():
+    bbox = request.args.get("bbox") or None
+    ids_raw = request.args.get("ids") or ""
+    ids = [part.strip() for part in ids_raw.split(",") if part.strip()] or None
+    limit_raw = request.args.get("limit")
+    limit = None
+    if limit_raw is not None and str(limit_raw).strip() != "":
+        try:
+            limit = int(limit_raw)
+        except (TypeError, ValueError):
+            return jsonify({"success": False, "error": "limit must be an integer"}), 400
+    result = general_simulation_service.get_entities_geojson(
+        bbox=bbox,
+        ids=ids,
+        limit=limit,
+    )
+    status = 200 if result.get("success") else 502
+    return jsonify(result), status
 
 
 if __name__ == "__main__":

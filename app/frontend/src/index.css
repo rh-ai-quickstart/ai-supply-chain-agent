@@ -781,7 +781,7 @@ body,
 }
 
 .dashboard-wrapper--simulation {
-  grid-template-rows: auto 1fr;
+  grid-template-rows: auto 1fr auto;
 }
 
 /* --- Knowledge bases page (Vite app) --- */
@@ -987,6 +987,92 @@ body,
 .impact-entity-ids {
   margin: 0;
   word-break: break-word;
+  font-size: 0.85rem;
+}
+
+.impact-breakdown-hint {
+  margin: 0 0 8px;
+  font-size: 0.8rem;
+}
+
+.impact-entity-link-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.impact-entity-link {
+  appearance: none;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  color: var(--color-accent, #00e0ff);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  word-break: break-word;
+}
+
+.impact-entity-link:hover,
+.impact-entity-link:focus-visible {
+  color: var(--color-text-header, #fff);
+}
+
+.impact-diversion-list {
+  gap: 10px;
+}
+
+.impact-diversion-btn {
+  appearance: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-input-bg);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.impact-diversion-btn:hover,
+.impact-diversion-btn:focus-visible {
+  border-color: var(--color-accent, #00e0ff);
+  outline: none;
+}
+
+.impact-diversion-btn.is-selected {
+  border-color: #f1c40f;
+  box-shadow: inset 0 0 0 1px #f1c40f;
+}
+
+.impact-diversion-route {
+  word-break: break-word;
+}
+
+.impact-diversion-entity {
+  color: var(--color-accent, #00e0ff);
+}
+
+.impact-diversion-rationale {
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+.impact-map-popup {
+  min-width: 140px;
+  line-height: 1.35;
   font-size: 0.85rem;
 }
 

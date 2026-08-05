@@ -202,7 +202,7 @@ login:
 # ============================================================
 
 BACKEND_TEST ?= python run_backend_tests.py
-FRONTEND_TEST ?= npm test
+FRONTEND_TEST ?= pnpm test
 HELM_TEST ?= make helm-test
 
 .PHONY: test
@@ -238,7 +238,7 @@ lint-backend:
 .PHONY: lint-frontend
 lint-frontend:
 	@echo ">>> Linting frontend (ESLint)..."
-	cd app/frontend && npm run lint
+	cd app/frontend && pnpm run lint
 
 .PHONY: lint-helm
 lint-helm:

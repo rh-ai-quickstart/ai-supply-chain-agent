@@ -13,9 +13,6 @@ vi.mock("react-leaflet", () => ({
   CircleMarker: ({ children }) => <div>{children}</div>,
   Popup: ({ children }) => <div>{children}</div>,
   Marker: ({ children }) => <div>{children}</div>,
-}));
-
-vi.mock("react-chartjs-2", () => ({
-  Line: () => <div data-testid="mock-line-chart" />,
-  Bar: () => <div data-testid="mock-bar-chart" />,
+  Polyline: () => null,
+  useMap: () => ({ setView: () => {}, fitBounds: () => {}, getZoom: () => 5 }),
 }));

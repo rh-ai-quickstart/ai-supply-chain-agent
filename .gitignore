@@ -10,6 +10,7 @@ lerna-debug.log*
 */node_modules
 */dist
 dist-ssr
+coverage
 *.local
 
 # Editor directories and files
@@ -24,8 +25,9 @@ dist-ssr
 *.sw?
 *.tgz
 */__pycache__/
+.venv/
 
-# Lockfiles (optional — we use uv/pip for Python, npm ci expects this locally)
+# Prefer pnpm lockfile for the frontend (package-lock.json ignored)
 package-lock.json
 
 # Environment files

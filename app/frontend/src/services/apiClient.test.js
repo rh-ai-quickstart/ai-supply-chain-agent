@@ -8,8 +8,21 @@ describe("apiClient", () => {
 
   describe("apiGet", () => {
     it("throws when response is not ok", async () => {
-      globalThis.fetch.mockResolvedValue({ ok: false, status: 503 });
+      globalThis.fetch.mockResolvedValue({
+        ok: false,
+        status: 503,
+        text: () => Promise.resolve(""),
+      });
       await expect(apiGet("/api/v1/state")).rejects.toThrow("503");
+    });
+
+    it("prefers JSON error message from failure body", async () => {
+      globalThis.fetch.mockResolvedValue({
+        ok: false,
+        status: 502,
+        text: () => Promise.resolve(JSON.stringify({ error: "sim down" })),
+      });
+      await expect(apiGet("/api/v1/general-simulation/scenarios")).rejects.toThrow("sim down");
     });
 
     it("GETs JSON from default base URL + path", async () => {
@@ -37,6 +50,15 @@ describe("apiClient", () => {
           body: JSON.stringify({ input: "hi" }),
         })
       );
+    });
+
+    it("prefers JSON error message from failure body", async () => {
+      globalThis.fetch.mockResolvedValue({
+        ok: false,
+        status: 400,
+        text: () => Promise.resolve(JSON.stringify({ error: "bad question" })),
+      });
+      await expect(apiPost("/api/v1/general-simulation/query", {})).rejects.toThrow("bad question");
     });
   });
 

@@ -37,3 +37,27 @@ class GeneralSimulationService:
             "solver": result.get("solver", {}),
             "tool_call_trace": result.get("tool_call_trace", []),
         }
+
+    def list_scenarios(self) -> dict[str, Any]:
+        result = self._client.list_scenarios()
+        if "error" in result:
+            return {"success": False, "error": result["error"], "scenarios": []}
+        return {
+            "success": True,
+            "scenarios": result.get("scenarios", []),
+        }
+
+    def get_entities_geojson(
+        self,
+        *,
+        bbox: str | None = None,
+        ids: list[str] | None = None,
+        limit: int | None = None,
+    ) -> dict[str, Any]:
+        result = self._client.get_entities_geojson(bbox=bbox, ids=ids, limit=limit)
+        if "error" in result:
+            return {"success": False, "error": result["error"]}
+        return {
+            "success": True,
+            "geojson": result,
+        }

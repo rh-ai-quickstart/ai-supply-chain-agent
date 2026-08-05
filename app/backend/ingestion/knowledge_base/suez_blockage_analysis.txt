@@ -1,0 +1,38 @@
+Analysis: Suez Canal Blockage — Asia–Europe Maritime Corridor
+
+Event: A grounded vessel closes the Suez Canal corridor (historical analogue: 2021
+Ever Given grounding; scenario pattern reused for operational drills).
+Duration: Approximately 6 days of canal closure in the reference incident; diversion
+impacts persist for weeks as schedules recover.
+
+Primary Impacts:
+
+All Asia–Europe container and bulk traffic through Suez is halted.
+
+Global trade delay estimates on the order of billions of USD per day while the
+canal is closed.
+
+Rerouting around the Cape of Good Hope adds roughly 12–15 days of transit time
+and significant extra fuel burn.
+
+European gateway ports such as Rotterdam see delayed inbound Asia cargo and
+downstream inventory pressure for automotive and pharmaceutical shipments.
+
+East Coast US ports that rely on Suez-linked Europe–Asia rotations experience
+secondary schedule distortion and inventory gaps for EU-linked goods.
+
+Mitigation Strategy:
+
+Multi-source suppliers (for example near-shore or Mediterranean alternatives)
+reduce exposure versus single Asia–Europe sea lane dependence.
+
+Safety stock at key European hubs (Rotterdam and peer gateways) buffers the
+extra two weeks of Cape diversion.
+
+Carriers and BCOs with pre-planned Cape routings and bunker hedges recover
+schedules faster than those scrambling for ad-hoc capacity.
+
+Key Takeaway: The Suez corridor is a single point of failure for Asia–Europe
+maritime freight. Canal blockage forces Cape diversions (~14 days), elevates
+value-at-risk on high-value cargoes, and stresses European port throughput until
+queues clear.

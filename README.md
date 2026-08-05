@@ -16,13 +16,12 @@ An AI-powered supply chain intelligence dashboard that combines real-time logist
 
 ## Detailed description
 
-This quickstart deploys an interactive supply chain operations dashboard backed by a Llama Stack LLM and a PGVector knowledge base. Operators can monitor KPIs (inventory levels, revenue, route efficiency), trigger simulated disruption scenarios (port strikes, geopolitical events), and ask natural-language questions via a built-in RAG chatbot that draws on a curated supply-chain risk knowledge base.
+This quickstart deploys an interactive supply chain impact workspace backed by a Llama Stack LLM, a PGVector knowledge base, and a general-simulation impact engine. Operators run what-if scenarios (port strikes, airspace closures, Suez blockage), inspect affected entities and diversions on a map, and ask natural-language questions via a RAG chatbot grounded in curated risk documents.
 
 Key capabilities:
-- **Live dashboard**: KPI bar, demand and revenue charts, a Leaflet logistics map (global / regional / air-freight views), system health metrics, and an alerts panel — all refreshed every 15 seconds.
-- **Scenario simulation**: Select a disruption scenario (e.g. port strike, geopolitical tension) and optionally enable route optimization; the backend updates dashboard state and returns an AI-generated analysis.
-- **RAG chatbot**: A chat sidebar sends questions to a Flask API that retrieves context from PGVector (default) or a selected Llama Stack vector store, builds a context-augmented prompt, and calls the Llama Stack LLM.
-- **Ingestion pipeline**: A Helm post-install job loads bundled `.txt` knowledge-base documents into Llama Stack vector stores by default (`ingest.strategy: llamastack`); optional `langchain` strategy chunks and embeds into PGVector instead.
+- **Impact simulation**: Pick a seeded scenario, run a natural-language impact query, and review score, value at risk, affected entities, and recommended diversions on a Leaflet map.
+- **RAG chatbot**: Streaming chat with per-scenario history; the UI auto-matches a Llama Stack vector store by scenario keywords.
+- **Knowledge bases**: Upload `.txt`/`.pdf` documents at runtime; a Helm post-install job also loads bundled risk analyses into Llama Stack vector stores (`ingest.strategy: llamastack`) or optionally PGVector (`langchain`).
 
 ### Architecture diagrams
 
@@ -373,7 +372,6 @@ oc delete project supply-chain-dashboard
 - [Llama Stack documentation](https://llama-stack.readthedocs.io)
 - [LangChain PGVector integration](https://python.langchain.com/docs/integrations/vectorstores/pgvector/)
 - [React Leaflet](https://react-leaflet.js.org/)
-- [Chart.js](https://www.chartjs.org/)
 - [OpenShift AI documentation](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed)
 
 ## Technical details
@@ -469,13 +467,13 @@ app/
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `BACKEND_UPSTREAM` | nginx `/api` proxy target (set on the frontend pod at runtime) | `http://<release>-backend:5001` |
-| `VITE_DEV_API_PROXY_TARGET` | Local `npm run dev` proxy target for `/api` | `http://127.0.0.1:5001` |
+| `VITE_DEV_API_PROXY_TARGET` | Local `pnpm dev` proxy target for `/api` | `http://127.0.0.1:5001` |
 
 ### Frontend dependencies
 
-- **React 19** + **Vite 7**
-- **Chart.js 4** + `react-chartjs-2` — demand and revenue charts
-- **Leaflet 1.9** + `react-leaflet 5` — logistics map
+- **React 19** + **Vite 7** + **pnpm**
+- **Leaflet 1.9** + `react-leaflet 5` — impact map
+- **react-markdown** — streaming chat / impact answers
 
 ### Backend dependencies
 
@@ -487,7 +485,7 @@ app/
 ## Tags
 
 - **Title**: AI Supply Chain Agent
-- **Description**: AI-powered supply chain dashboard with RAG chatbot, disruption simulation, and real-time logistics monitoring on OpenShift AI.
+- **Description**: AI-powered supply chain impact simulation with RAG chatbot and knowledge-base management on OpenShift AI.
 - **Industry**: Manufacturing / Logistics
 - **Product**: OpenShift AI, OpenShift
 - **Use case**: AI agents, RAG, supply chain intelligence
