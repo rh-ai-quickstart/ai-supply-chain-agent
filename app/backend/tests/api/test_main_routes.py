@@ -58,6 +58,29 @@ def test_get_state(flask_client):
     assert rv.get_json() == app_main.dashboard_service.get_state.return_value
 
 
+def test_get_news(flask_client):
+    client, app_main = flask_client
+    news = MagicMock()
+    news.get_headlines.return_value = {
+        "items": [{"title": "Port strike", "link": "https://ex/1", "source": "BBC"}],
+        "fetched_at": "2026-08-05T12:00:00+00:00",
+        "cache_age_seconds": 1.0,
+    }
+    app_main.news_service = news
+    rv = client.get("/api/v1/news?limit=10")
+    assert rv.status_code == 200
+    body = rv.get_json()
+    assert body["items"][0]["title"] == "Port strike"
+    news.get_headlines.assert_called_once_with(limit=10)
+
+
+def test_get_news_bad_limit(flask_client):
+    client, _ = flask_client
+    rv = client.get("/api/v1/news?limit=nope")
+    assert rv.status_code == 400
+    assert "limit" in rv.get_json()["error"]
+
+
 def test_post_chat(flask_client, mock_llama_stack_client):
     client, _ = flask_client
     rv = client.post("/api/v1/chat", json={"input": "inventory levels?"})

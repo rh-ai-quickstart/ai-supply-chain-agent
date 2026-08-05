@@ -3,6 +3,7 @@ import {
   aircraftValueUsd,
   buildValueByEntity,
   cargoCostForAircraft,
+  dedupeImpactAnswer,
   diversionKey,
   diversionRoutePositions,
   resolveMapEntityId,
@@ -71,5 +72,40 @@ describe("impactEntityUtils", () => {
       [51.5, -0.1],
       [53.4213, -6.2701],
     ]);
+  });
+
+  it("strips answer sections that duplicate structured sidebar panels", () => {
+    const answer = [
+      "Affected Aircraft",
+      "EZY8742 - Route: LGW-FCO",
+      "",
+      "Recommended Diversions",
+      "EZY8742 (LGW-FCO) → Paris CDG (LFPG)",
+      "",
+      "Estimated Cost of Impact",
+      "The Total Value at Risk is USD 3,854,900.",
+      "",
+      "Summary of Action Items",
+      "Divert listed flights immediately.",
+    ].join("\n");
+
+    const cleaned = dedupeImpactAnswer(answer, {
+      hasReroutes: true,
+      hasOptions: true,
+      hasValueAtRisk: true,
+    });
+
+    expect(cleaned).toContain("Affected Aircraft");
+    expect(cleaned).toContain("EZY8742 - Route: LGW-FCO");
+    expect(cleaned).not.toContain("Recommended Diversions");
+    expect(cleaned).not.toContain("Paris CDG");
+    expect(cleaned).not.toContain("Estimated Cost");
+    expect(cleaned).not.toContain("3,854,900");
+    expect(cleaned).not.toContain("Summary of Action Items");
+  });
+
+  it("keeps diversion prose when no structured reroutes are present", () => {
+    const answer = "Recommended Diversions\nEZY8742 → Paris CDG";
+    expect(dedupeImpactAnswer(answer, { hasReroutes: false })).toContain("Paris CDG");
   });
 });

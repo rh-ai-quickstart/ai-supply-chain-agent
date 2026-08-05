@@ -12,6 +12,7 @@ from services.dashboard_service import DashboardService
 from services.general_simulation_service import GeneralSimulationService
 from services.knowledge_base_ingest_service import ingest_uploaded_files
 from services.knowledge_bases_store import load_all as load_knowledge_bases
+from services.news_service import NewsService
 from services.route_service import RouteService
 from services.simulations_store import append_simulation
 from services.simulations_store import load_all as load_simulations
@@ -30,6 +31,7 @@ if _cors_origin:
 
 dashboard_service = DashboardService()
 general_simulation_service = GeneralSimulationService()
+news_service = NewsService()
 
 _vector_store_client: VectorStoreClient | None = None
 try:
@@ -77,6 +79,18 @@ def get_state():
     return jsonify(dashboard_service.get_state())
 
 
+@app.route("/api/v1/news", methods=["GET"])
+def get_news():
+    limit_raw = request.args.get("limit")
+    limit = 30
+    if limit_raw is not None and str(limit_raw).strip() != "":
+        try:
+            limit = int(limit_raw)
+        except (TypeError, ValueError):
+            return jsonify({"error": "limit must be an integer"}), 400
+    return jsonify(news_service.get_headlines(limit=limit))
+
+
 @app.route("/api/v1/trigger-event", methods=["POST"])
 def trigger_event():
     payload = request.get_json(silent=True) or {}
@@ -100,10 +114,12 @@ def _sse_event(payload: dict[str, Any]) -> str:
 
 def _parse_chat_payload(payload: dict[str, Any]) -> dict[str, Any]:
     raw_vs = payload.get("vector_store_id") or payload.get("vectorStoreId") or ""
+    raw_scenario = payload.get("scenario_id") or payload.get("scenarioId") or ""
     return {
         "user_input": payload.get("input", ""),
         "chat_history": payload.get("chat_history") or [],
         "vector_store_id": str(raw_vs).strip() or None,
+        "scenario_id": str(raw_scenario).strip() or None,
         "use_vllm": bool(payload.get("use_vllm", True)),
         "stream": bool(payload.get("stream", False)),
     }
@@ -120,6 +136,7 @@ def post_chat():
                 chat_history=args["chat_history"],
                 vector_store_id=args["vector_store_id"],
                 use_vllm=args["use_vllm"],
+                scenario_id=args["scenario_id"],
             ):
                 yield _sse_event(event)
 
@@ -139,6 +156,7 @@ def post_chat():
             chat_history=args["chat_history"],
             vector_store_id=args["vector_store_id"],
             use_vllm=args["use_vllm"],
+            scenario_id=args["scenario_id"],
         )
     )
 

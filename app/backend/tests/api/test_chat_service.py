@@ -122,3 +122,56 @@ def test_reply_stream_delegates_to_llama(chat_service, mock_llama_stack_client, 
     assert [e["type"] for e in events] == ["delta", "delta", "done"]
     assert events[-1]["answer"] == "mocked answer"
     mock_llama_stack_client.ask_stream.assert_called_once()
+
+
+def test_simulation_intent_invokes_general_simulation_tool(mock_llama_stack_client, mock_route_service):
+    mock_route_service.is_route_query.return_value = False
+    agent = MagicMock()
+    agent.run_tool.return_value = MagicMock(
+        success=True,
+        output="summary",
+        data={
+            "success": True,
+            "answer": "Three aircraft are affected.",
+            "scenario_id": "opensky-uk-closure-001",
+            "question": "Can you simulate the UK airspace closure?",
+            "affected_entities": ["opensky-1"],
+            "solver": {"impact_score": 0.5},
+            "tool_call_trace": [],
+        },
+        error=None,
+    )
+    svc = ChatService(
+        mock_llama_stack_client,
+        mock_route_service,
+        vector_store_client=None,
+        agent_service=agent,
+    )
+    out = svc.reply(
+        "Can you simulate the UK airspace closure?",
+        chat_history=[],
+        scenario_id="opensky-uk-closure-001",
+    )
+    assert out["tool"] == "general_simulation"
+    assert out["answer"] == "Three aircraft are affected."
+    assert out["simulation"]["affected_entities"] == ["opensky-1"]
+    agent.run_tool.assert_called_once_with(
+        "general_simulation",
+        question="Can you simulate the UK airspace closure?",
+        scenario_id="opensky-uk-closure-001",
+    )
+    mock_llama_stack_client.ask.assert_not_called()
+
+
+def test_simulation_intent_without_scenario_prompts_user(mock_llama_stack_client, mock_route_service):
+    mock_route_service.is_route_query.return_value = False
+    agent = MagicMock()
+    svc = ChatService(
+        mock_llama_stack_client,
+        mock_route_service,
+        agent_service=agent,
+    )
+    out = svc.reply("Can you simulate something?", chat_history=[], scenario_id=None)
+    assert "active scenario" in out["answer"]
+    agent.run_tool.assert_not_called()
+    mock_llama_stack_client.ask.assert_not_called()

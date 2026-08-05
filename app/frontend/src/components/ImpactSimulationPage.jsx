@@ -47,7 +47,11 @@ function messageFromError(err, fallback) {
   return msg || fallback;
 }
 
-export function ImpactSimulationPage({ initialScenarioId = "", onScenarioChange }) {
+export function ImpactSimulationPage({
+  initialScenarioId = "",
+  onScenarioChange,
+  chatSimulation = null,
+}) {
   const [scenarios, setScenarios] = useState([]);
   const [scenariosLoading, setScenariosLoading] = useState(true);
   const [scenariosError, setScenariosError] = useState("");
@@ -159,6 +163,42 @@ export function ImpactSimulationPage({ initialScenarioId = "", onScenarioChange 
     onScenarioChange?.(scenarioId);
   }, [scenarioId, onScenarioChange]);
 
+  const applySimulationResult = useCallback(async (res) => {
+    if (!res || res.success === false) return;
+    setResult(res);
+    setQueryError("");
+    setFocusedEntityId("");
+    setFocusNonce(0);
+    setSelectedDiversionKey("");
+    setDiversionFocusNonce(0);
+    if (res.question) {
+      setQuestion(res.question);
+    }
+
+    const affected = Array.isArray(res.affected_entities) ? res.affected_entities : [];
+    if (affected.length === 0) return;
+
+    try {
+      const overlay = await getImpactEntitiesGeoJson({
+        ids: affected,
+        limit: affected.length,
+      });
+      if (overlay.success === false) {
+        setMapWarning(overlay.error || "Some affected entities could not be loaded onto the map.");
+      } else if (overlay.geojson) {
+        setCollection((prev) => mergeFeatureCollections(prev, overlay.geojson));
+        setMapWarning("");
+      }
+    } catch (err) {
+      setMapWarning(messageFromError(err, "Some affected entities could not be loaded onto the map."));
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!chatSimulation) return;
+    void applySimulationResult(chatSimulation);
+  }, [chatSimulation, applySimulationResult]);
+
   const handleRunQuery = useCallback(async () => {
     setQueryError("");
     setMapWarning("");
@@ -169,34 +209,13 @@ export function ImpactSimulationPage({ initialScenarioId = "", onScenarioChange 
         setQueryError(res.error || "Impact query failed.");
         return;
       }
-      setResult(res);
-      setFocusedEntityId("");
-      setFocusNonce(0);
-      setSelectedDiversionKey("");
-      setDiversionFocusNonce(0);
-
-      const affected = Array.isArray(res.affected_entities) ? res.affected_entities : [];
-      if (affected.length > 0) {
-        try {
-          const overlay = await getImpactEntitiesGeoJson({
-            ids: affected,
-            limit: affected.length,
-          });
-          if (overlay.success === false) {
-            setMapWarning(overlay.error || "Some affected entities could not be loaded onto the map.");
-          } else if (overlay.geojson) {
-            setCollection((prev) => mergeFeatureCollections(prev, overlay.geojson));
-          }
-        } catch (err) {
-          setMapWarning(messageFromError(err, "Some affected entities could not be loaded onto the map."));
-        }
-      }
+      await applySimulationResult(res);
     } catch (err) {
       setQueryError(messageFromError(err, "Impact query failed."));
     } finally {
       setQueryLoading(false);
     }
-  }, [question, scenarioId]);
+  }, [question, scenarioId, applySimulationResult]);
 
   const highlightedIds = useMemo(
     () => (Array.isArray(result?.affected_entities) ? result.affected_entities : []),
@@ -277,4 +296,5 @@ export function ImpactSimulationPage({ initialScenarioId = "", onScenarioChange 
 ImpactSimulationPage.propTypes = {
   initialScenarioId: PropTypes.string,
   onScenarioChange: PropTypes.func,
+  chatSimulation: PropTypes.object,
 };

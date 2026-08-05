@@ -7,6 +7,10 @@ vi.mock("./services/dashboardService", () => ({
   sendChatMessageStream: vi.fn(),
 }));
 
+vi.mock("./services/newsService", () => ({
+  getNews: vi.fn(() => Promise.resolve({ items: [], fetched_at: "2026-08-05T12:00:00Z" })),
+}));
+
 vi.mock("./services/generalSimulationService", () => ({
   listImpactScenarios: vi.fn(() =>
     Promise.resolve({ success: true, scenarios: ["opensky-uk-closure-001"] }),

@@ -37,6 +37,30 @@ describe("ImpactResultsPanel", () => {
     expect(screen.getByText(/Affected entities \(3\)/i)).toBeInTheDocument();
   });
 
+  it("strips duplicate diversion lists from the answer when structured reroutes exist", () => {
+    const result = {
+      ...QUERY_RESPONSE_FIXTURE,
+      answer: [
+        "Affected Aircraft",
+        "BAW442 - Route: LHR-JFK",
+        "",
+        "Recommended Diversions",
+        "BAW442 (LHR-JFK) → Dublin (EIDW)",
+        "",
+        "Estimated Cost of Impact",
+        "USD 1,234,567 at risk.",
+      ].join("\n"),
+    };
+    render(<ImpactResultsPanel result={result} />);
+
+    const answer = screen.getByTestId("markdown");
+    expect(answer).toHaveTextContent("Affected Aircraft");
+    expect(answer).toHaveTextContent("BAW442 - Route: LHR-JFK");
+    expect(answer).not.toHaveTextContent("Recommended Diversions");
+    expect(answer).not.toHaveTextContent("USD 1,234,567 at risk");
+    expect(screen.getByRole("button", { name: /opensky-407290.*Dublin/i })).toBeInTheDocument();
+  });
+
   it("calls onFocusEntity when an affected entity link is clicked", async () => {
     const onFocusEntity = vi.fn();
     render(

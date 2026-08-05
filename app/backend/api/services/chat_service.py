@@ -5,7 +5,9 @@ from typing import Any, Optional
 
 from clients.llama_stack_client import LlamaStackClient
 from clients.vector_store_client import VectorStoreClient
+from services.agent_service import AgentService
 from services.route_service import RouteService
+from services.simulation_intent import is_simulation_intent, resolve_scenario_id
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +26,12 @@ _GUARDRAIL_KEYWORDS = [
 _GUARDRAIL_RESPONSE = (
     "I am restricted to supply chain topics only. "
     "Please ask about logistics, demand, routing, or risk."
+)
+
+_SIMULATION_NEEDS_SCENARIO = (
+    "I can run an impact simulation, but I need an active scenario. "
+    "Select a scenario in Impact Query (UK Airspace Closure, Port Strike LA, or Suez Blockage), "
+    "or mention one in your question."
 )
 
 
@@ -45,11 +53,13 @@ class ChatService:
         route_service: RouteService,
         vector_store_client: Optional[VectorStoreClient] = None,
         openai_client: Optional[LlamaStackClient] = None,
+        agent_service: Optional[AgentService] = None,
     ):
         self.llama_stack_client = llama_stack_client
         self.openai_client: LlamaStackClient = openai_client or llama_stack_client
         self.route_service = route_service
         self.vector_store_client = vector_store_client
+        self.agent_service = agent_service or AgentService(llama_stack_client)
 
     def reply(
         self,
@@ -57,8 +67,9 @@ class ChatService:
         chat_history: Optional[list[dict[str, Any]]] = None,
         vector_store_id: Optional[str] = None,
         use_vllm: bool = True,
+        scenario_id: Optional[str] = None,
     ) -> dict:
-        shortcut = self._early_reply(user_input, chat_history)
+        shortcut = self._early_reply(user_input, chat_history, scenario_id=scenario_id)
         if shortcut is not None:
             return shortcut
 
@@ -86,9 +97,10 @@ class ChatService:
         chat_history: Optional[list[dict[str, Any]]] = None,
         vector_store_id: Optional[str] = None,
         use_vllm: bool = True,
+        scenario_id: Optional[str] = None,
     ) -> Iterator[dict[str, Any]]:
-        """Yield SSE-friendly chat events (guardrails, route shortcuts, or LLM stream)."""
-        shortcut = self._early_reply(user_input, chat_history)
+        """Yield SSE-friendly chat events (guardrails, route/sim shortcuts, or LLM stream)."""
+        shortcut = self._early_reply(user_input, chat_history, scenario_id=scenario_id)
         if shortcut is not None:
             yield {"type": "done", **shortcut}
             return
@@ -105,8 +117,9 @@ class ChatService:
         self,
         user_input: str,
         chat_history: Optional[list[dict[str, Any]]],
+        scenario_id: Optional[str] = None,
     ) -> Optional[dict[str, Any]]:
-        """Return a guardrail or route shortcut response, or ``None`` to call the LLM."""
+        """Return a guardrail, route, or simulation shortcut, or ``None`` to call the LLM."""
         history = chat_history if isinstance(chat_history, list) else []
         latest = self._latest_user_text(history, user_input)
         lowered = (latest or "").lower()
@@ -119,7 +132,61 @@ class ChatService:
             out.setdefault("completion", None)
             return out
 
+        sim = self._maybe_run_simulation_tool(latest, scenario_id=scenario_id)
+        if sim is not None:
+            return sim
+
         return None
+
+    def _maybe_run_simulation_tool(
+        self,
+        latest: str,
+        scenario_id: Optional[str] = None,
+    ) -> Optional[dict[str, Any]]:
+        if not is_simulation_intent(latest):
+            return None
+
+        resolved = resolve_scenario_id(latest, preferred=scenario_id)
+        if not resolved:
+            return {"answer": _SIMULATION_NEEDS_SCENARIO, "completion": None}
+
+        logger.info(
+            "ChatService: invoking general_simulation tool scenario_id=%s",
+            resolved,
+        )
+        tool_result = self.agent_service.run_tool(
+            "general_simulation",
+            question=latest,
+            scenario_id=resolved,
+        )
+        if not tool_result.success:
+            return {
+                "answer": (
+                    "I tried to run the impact simulation tool but it failed: "
+                    f"{tool_result.error or 'unknown error'}"
+                ),
+                "completion": None,
+            }
+
+        simulation = tool_result.data if isinstance(tool_result.data, dict) else {}
+        answer = (
+            simulation.get("answer")
+            or tool_result.output
+            or "Simulation completed."
+        )
+        return {
+            "answer": answer,
+            "completion": None,
+            "tool": "general_simulation",
+            "simulation": {
+                "scenario_id": simulation.get("scenario_id", resolved),
+                "question": simulation.get("question", latest),
+                "affected_entities": simulation.get("affected_entities", []),
+                "solver": simulation.get("solver", {}),
+                "tool_call_trace": simulation.get("tool_call_trace", []),
+                "success": True,
+            },
+        }
 
     def _prepare_llm_turn(
         self,

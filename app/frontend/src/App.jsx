@@ -5,8 +5,12 @@ import { DashboardHeader } from "./components/DashboardHeader";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { KnowledgeBasesPage } from "./components/KnowledgeBasesPage";
 import { ImpactSimulationPage } from "./components/ImpactSimulationPage";
+import { NewsTicker } from "./components/NewsTicker";
 import { findVectorStoreIdForScenario } from "./services/presetScenarioIds";
 import { getVectorStores, sendChatMessageStream } from "./services/dashboardService";
+import { getNews } from "./services/newsService";
+
+const NEWS_POLL_MS = 5 * 60 * 1000;
 
 function hashPathAndQuery() {
   const raw = window.location.hash.replace(/^#/, "");
@@ -41,7 +45,11 @@ function App() {
   const [vectorStoresError, setVectorStoresError] = useState("");
   const [activeView, setActiveView] = useState(viewFromHash);
   const [activeScenarioId, setActiveScenarioId] = useState(scenarioIdFromHash);
+  const [chatSimulation, setChatSimulation] = useState(null);
+  const [newsItems, setNewsItems] = useState([]);
+  const [newsLoading, setNewsLoading] = useState(true);
   const chatAbortRef = useRef(null);
+  const newsAbortRef = useRef(null);
 
   const chatKey = chatKeyForScenario(activeScenarioId);
   const chatMessages = chatMessagesByScenario[chatKey] || [];
@@ -108,6 +116,35 @@ function App() {
     };
   }, []);
 
+  const loadNews = useCallback(async () => {
+    newsAbortRef.current?.abort();
+    const controller = new AbortController();
+    newsAbortRef.current = controller;
+    try {
+      const res = await getNews({ signal: controller.signal });
+      if (controller.signal.aborted) return;
+      setNewsItems(Array.isArray(res?.items) ? res.items : []);
+    } catch (err) {
+      if (err?.name === "AbortError") return;
+      // Keep prior headlines on refresh failure; empty only on first load.
+      setNewsItems((prev) => (Array.isArray(prev) ? prev : []));
+    } finally {
+      if (newsAbortRef.current === controller) {
+        newsAbortRef.current = null;
+        setNewsLoading(false);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    loadNews();
+    const timer = window.setInterval(loadNews, NEWS_POLL_MS);
+    return () => {
+      window.clearInterval(timer);
+      newsAbortRef.current?.abort();
+    };
+  }, [loadNews]);
+
   const navigate = (view, { scenarioId } = {}) => {
     if (view === "knowledge-bases") {
       window.location.hash = "#/knowledge-bases";
@@ -172,13 +209,20 @@ function App() {
         true,
         (event) => {
           if (controller.signal.aborted) return;
+          if (event?.type === "done" && event.simulation) {
+            setChatSimulation({
+              ...event.simulation,
+              answer: event.answer || event.simulation.answer,
+              success: true,
+            });
+          }
           setChatMessagesByScenario((prev) => {
             const current = prev[scenarioKey] || [];
             const next = applyChatStreamEvent(current, event);
             return next ? { ...prev, [scenarioKey]: next } : prev;
           });
         },
-        { signal: controller.signal },
+        { signal: controller.signal, scenarioId: activeScenarioId },
       );
     } catch (err) {
       if (err?.name === "AbortError") return;
@@ -219,9 +263,11 @@ function App() {
             <KnowledgeBasesPage onKnowledgeBaseCreated={reloadVectorStores} />
           ) : (
             <>
+              <NewsTicker items={newsItems} loading={newsLoading} />
               <ImpactSimulationPage
                 initialScenarioId={activeScenarioId}
                 onScenarioChange={handleActiveScenarioChange}
+                chatSimulation={chatSimulation}
               />
               <ChatBar
                 chatInput={chatInput}

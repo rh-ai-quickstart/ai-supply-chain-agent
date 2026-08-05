@@ -105,6 +105,9 @@ export function ChatBar({
             <div key={`${message.role}-${index}`} className={messageBubbleClassName(message.role, compact)}>
               {message.role === "ai" ? (
                 <>
+                  {message.tool === "general_simulation" ? (
+                    <p className="muted chat-tool-badge">Used tool: general_simulation</p>
+                  ) : null}
                   <ChatMarkdownBody content={message.content} compact={compact} />
                   {hasCompletion && message.completion ? (
                     <div className="chat-completion-meta">

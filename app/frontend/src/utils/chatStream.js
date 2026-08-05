@@ -1,5 +1,5 @@
-/** @typedef {{ role: string, content?: string, completion?: unknown }} ChatMessageLike */
-/** @typedef {{ type: 'delta', content: string } | { type: 'done', answer?: string, completion?: unknown } | { type: 'error', message: string }} ChatStreamEvent */
+/** @typedef {{ role: string, content?: string, completion?: unknown, simulation?: unknown, tool?: string }} ChatMessageLike */
+/** @typedef {{ type: 'delta', content: string } | { type: 'done', answer?: string, completion?: unknown, simulation?: unknown, tool?: string } | { type: 'error', message: string }} ChatStreamEvent */
 
 /**
  * Apply one SSE chat event to the in-flight message list (expects trailing AI placeholder).
@@ -34,6 +34,8 @@ export function applyChatStreamEvent(messages, event, options = {}) {
       ...last,
       content: answer,
       completion: event.completion ?? null,
+      ...(event.simulation ? { simulation: event.simulation } : {}),
+      ...(event.tool ? { tool: event.tool } : {}),
     };
     return updated;
   }

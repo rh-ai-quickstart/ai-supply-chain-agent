@@ -1,6 +1,6 @@
 import PropTypes from "prop-types";
 import { ChatMarkdownBody } from "./ChatMarkdownBody.jsx";
-import { diversionKey, formatCurrency } from "../utils/impactEntityUtils";
+import { dedupeImpactAnswer, diversionKey, formatCurrency } from "../utils/impactEntityUtils";
 
 function formatScore(score) {
   const value = Number(score);
@@ -92,6 +92,12 @@ export function ImpactResultsPanel({
   const reroutes = Array.isArray(solver.recommended_reroutes) ? solver.recommended_reroutes : [];
   const trace = Array.isArray(result.tool_call_trace) ? result.tool_call_trace : [];
   const affected = Array.isArray(result.affected_entities) ? result.affected_entities : [];
+  const hasValueAtRisk = Number.isFinite(Number(solver.total_value_at_risk));
+  const answer = dedupeImpactAnswer(result.answer, {
+    hasReroutes: reroutes.length > 0,
+    hasOptions: options.length > 0,
+    hasValueAtRisk,
+  });
 
   return (
     <section className="panel impact-results-panel insights-panel">
@@ -118,10 +124,10 @@ export function ImpactResultsPanel({
         </div>
       </div>
 
-      {result.answer ? (
+      {answer ? (
         <div className="impact-answer">
           <h4 className="impact-section-title">Answer</h4>
-          <ChatMarkdownBody content={result.answer} compact />
+          <ChatMarkdownBody content={answer} compact />
         </div>
       ) : null}
 

@@ -17,6 +17,21 @@ vi.mock("./services/dashboardService", () => ({
   sendChatMessageStream: vi.fn(),
 }));
 
+vi.mock("./services/newsService", () => ({
+  getNews: vi.fn(() =>
+    Promise.resolve({
+      items: [
+        {
+          title: "Port strike disrupts shipping",
+          link: "https://example.com/1",
+          source: "BBC",
+        },
+      ],
+      fetched_at: "2026-08-05T12:00:00Z",
+    }),
+  ),
+}));
+
 vi.mock("./services/generalSimulationService", () => ({
   listImpactScenarios: vi.fn(() =>
     Promise.resolve({
@@ -70,7 +85,10 @@ describe("App chat", () => {
       "vs-air",
       true,
       expect.any(Function),
-      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+      expect.objectContaining({
+        signal: expect.any(AbortSignal),
+        scenarioId: expect.any(String),
+      }),
     );
   });
 
@@ -103,7 +121,10 @@ describe("App chat", () => {
       "vs-air",
       true,
       expect.any(Function),
-      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+      expect.objectContaining({
+        signal: expect.any(AbortSignal),
+        scenarioId: expect.any(String),
+      }),
     );
 
     await user.click(screen.getByRole("button", { name: "Port Strike LA" }));
@@ -123,7 +144,10 @@ describe("App chat", () => {
       "vs-port",
       true,
       expect.any(Function),
-      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+      expect.objectContaining({
+        signal: expect.any(AbortSignal),
+        scenarioId: expect.any(String),
+      }),
     );
 
     await user.click(screen.getByRole("button", { name: "UK Airspace Closure" }));
