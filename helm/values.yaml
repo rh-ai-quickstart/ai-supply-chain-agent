@@ -38,6 +38,18 @@ llm-service:
       enabled: true
       device: cpu # Change to gpu for better performance
 
+# General Simulation platform (optional Helm subchart).
+# Same-namespace Service URL when enabled. For a standalone gen-sim install in
+# another project, set enabled: false and point GENERAL_SIMULATION_BASE_URL at
+# http://general-sim-api.<ns>.svc:8000 instead.
+general-simulation:
+  enabled: true
+  vllm:
+    enabled: false
+  # Passwords via helm/secrets.yaml (see secrets.example.yaml) — do not commit.
+  # postgres.postgres.password, api/bootstrap/ingestion postgres+neo4j passwords,
+  # and Neo4j Secret neo4j-auth must be provided before install.
+
 imagePullSecrets: []
 
 backend:
@@ -66,7 +78,8 @@ backend:
     # PG_ prefix avoids collision with the Kubernetes service-discovery
     # variable PGVECTOR_PORT=tcp://ip:port that is auto-injected for the
     # pgvector Service, which would corrupt SQLAlchemy URL parsing.
-    GENERAL_SIMULATION_BASE_URL: "http://general-simulation:8000"
+    # Same-namespace short name when general-simulation is a subchart.
+    GENERAL_SIMULATION_BASE_URL: "http://general-sim-api:8000"
     PG_HOST: pgvector
     PG_PORT: "5432"
     PG_USER: postgres

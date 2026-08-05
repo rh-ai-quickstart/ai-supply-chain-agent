@@ -1,12 +1,13 @@
 # Supply Chain Dashboard — Helm chart
 
-Umbrella chart for the AI Supply Chain Agent quickstart. It deploys the application tier (backend, frontend, ingest job) plus shared AI/data subcharts from [ai-architecture-charts](https://github.com/rh-ai-quickstart/ai-architecture-charts).
+Umbrella chart for the AI Supply Chain Agent quickstart. It deploys the application tier (backend, frontend, ingest job) plus shared AI/data subcharts from [ai-architecture-charts](https://github.com/rh-ai-quickstart/ai-architecture-charts), and optionally the [general-simulation](https://github.com/robertsandoval/general-simulation) platform as a subchart.
 
 ## What it deploys
 
-- **pgvector** — PostgreSQL with the pgvector extension
+- **pgvector** — PostgreSQL with the pgvector extension (agent RAG; kept even when gen-sim is enabled)
 - **llama-stack** — Llama Stack API (chat, vector stores)
 - **llm-service** — Model serving (e.g. Llama 3.2 1B)
+- **general-simulation** — Optional subchart (own Postgres + Neo4j + API + ingestion); see below
 - **backend** — Flask API
 - **frontend** — React dashboard (nginx)
 - **ingest** — Optional post-install Job (`ingest.enabled`)
@@ -16,6 +17,7 @@ Umbrella chart for the AI Supply Chain Agent quickstart. It deploys the applicat
 - Helm 3.14+
 - OpenShift CLI (`oc`) for cluster deploys
 - A [Hugging Face token](https://huggingface.co/settings/tokens) (required for gated models)
+- When `general-simulation.enabled: true`: chart repo [robertsandoval.github.io/general-simulation](https://robertsandoval.github.io/general-simulation) (after the first `chart-v*` publish), plus Neo4j auth Secret (below)
 
 ## Provide the Hugging Face token
 
@@ -52,6 +54,36 @@ oc create secret generic huggingface-secret \
   --from-literal=HF_TOKEN="<your-hf-token>"
 ```
 
+## General Simulation subchart
+
+Enabled by default via `general-simulation.enabled`. Gen-sim brings its **own** Postgres and Neo4j into the **same** namespace as this release. The agent keeps `pgvector` for its own RAG.
+
+Before install, create Neo4j auth and set passwords in `helm/secrets.yaml` (see `secrets.example.yaml`):
+
+```bash
+oc create secret generic neo4j-auth \
+  -n supply-chain-dashboard \
+  --from-literal=NEO4J_AUTH="neo4j/<NEO4J_PASSWORD>"
+```
+
+Backend URL (same namespace):
+
+```yaml
+backend:
+  env:
+    GENERAL_SIMULATION_BASE_URL: "http://general-sim-api:8000"
+```
+
+To use a **standalone** gen-sim install in another project instead:
+
+```yaml
+general-simulation:
+  enabled: false
+backend:
+  env:
+    GENERAL_SIMULATION_BASE_URL: "http://general-sim-api.general-simulation.svc:8000"
+```
+
 ## Install
 
 From the repository root:
@@ -72,6 +104,7 @@ Or use `make helm-deps` and `make helm-install` (see root `Makefile`).
 
 ```bash
 oc get pods,route -n supply-chain-dashboard
+curl -s http://general-sim-api:8000/health   # from a pod in the namespace
 ```
 
 ## Customize
@@ -79,5 +112,6 @@ oc get pods,route -n supply-chain-dashboard
 - **Models** — `global.models` and `llm-service.models`
 - **GPU** — `llm-service.device` and per-model `device` (default is CPU in `values.yaml`)
 - **Ingest** — `ingest.strategy` (`llamastack` | `langchain`), `ingest.enabled`, chunking under `ingest.*` for LangChain only
+- **General simulation** — `general-simulation.enabled` and nested passwords / LLM settings
 
 Full operator documentation: [README.md](../README.md) and [docs/WHAT_TO_EXPECT.md](../docs/WHAT_TO_EXPECT.md).

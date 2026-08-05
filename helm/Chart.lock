@@ -8,5 +8,8 @@ dependencies:
 - name: llm-service
   repository: https://rh-ai-quickstart.github.io/ai-architecture-charts
   version: 0.5.9
-digest: sha256:6deb8bd1813533b392b4f361ef3b9f05f2da97e39413138b73d1f59a2b7aea3c
-generated: "2026-06-10T11:52:51.086139-05:00"
+- name: general-simulation
+  repository: https://robertsandoval.github.io/general-simulation
+  version: 0.1.0
+digest: sha256:949ebe58ec4bd11b6830f37ddad27b08a26ee85e038f97e725c062be4a6081d6
+generated: "2026-08-05T11:14:06.211167-05:00"
