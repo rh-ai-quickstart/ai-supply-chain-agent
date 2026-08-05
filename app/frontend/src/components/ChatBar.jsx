@@ -1,3 +1,4 @@
+import PropTypes from "prop-types";
 import { useEffect, useRef, useState } from "react";
 import { formatCompletionSummary } from "../utils/chatCompletionMeta.js";
 import { safeJsonStringify } from "../utils/safeJsonStringify.js";
@@ -9,17 +10,12 @@ function messageBubbleClassName(role, compact) {
 }
 
 export function ChatBar({
-  chatInput,
+  chatInput = "",
   onChangeChatInput,
   onSubmitChat,
-  chatLoading,
-  chatError,
-  chatMessages,
-  vectorStores = [],
-  vectorStoresLoading = false,
-  vectorStoresError = "",
-  selectedVectorStoreId = "",
-  onChangeVectorStore,
+  chatLoading = false,
+  chatError = "",
+  chatMessages = [],
 }) {
   const [isChatModalOpen, setIsChatModalOpen] = useState(false);
   const logEndRef = useRef(null);
@@ -31,6 +27,7 @@ export function ChatBar({
       return;
     }
     logEndRef.current.scrollIntoView?.({ behavior: "smooth", block: "end" });
+     
   }, [chatMessages, chatLoading, isChatModalOpen]);
 
   // When a slow reply finishes, surface the modal once (user can dismiss it afterward).
@@ -38,6 +35,7 @@ export function ChatBar({
     if (wasChatLoadingRef.current && !chatLoading) {
       const last = chatMessages[chatMessages.length - 1];
       if (last?.role === "ai") {
+         
         setIsChatModalOpen(true);
       }
     }
@@ -45,9 +43,11 @@ export function ChatBar({
   }, [chatMessages, chatLoading]);
 
   useEffect(() => {
-    if (isChatModalOpen) {
-      window.setTimeout(() => modalInputRef.current?.focus(), 0);
+    if (!isChatModalOpen) {
+      return;
     }
+    const timer = window.setTimeout(() => modalInputRef.current?.focus(), 0);
+    return () => clearTimeout(timer);
   }, [isChatModalOpen]);
 
   const openModal = () => setIsChatModalOpen(true);
@@ -70,37 +70,6 @@ export function ChatBar({
       handleSend();
     }
   };
-
-  const renderVectorStoreRow = () => (
-    <div className="chat-vector-row">
-      <label className="chat-vector-label" htmlFor="chat-vector-store">
-        Knowledge base
-      </label>
-      <select
-        id="chat-vector-store"
-        className="chat-vector-select"
-        value={selectedVectorStoreId}
-        onChange={(event) => onChangeVectorStore(event.target.value)}
-        disabled={chatLoading || vectorStoresLoading}
-        aria-label="Knowledge base"
-        data-test="chat-vector-store"
-      >
-        <option value="">Default (dashboard PGVector)</option>
-        {vectorStores.map((store) => (
-          <option key={store.id} value={store.id}>
-            {store.status && store.status !== "completed"
-              ? `${store.name} (${store.status})`
-              : store.name}
-          </option>
-        ))}
-      </select>
-      {vectorStoresError ? (
-        <span className="chat-vector-error" role="status">
-          {vectorStoresError}
-        </span>
-      ) : null}
-    </div>
-  );
 
   const renderMessageLog = (compact) => (
     <>
@@ -146,7 +115,6 @@ export function ChatBar({
   return (
     <>
       <div className="chat-bar-container">
-        {renderVectorStoreRow()}
         {!isChatModalOpen && chatMessages.length > 0 ? (
           <div className="chat-bar-preview" data-test="chat-collapsed-preview">
             {renderMessageLog(true)}
@@ -209,3 +177,12 @@ export function ChatBar({
     </>
   );
 }
+
+ChatBar.propTypes = {
+  chatInput: PropTypes.string,
+  onChangeChatInput: PropTypes.func,
+  onSubmitChat: PropTypes.func,
+  chatLoading: PropTypes.bool,
+  chatError: PropTypes.string,
+  chatMessages: PropTypes.array,
+};

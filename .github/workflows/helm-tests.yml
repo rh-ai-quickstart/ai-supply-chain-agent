@@ -1,28 +1,26 @@
 name: Helm tests
 
-# Same triggers as backend and frontend/perspective unit test workflows.
+# Same triggers as backend and frontend unit test workflows.
 on:
   push:
     branches: [main, master, development]
     paths:
       - "app/backend/**"
       - "app/frontend/**"
-      - "app/supply-chain-perspective/**"
       - "helm/**"
       - "Makefile"
       - ".github/workflows/backend-tests.yml"
-      - ".github/workflows/frontend-perspective-tests.yml"
+      - ".github/workflows/frontend-tests.yml"
       - ".github/workflows/helm-tests.yml"
   pull_request:
     branches: [main, master, development]
     paths:
       - "app/backend/**"
       - "app/frontend/**"
-      - "app/supply-chain-perspective/**"
       - "helm/**"
       - "Makefile"
       - ".github/workflows/backend-tests.yml"
-      - ".github/workflows/frontend-perspective-tests.yml"
+      - ".github/workflows/frontend-tests.yml"
       - ".github/workflows/helm-tests.yml"
   workflow_dispatch:
 

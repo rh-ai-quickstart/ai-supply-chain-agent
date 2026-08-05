@@ -1,18 +1,23 @@
 import logging
-import re
 import uuid
 from pathlib import Path
 
+import openai
 from clients.llamastack_vector_store_client import LlamaStackVectorStoreClient
 from config import IngestConfig
 
 logger = logging.getLogger(__name__)
 
 
-def _vector_store_name_for_file(file_path: Path) -> str:
-    """Build a LlamaStack vector store name from the file stem (sanitized, unique per run)."""
-    stem = file_path.stem
-    return stem
+def _vector_store_name_for_kb(kb_dir: Path) -> str:
+    """Build a LlamaStack vector store name for a whole knowledge base.
+
+    One store is created per knowledge base directory (not per file).  The name
+    is derived from the directory basename and made unique per run with a short
+    uuid so repeated runs do not collide.
+    """
+    base = kb_dir.name or "knowledge_base"
+    return f"{base}-{uuid.uuid4().hex[:8]}"
 
 
 class LlamaStackIngestionService:
@@ -24,6 +29,14 @@ class LlamaStackIngestionService:
     ``vector_stores`` / ``files`` API and lets the server handle the full
     pipeline, which keeps the client thin and leverages whatever chunking
     and embedding strategy LlamaStack is configured with.
+
+    Unlike a naive one-vector-store-per-file approach, this service creates a
+    SINGLE vector store for the whole knowledge base and uploads every matched
+    file into it.  Per-file metadata (the source filename) is carried on each
+    uploaded File (best-effort via the SDK's ``extra_body``), so documents can
+    still be filtered/attributed to their source file.  If LlamaStack does not
+    persist that metadata, the source filename remains attached to the File
+    server-side and can be used for attribution.
     """
 
     def __init__(
@@ -53,12 +66,24 @@ class LlamaStackIngestionService:
 
         logger.info("Found %d file(s) in '%s'", len(files), kb_dir)
 
+        store_name = _vector_store_name_for_kb(kb_dir)
+        try:
+            vector_store_id = self._client.create_vector_store(store_name)
+        except (openai.APIError, OSError) as exc:
+            logger.error(
+                "Failed to create vector store '%s' for KB '%s': %s",
+                store_name,
+                kb_dir,
+                exc,
+            )
+            return 0
+
         uploaded = 0
         for file_path in sorted(files):
-            store_name = _vector_store_name_for_file(file_path)
             try:
-                vector_store_id = self._client.create_vector_store(store_name)
-                file_id = self._client.upload_file(str(file_path))
+                file_id = self._client.upload_file(
+                    str(file_path), source_filename=file_path.name
+                )
                 self._client.attach_file_to_store(vector_store_id, file_id)
                 uploaded += 1
                 logger.info(
@@ -67,7 +92,7 @@ class LlamaStackIngestionService:
                     store_name,
                     vector_store_id,
                 )
-            except Exception as exc:
+            except (openai.APIError, OSError) as exc:
                 logger.error(
                     "Failed to ingest '%s' (store name '%s'): %s",
                     file_path,
@@ -76,8 +101,9 @@ class LlamaStackIngestionService:
                 )
 
         logger.info(
-            "Pipeline finished — %d/%d file(s) ingested (one vector store per file, named from filename).",
+            "Pipeline finished — %d/%d file(s) ingested into one vector store per KB ('%s').",
             uploaded,
             len(files),
+            store_name,
         )
         return uploaded

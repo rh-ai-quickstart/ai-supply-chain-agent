@@ -1,3 +1,5 @@
+import PropTypes from "prop-types";
+
 function HealthItem({ label, value, fillPercent, tone }) {
   return (
     <div className="health-item">
@@ -12,7 +14,8 @@ function HealthItem({ label, value, fillPercent, tone }) {
   );
 }
 
-export function SystemHealthPanel({ health }) {
+export function SystemHealthPanel({ health: _health = {} }) {
+  const health = _health ?? {};
   const supplierTone =
     health.supplierHealth >= 90 ? "good" : health.supplierHealth >= 80 ? "warn" : "bad";
   const inventoryTone =
@@ -57,3 +60,13 @@ export function SystemHealthPanel({ health }) {
     </article>
   );
 }
+
+SystemHealthPanel.propTypes = {
+  health: PropTypes.shape({
+    supplierHealth: PropTypes.number,
+    inventoryHealth: PropTypes.number,
+    riskIndex: PropTypes.number,
+    riskLabel: PropTypes.string,
+    dataFreshnessPercent: PropTypes.number,
+  }),
+};

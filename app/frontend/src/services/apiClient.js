@@ -4,8 +4,8 @@ function apiUrl(path) {
   return path.startsWith("/") ? path : `/${path}`;
 }
 
-export async function apiGet(path) {
-  const response = await fetch(apiUrl(path));
+export async function apiGet(path, { signal } = {}) {
+  const response = await fetch(apiUrl(path), { signal });
   if (!response.ok) {
     throw new Error(`Request failed: ${response.status}`);
   }

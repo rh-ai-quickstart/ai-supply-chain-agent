@@ -24,3 +24,20 @@ dist-ssr
 *.sw?
 *.tgz
 */__pycache__/
+
+# Lockfiles (optional — we use uv/pip for Python, npm ci expects this locally)
+package-lock.json
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Helm secrets (not for CI)
+helm/secrets.yaml
+
+# Python test cache
+.pytest_cache/
+
+# IDE workspace files
+.cursor/

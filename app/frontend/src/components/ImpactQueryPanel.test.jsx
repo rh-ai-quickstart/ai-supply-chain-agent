@@ -1,0 +1,71 @@
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { describe, expect, it, vi } from "vitest";
+import { DEFAULT_IMPACT_QUESTION, ImpactQueryPanel } from "./ImpactQueryPanel";
+
+describe("ImpactQueryPanel", () => {
+  it("renders scenario select, question, and run button", () => {
+    render(
+      <ImpactQueryPanel
+        scenarios={["opensky-uk-closure-001"]}
+        scenarioId="opensky-uk-closure-001"
+        question={DEFAULT_IMPACT_QUESTION}
+        onChangeScenarioId={vi.fn()}
+        onChangeQuestion={vi.fn()}
+        onRunQuery={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("heading", { name: /Impact Query/i })).toBeInTheDocument();
+    expect(screen.getByLabelText(/Scenario/i)).toHaveValue("opensky-uk-closure-001");
+    expect(screen.getByLabelText(/Question/i)).toHaveValue(DEFAULT_IMPACT_QUESTION);
+    expect(screen.getByRole("button", { name: /Run impact query/i })).toBeEnabled();
+  });
+
+  it("disables run when question is empty", () => {
+    render(
+      <ImpactQueryPanel
+        scenarios={["s1"]}
+        scenarioId="s1"
+        question="   "
+        onChangeScenarioId={vi.fn()}
+        onChangeQuestion={vi.fn()}
+        onRunQuery={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("button", { name: /Run impact query/i })).toBeDisabled();
+  });
+
+  it("calls onRunQuery when run is clicked", async () => {
+    const onRunQuery = vi.fn();
+    render(
+      <ImpactQueryPanel
+        scenarios={["s1"]}
+        scenarioId="s1"
+        question="What is affected?"
+        onChangeScenarioId={vi.fn()}
+        onChangeQuestion={vi.fn()}
+        onRunQuery={onRunQuery}
+      />,
+    );
+    await userEvent.click(screen.getByRole("button", { name: /Run impact query/i }));
+    expect(onRunQuery).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows loading and error states", () => {
+    render(
+      <ImpactQueryPanel
+        scenarios={["s1"]}
+        scenarioId="s1"
+        question="q"
+        queryLoading
+        queryError="Upstream failed"
+        onChangeScenarioId={vi.fn()}
+        onChangeQuestion={vi.fn()}
+        onRunQuery={vi.fn()}
+      />,
+    );
+    expect(screen.getByText(/Running impact query/i)).toBeInTheDocument();
+    expect(screen.getByText("Upstream failed")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Run impact query/i })).toBeDisabled();
+  });
+});

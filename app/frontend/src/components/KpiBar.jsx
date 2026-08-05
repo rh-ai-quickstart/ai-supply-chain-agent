@@ -1,4 +1,6 @@
-export function KpiBar({ kpis }) {
+import PropTypes from "prop-types";
+
+export function KpiBar({ kpis = {} }) {
   return (
     <section className="kpi-bar">
       <div className="kpi-card">
@@ -24,3 +26,7 @@ export function KpiBar({ kpis }) {
     </section>
   );
 }
+
+KpiBar.propTypes = {
+  kpis: PropTypes.object,
+};

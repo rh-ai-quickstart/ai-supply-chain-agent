@@ -1,25 +1,20 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { applyChatStreamEvent } from "./utils/chatStream.js";
-import "./lib/chartSetup";
 import { AlertsPanel } from "./components/AlertsPanel";
 import { ChatBar } from "./components/ChatBar";
 import { DashboardHeader } from "./components/DashboardHeader";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { KnowledgeBasesPage } from "./components/KnowledgeBasesPage";
-import { DemandChartPanel } from "./components/DemandChartPanel";
 import { KpiBar } from "./components/KpiBar";
 import { LogisticsMapPanel } from "./components/LogisticsMapPanel";
-import { RevenueChartPanel } from "./components/RevenueChartPanel";
+import { ImpactSimulationPage } from "./components/ImpactSimulationPage";
 import { SimulationPanel } from "./components/SimulationPanel";
-import { SystemHealthPanel } from "./components/SystemHealthPanel";
 import { useDashboardState } from "./hooks/useDashboardState";
 import {
   getAssetCounts,
   getFlattenedAlerts,
   getKpis,
   getSelectedMapData,
-  toDemandChartData,
-  toRevenueChartData,
-  toSystemHealthMetrics,
 } from "./services/dashboardMappers";
 import {
   getVectorStores,
@@ -32,6 +27,9 @@ function viewFromHash() {
   const raw = window.location.hash.replace(/^#/, "");
   if (raw === "/knowledge-bases" || raw === "knowledge-bases") {
     return "knowledge-bases";
+  }
+  if (raw === "/simulation" || raw === "simulation") {
+    return "simulation";
   }
   return "dashboard";
 }
@@ -47,31 +45,38 @@ function App() {
   const [chatLoading, setChatLoading] = useState(false);
   const [chatError, setChatError] = useState("");
   const [vectorStores, setVectorStores] = useState([]);
-  const [vectorStoresLoading, setVectorStoresLoading] = useState(false);
-  const [vectorStoresError, setVectorStoresError] = useState("");
+  const [_vectorStoresLoading, setVectorStoresLoading] = useState(false);
+  const [_vectorStoresError, setVectorStoresError] = useState("");
   const [selectedVectorStoreId, setSelectedVectorStoreId] = useState("");
   const [activeView, setActiveView] = useState(viewFromHash);
   const { dashboardState, loading, error, setDashboardState } = useDashboardState();
 
-  const reloadVectorStores = useCallback(async () => {
+  const reloadVectorStores = useCallback(async (signal) => {
     setVectorStoresLoading(true);
     setVectorStoresError("");
     try {
-      const res = await getVectorStores();
+      const res = await getVectorStores({ signal });
+      if (signal?.aborted) return;
       setVectorStores(Array.isArray(res.vector_stores) ? res.vector_stores : []);
       if (res.error) {
         setVectorStoresError(res.error);
       }
-    } catch {
+    } catch (err) {
+      if (err?.name === "AbortError") return;
       setVectorStoresError("Unable to load vector stores from LlamaStack.");
       setVectorStores([]);
     } finally {
-      setVectorStoresLoading(false);
+      if (!signal?.aborted) {
+        setVectorStoresLoading(false);
+      }
     }
   }, []);
 
+   
   useEffect(() => {
-    void reloadVectorStores();
+    const controller = new AbortController();
+    reloadVectorStores(controller.signal);
+    return () => controller.abort();
   }, [reloadVectorStores]);
 
   useEffect(() => {
@@ -81,7 +86,13 @@ function App() {
   }, []);
 
   const navigate = (view) => {
-    window.location.hash = view === "knowledge-bases" ? "#/knowledge-bases" : "#/";
+    if (view === "knowledge-bases") {
+      window.location.hash = "#/knowledge-bases";
+    } else if (view === "simulation") {
+      window.location.hash = "#/simulation";
+    } else {
+      window.location.hash = "#/";
+    }
   };
 
   const handleRunScenario = async ({ scenario, optimize }) => {
@@ -149,17 +160,18 @@ function App() {
     () => getSelectedMapData(dashboardState, mapView),
     [dashboardState, mapView]
   );
-  const demandData = useMemo(() => toDemandChartData(dashboardState), [dashboardState]);
-  const revenueData = useMemo(() => toRevenueChartData(dashboardState), [dashboardState]);
-  const systemHealth = useMemo(
-    () => toSystemHealthMetrics(kpis, alerts, loading, error),
-    [kpis, alerts, loading, error]
-  );
 
   return (
     <div className={`dashboard-root ${isLightTheme ? "light-theme" : ""}`}>
+      <ErrorBoundary>
       <div
-        className={`dashboard-wrapper${activeView === "knowledge-bases" ? " dashboard-wrapper--kb" : ""}`}
+        className={`dashboard-wrapper${
+          activeView === "knowledge-bases"
+            ? " dashboard-wrapper--kb"
+            : activeView === "simulation"
+              ? " dashboard-wrapper--simulation"
+              : ""
+        }`}
       >
         <DashboardHeader
           isLightTheme={isLightTheme}
@@ -168,8 +180,12 @@ function App() {
           onNavigate={navigate}
         />
 
-        {activeView === "dashboard" ? (
+        {activeView === "simulation" ? (
+          <ImpactSimulationPage />
+        ) : activeView === "dashboard" ? (
           <>
+            <KpiBar kpis={kpis} />
+
             <main className="dashboard-grid">
               <SimulationPanel
                 mapView={mapView}
@@ -184,12 +200,6 @@ function App() {
               />
 
               <section className="center-content">
-                <div className="top-charts-container">
-                  <DemandChartPanel data={demandData} />
-                  <RevenueChartPanel data={revenueData} />
-                  <SystemHealthPanel health={systemHealth} />
-                </div>
-
                 <LogisticsMapPanel
                   mapView={mapView}
                   onChangeMapView={setMapView}
@@ -201,7 +211,6 @@ function App() {
               <AlertsPanel loading={loading} error={error} alerts={alerts} />
             </main>
 
-            <KpiBar kpis={kpis} />
             <ChatBar
               chatInput={chatInput}
               onChangeChatInput={setChatInput}
@@ -209,17 +218,13 @@ function App() {
               chatLoading={chatLoading}
               chatError={chatError}
               chatMessages={chatMessages}
-              vectorStores={vectorStores}
-              vectorStoresLoading={vectorStoresLoading}
-              vectorStoresError={vectorStoresError}
-              selectedVectorStoreId={selectedVectorStoreId}
-              onChangeVectorStore={setSelectedVectorStoreId}
             />
           </>
         ) : (
           <KnowledgeBasesPage onKnowledgeBaseCreated={reloadVectorStores} />
         )}
       </div>
+      </ErrorBoundary>
     </div>
   );
 }
