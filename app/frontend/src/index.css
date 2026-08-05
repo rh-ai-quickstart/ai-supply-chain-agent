@@ -204,6 +204,13 @@ body,
   cursor: pointer;
 }
 
+.btn--active {
+  border-color: var(--color-accent-cyan);
+  color: var(--color-accent-cyan);
+  background: var(--color-panel-accent);
+  box-shadow: 0 0 0 1px var(--color-accent-cyan) inset;
+}
+
 .insights-panel {
   overflow-y: auto;
 }

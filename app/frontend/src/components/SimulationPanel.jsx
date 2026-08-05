@@ -1,3 +1,4 @@
+import { useState } from "react";
 import PropTypes from "prop-types";
 
 function findVectorStoreId(stores, keywords) {
@@ -27,7 +28,10 @@ export function SimulationPanel({
   vectorStores = [],
   setSelectedVectorStoreId,
 }) {
+  const [activeScenario, setActiveScenario] = useState("");
+
   const handleRun = (scenario) => {
+    setActiveScenario(scenario);
     const keywords = SCENARIO_KEYWORDS[scenario] || [];
     const storeId = keywords.length > 0 ? findVectorStoreId(vectorStores, keywords) : "";
     setSelectedVectorStoreId(storeId);
@@ -35,6 +39,7 @@ export function SimulationPanel({
   };
 
   const handleTriggerWorld = () => {
+    setActiveScenario("world-event");
     const storeId = findVectorStoreId(vectorStores, ["air", "risk", "iceland"]);
     setSelectedVectorStoreId(storeId);
     onTriggerEvent(mapView);
@@ -46,25 +51,29 @@ export function SimulationPanel({
 
       <label className="field-label">Scenario Presets</label>
       <div className="stack">
-        <button className="btn" onClick={() => handleRun("none")} disabled={simulationLoading}>
+        <button
+          className={`btn${activeScenario === "none" ? " btn--active" : ""}`}
+          onClick={() => handleRun("none")}
+          disabled={simulationLoading}
+        >
           Live Dashboard
         </button>
         <button
-          className="btn"
+          className={`btn${activeScenario === "port-strike" ? " btn--active" : ""}`}
           onClick={() => handleRun("port-strike")}
           disabled={simulationLoading}
         >
           Port Strike LA
         </button>
         <button
-          className="btn"
+          className={`btn${activeScenario === "geopolitical" ? " btn--active" : ""}`}
           onClick={() => handleRun("geopolitical")}
           disabled={simulationLoading}
         >
           Suez Blockage
         </button>
         <button
-          className="btn"
+          className={`btn${activeScenario === "world-event" ? " btn--active" : ""}`}
           onClick={handleTriggerWorld}
           disabled={simulationLoading}
         >
