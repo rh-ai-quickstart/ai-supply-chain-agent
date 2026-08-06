@@ -71,6 +71,12 @@ class Settings:
     # Static dashboard config (airports/routes/fallback data)
     supply_chain_config_path: str | None = None
 
+    # Build/version identifiers baked into the container image (see Containerfile
+    # ARG/ENV + Makefile build-* targets); lets operators confirm a running pod
+    # is actually serving the code they think it is.
+    git_commit: str = "unknown"
+    build_time: str = "unknown"
+
     @classmethod
     def from_env(cls) -> "Settings":
         return cls(
@@ -103,4 +109,6 @@ class Settings:
                 "SIMULATIONS_STORE_PATH", "/tmp/supply-chain-simulations.json"
             ),
             supply_chain_config_path=os.getenv("SUPPLY_CHAIN_CONFIG_PATH") or None,
+            git_commit=os.getenv("GIT_COMMIT", "unknown"),
+            build_time=os.getenv("BUILD_TIME", "unknown"),
         )

@@ -67,6 +67,17 @@ body,
   color: var(--color-text-header);
 }
 
+.dashboard-header-title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dashboard-version {
+  font-size: 0.7rem;
+  font-family: monospace;
+}
+
 .theme-btn {
   border: 1px solid var(--color-border);
   border-radius: 50%;

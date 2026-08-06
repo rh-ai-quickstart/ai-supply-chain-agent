@@ -1,4 +1,10 @@
-"""``/healthz`` (liveness) and ``/readyz`` (downstream-dependency readiness)."""
+"""``/healthz`` (liveness), ``/readyz`` (readiness), and ``/api/v1/version``.
+
+``/api/v1/version`` reports the git commit + build time baked into the
+container image at build time (see the Containerfile ``ARG``s and the
+Makefile's ``build-backend`` target), so an operator can confirm a running
+pod is actually serving the code they expect.
+"""
 
 from __future__ import annotations
 
@@ -18,5 +24,14 @@ def create_blueprint(container: Container) -> Blueprint:
         result = container.readiness_service.check()
         status = 200 if result["ready"] else 503
         return jsonify(result), status
+
+    @bp.route("/api/v1/version", methods=["GET"])
+    def version():
+        return jsonify(
+            {
+                "git_commit": container.settings.git_commit,
+                "build_time": container.settings.build_time,
+            }
+        )
 
     return bp

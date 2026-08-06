@@ -30,4 +30,10 @@ describe("DashboardHeader", () => {
     await user.click(screen.getByRole("button", { name: /toggle theme/i }));
     expect(onToggleTheme).toHaveBeenCalled();
   });
+
+  it("shows the build/version indicator so a running container can be verified", () => {
+    render(<DashboardHeader isLightTheme={false} onToggleTheme={vi.fn()} />);
+    // Local/test runs have no VITE_GIT_COMMIT baked in, so this falls back to "dev".
+    expect(screen.getByText(/dev/i)).toBeInTheDocument();
+  });
 });

@@ -10,6 +10,13 @@ RUN pip install --no-cache-dir -r requirements.txt && \
 
 COPY . ./
 
+# Populated by `make build-backend` (git sha + UTC timestamp) so /api/v1/version
+# can confirm a running container is serving the code you expect.
+ARG GIT_COMMIT=unknown
+ARG BUILD_TIME=unknown
+ENV GIT_COMMIT=$GIT_COMMIT
+ENV BUILD_TIME=$BUILD_TIME
+
 RUN chown -R appuser:0 /app && chmod -R g+rwX /app
 USER appuser
 

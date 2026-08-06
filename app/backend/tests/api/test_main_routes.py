@@ -95,6 +95,16 @@ def test_readyz_reports_503_when_not_ready(flask_client, monkeypatch):
     assert rv.get_json()["ready"] is False
 
 
+def test_version(flask_client):
+    client, container = flask_client
+    rv = client.get("/api/v1/version")
+    assert rv.status_code == 200
+    assert rv.get_json() == {
+        "git_commit": container.settings.git_commit,
+        "build_time": container.settings.build_time,
+    }
+
+
 def test_get_state(flask_client):
     client, container = flask_client
     rv = client.get("/api/v1/state")

@@ -122,6 +122,8 @@ build-backend:
 	@echo ">>> Building backend image: $(BACKEND_IMAGE):$(BACKEND_TAG)"
 	podman build \
 		--platform $(BUILD_PLATFORM) \
+		--build-arg GIT_COMMIT=$$(git rev-parse --short HEAD 2>/dev/null || echo unknown) \
+		--build-arg BUILD_TIME=$$(date -u +%Y-%m-%dT%H:%M:%SZ) \
 		-f ./app/backend/api/Containerfile \
 		-t $(BACKEND_IMAGE):$(BACKEND_TAG) \
 		./app/backend/api
@@ -142,6 +144,8 @@ build-frontend:
 	@set -eu; \
 	podman build \
 		--platform $(BUILD_PLATFORM) \
+		--build-arg GIT_COMMIT=$$(git rev-parse --short HEAD 2>/dev/null || echo unknown) \
+		--build-arg BUILD_TIME=$$(date -u +%Y-%m-%dT%H:%M:%SZ) \
 		-f ./app/frontend/Containerfile \
 		-t $(FRONTEND_IMAGE):$(FRONTEND_TAG) \
 		./app/frontend; \

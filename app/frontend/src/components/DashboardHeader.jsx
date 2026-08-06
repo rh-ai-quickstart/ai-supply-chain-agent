@@ -1,10 +1,21 @@
 import PropTypes from "prop-types";
+import { APP_VERSION, formatBuildTime } from "../version";
 
 export function DashboardHeader({ isLightTheme = false, onToggleTheme, activeView = "simulation", onNavigate }) {
+  const builtAt = formatBuildTime(APP_VERSION.buildTime);
   return (
     <header className="dashboard-header panel-lite">
       <div className="dashboard-header-main">
-        <h1>Supply Chain Command Center</h1>
+        <div className="dashboard-header-title">
+          <h1>Supply Chain Command Center</h1>
+          <span
+            className="dashboard-version muted"
+            title={builtAt ? `Built ${APP_VERSION.buildTime}` : undefined}
+          >
+            {APP_VERSION.gitCommit}
+            {builtAt ? ` · built ${builtAt}` : ""}
+          </span>
+        </div>
         {onNavigate ? (
           <nav className="dashboard-nav" aria-label="Main">
             <button
