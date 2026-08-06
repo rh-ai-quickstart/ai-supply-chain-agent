@@ -53,6 +53,14 @@ def _helm_template(*value_files: Path) -> str:
         str(HELM_CHART),
         "--namespace",
         "supply-chain-dashboard",
+        # This guardrail only cares about the pgvector Secret. general-simulation
+        # is an unrelated, independently-toggled subchart with its own required
+        # Postgres/Neo4j secrets (including a live-cluster `lookup` for a
+        # pre-created neo4j-auth Secret) that `helm template` can never satisfy
+        # without a real cluster — disable it so this check stays scoped to
+        # pgvector regardless of general-simulation's wiring.
+        "--set",
+        "general-simulation.enabled=false",
     ]
     for path in value_files:
         cmd.extend(["-f", str(path)])
