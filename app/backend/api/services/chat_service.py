@@ -6,27 +6,15 @@ from typing import Any, Optional
 from clients.llama_stack_client import LlamaStackClient
 from clients.vector_store_client import VectorStoreClient
 from services.agent_service import AgentService, ToolResult
+from services.guardrail_policy import GUARDRAIL_RESPONSE, GuardrailPolicy
+from services.rag_context_provider import RagContextProvider
 from services.route_service import RouteService
 from services.simulation_intent import normalize_scenario_id
 
 logger = logging.getLogger(__name__)
 
-_GUARDRAIL_KEYWORDS = [
-    "restaurant",
-    "food",
-    "weather",
-    "sports",
-    "movie",
-    "pizza",
-    "burger",
-    "joke",
-    "politics",
-]
-
-_GUARDRAIL_RESPONSE = (
-    "I am restricted to supply chain topics only. "
-    "Please ask about logistics, demand, routing, or risk."
-)
+# Backward-compatible re-export (historical private name imported by tests).
+_GUARDRAIL_RESPONSE = GUARDRAIL_RESPONSE
 
 _TOOL_PRIORITY = ("general_simulation", "fetch_news", "knowledge_base")
 
@@ -122,6 +110,8 @@ class ChatService:
         self.route_service = route_service
         self.vector_store_client = vector_store_client
         self.agent_service = agent_service or AgentService(llama_stack_client)
+        self._guardrails = GuardrailPolicy()
+        self._rag = RagContextProvider(llama_stack_client, vector_store_client)
 
     def reply(
         self,
@@ -233,10 +223,9 @@ class ChatService:
         """Return a guardrail or route shortcut, or ``None`` to call the LLM with tools."""
         history = chat_history if isinstance(chat_history, list) else []
         latest = self._latest_user_text(history, user_input)
-        lowered = (latest or "").lower()
 
-        if any(keyword in lowered for keyword in _GUARDRAIL_KEYWORDS):
-            return {"answer": _GUARDRAIL_RESPONSE, "completion": None}
+        if self._guardrails.is_blocked(latest):
+            return self._guardrails.blocked_response()
 
         if self.route_service.is_route_query(latest):
             out = dict(self.route_service.get_optimized_route(latest))
@@ -300,19 +289,7 @@ class ChatService:
 
     def _retrieve_context(self, query: str, vector_store_id: Optional[str] = None) -> str:
         """Return relevant knowledge-base context for *query*, or empty string."""
-        vs_id = (vector_store_id or "").strip()
-        if vs_id:
-            return self.llama_stack_client.search_vector_store(vs_id, query, max_num_results=8)
-
-        if self.vector_store_client is None:
-            return ""
-        try:
-            docs = self.vector_store_client.similarity_search(query, k=3)
-            return "\n\n".join(doc.page_content for doc in docs)
-        # Broad catch: best-effort RAG retrieval (langchain/DB) may raise varied errors; degrade to no context.
-        except Exception as exc:
-            logger.warning("Vector store retrieval failed: %s", exc)
-            return ""
+        return self._rag.get_context(query, vector_store_id=vector_store_id)
 
     def list_vector_stores(self) -> list[dict[str, Any]]:
         """Expose LlamaStack vector stores for the chat UI."""

@@ -1,12 +1,11 @@
 import logging
-import os
 from typing import Any, Optional
 
 import requests
 
 logger = logging.getLogger(__name__)
 
-_DEFAULT_BASE_URL = os.getenv("GENERAL_SIMULATION_BASE_URL", "http://localhost:8000")
+_DEFAULT_BASE_URL = "http://localhost:8000"
 
 
 class GeneralSimulationClient:

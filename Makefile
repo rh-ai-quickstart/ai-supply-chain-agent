@@ -231,9 +231,39 @@ lint: lint-backend lint-frontend lint-helm
 	@echo ">>> All linters passed."
 
 .PHONY: lint-backend
-lint-backend:
+lint-backend: lint-backend-ruff lint-backend-types
+
+.PHONY: lint-backend-ruff
+lint-backend-ruff:
 	@echo ">>> Linting Python (ruff)..."
 	ruff check app/backend/api app/backend/ingestion
+
+# Scoped to the SOLID-refactored modules (Settings/Container/app_factory,
+# repositories, the split LlamaStack clients, routes) — these are the pieces
+# with Protocol-based seams where mypy is most valuable today. Widen this list
+# as older modules pick up type hints.
+MYPY_BACKEND_TARGETS ?= \
+	app/backend/api/settings.py \
+	app/backend/api/container.py \
+	app/backend/api/app_factory.py \
+	app/backend/api/main.py \
+	app/backend/api/errors.py \
+	app/backend/api/clients/interfaces.py \
+	app/backend/api/clients/chat_completion_client.py \
+	app/backend/api/clients/tool_loop_orchestrator.py \
+	app/backend/api/clients/llama_vector_store_admin.py \
+	app/backend/api/clients/llama_stack_client.py \
+	app/backend/api/repositories \
+	app/backend/api/services/guardrail_policy.py \
+	app/backend/api/services/rag_context_provider.py \
+	app/backend/api/services/flight_tracking_service.py \
+	app/backend/api/services/readiness_service.py \
+	app/backend/api/routes
+
+.PHONY: lint-backend-types
+lint-backend-types:
+	@echo ">>> Type-checking Python (mypy)..."
+	cd app/backend && mypy $(patsubst app/backend/%,%,$(MYPY_BACKEND_TARGETS))
 
 .PHONY: lint-frontend
 lint-frontend:

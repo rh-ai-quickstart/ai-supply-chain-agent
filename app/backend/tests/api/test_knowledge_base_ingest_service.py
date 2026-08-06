@@ -1,6 +1,6 @@
 """Tests for upload validation and ingest orchestration (mocked LlamaStack)."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 from services.knowledge_base_ingest_service import _vector_store_slug, ingest_uploaded_files
 
@@ -33,19 +33,21 @@ def test_ingest_skips_unsupported_types():
     assert "warnings" in out
 
 
-@patch("services.knowledge_base_ingest_service.append_record")
-def test_ingest_success_appends_catalog(mock_append, mock_llama_stack_client):
+def test_ingest_success_appends_catalog(mock_llama_stack_client):
     mock_llama_stack_client.create_vector_store.return_value = "vs_99"
     mock_llama_stack_client.upload_file_bytes.return_value = "f1"
+    repo = MagicMock()
+    repo.append_upload.return_value = {"id": "kb1", "vector_store_id": "vs_99"}
 
     out = ingest_uploaded_files(
         mock_llama_stack_client,
         "My Catalog",
         [("notes.txt", b"hello world")],
+        repository=repo,
     )
     assert out["ok"] is True
     assert out["knowledge_base"]["vector_store_id"] == "vs_99"
-    mock_append.assert_called_once()
+    repo.append_upload.assert_called_once()
     mock_llama_stack_client.attach_file_to_vector_store.assert_called_once_with(
         "vs_99", "f1"
     )
@@ -59,8 +61,7 @@ def test_ingest_create_store_failure():
     assert "upstream" in out["error"]
 
 
-@patch("services.knowledge_base_ingest_service.append_record")
-def test_ingest_upload_failure_cleans_up_store(mock_append, mock_llama_stack_client):
+def test_ingest_upload_failure_cleans_up_store(mock_llama_stack_client):
     """Upload fails partway through — store must be deleted on cleanup."""
     mock_llama_stack_client.create_vector_store.return_value = "vs_99"
     mock_llama_stack_client.upload_file_bytes.side_effect = RuntimeError("network error")
@@ -76,8 +77,7 @@ def test_ingest_upload_failure_cleans_up_store(mock_append, mock_llama_stack_cli
     mock_llama_stack_client.delete_vector_store.assert_called_once_with("vs_99")
 
 
-@patch("services.knowledge_base_ingest_service.append_record")
-def test_ingest_attach_failure_cleans_up_store(mock_append, mock_llama_stack_client):
+def test_ingest_attach_failure_cleans_up_store(mock_llama_stack_client):
     """Attach fails partway through — all files uploaded but attach fails."""
     mock_llama_stack_client.create_vector_store.return_value = "vs_99"
     mock_llama_stack_client.upload_file_bytes.side_effect = ["file_1", RuntimeError("attach broke")]

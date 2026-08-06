@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from clients.opensky_client import OpenSkyClient
+from services.flight_tracking_service import FlightTrackingService
 
 logger = logging.getLogger(__name__)
 
@@ -87,12 +88,12 @@ class _AirFreightAggregator:
     """Ports, routes, and live or fallback air assets (legacy MCPAgent)."""
 
     def __init__(self, opensky: OpenSkyClient) -> None:
-        self._opensky = opensky
         config = _load_config()
         self.airports = list(config["airports"])
         self.air_routes = list(config["airRoutes"])
         self._cargo_watchlist = list(config["cargoWatchlist"])
         self._fallback_hubs = list(config["fallbackPlaneHubs"])
+        self._flight_tracking = FlightTrackingService(opensky, self._cargo_watchlist)
 
     def _generate_fallback_planes(self) -> list[dict[str, Any]]:
         planes: list[dict[str, Any]] = []
@@ -133,65 +134,8 @@ class _AirFreightAggregator:
         return planes
 
     def get_live_air_state(self) -> tuple[dict[str, Any], list[dict[str, Any]]]:
-        live_states = self._opensky.fetch_states()
-        live_planes: list[dict[str, Any]] = []
         alerts: list[dict[str, Any]] = []
-
-        if live_states:
-            for state in live_states:
-                try:
-                    if state[8]:
-                        continue
-                    callsign = state[1].strip() if state[1] else ""
-                    if any(callsign.startswith(prefix) for prefix in self._cargo_watchlist):
-                        velocity = state[9] if state[9] is not None else 0
-                        altitude = state[7] if state[7] is not None else 0
-                        live_planes.append(
-                            {
-                                "id": state[0],
-                                "name": f"{callsign} (Live)",
-                                "cargo": "Mixed Freight",
-                                "routeId": None,
-                                "is_live": True,
-                                "lat": state[6],
-                                "lng": state[5],
-                                "track": state[10],
-                                "speed": f"{velocity * 2.237:.0f} mph",
-                                "altitude_ft": f"{altitude * 3.28084:.0f} ft",
-                            }
-                        )
-                except (AttributeError, IndexError, TypeError):
-                    continue
-
-            target_density = 100
-            if len(live_planes) < target_density:
-                for state in live_states:
-                    if len(live_planes) >= target_density:
-                        break
-                    try:
-                        if state[8]:
-                            continue
-                        if any(p["id"] == state[0] for p in live_planes):
-                            continue
-                        if state[9] and state[9] > 100:
-                            callsign = state[1].strip() if state[1] else "FLIGHT"
-                            altitude = state[7] if state[7] is not None else 0
-                            live_planes.append(
-                                {
-                                    "id": state[0],
-                                    "name": f"{callsign} (General)",
-                                    "cargo": "General Cargo",
-                                    "routeId": None,
-                                    "is_live": True,
-                                    "lat": state[6],
-                                    "lng": state[5],
-                                    "track": state[10],
-                                    "speed": f"{state[9] * 2.237:.0f} mph",
-                                    "altitude_ft": f"{altitude * 3.28084:.0f} ft",
-                                }
-                            )
-                    except (AttributeError, IndexError, TypeError):
-                        continue
+        live_planes = self._flight_tracking.get_live_planes()
 
         if not live_planes:
             alerts.append(

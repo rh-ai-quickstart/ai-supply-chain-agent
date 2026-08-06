@@ -1,5 +1,4 @@
 import logging
-import os
 
 from langchain_openai import OpenAIEmbeddings
 from langchain_postgres import PGVector
@@ -12,28 +11,30 @@ _COLLECTION_NAME = "supply_chain_risks"
 class VectorStoreClient:
     """PGVector-backed vector store client."""
 
-    def __init__(self) -> None:
-        host = os.getenv("PG_HOST", "pgvector")
-        port = os.getenv("PG_PORT", "5432")
-        user = os.getenv("PG_USER", "postgres")
-        pg_password = os.environ.get("PG_PASSWORD")
-        if not pg_password:
+    def __init__(
+        self,
+        *,
+        host: str = "pgvector",
+        port: str = "5432",
+        user: str = "postgres",
+        password: str | None = None,
+        database: str = "blueprint",
+        llama_stack_url: str = "http://llamastack:8321",
+        embed_model: str = "all-MiniLM-L6-v2",
+    ) -> None:
+        if not password:
             raise RuntimeError(
                 "PG_PASSWORD environment variable is not set. "
                 "The pgvector Helm chart creates a Secret; reference it via "
                 "secretKeyRef in your Deployment env stanza."
             )
-        password = pg_password
-        db = os.getenv("PG_DB", "blueprint")
+        db = database
 
         connection_string = (
             f"postgresql+psycopg://{user}:{password}@{host}:{port}/{db}"
         )
 
-        llama_stack_url = os.getenv(
-            "LLAMA_STACK_URL", "http://llamastack:8321"
-        ).rstrip("/")
-        embed_model = os.getenv("EMBED_MODEL", "all-MiniLM-L6-v2")
+        llama_stack_url = llama_stack_url.rstrip("/")
 
         embeddings = OpenAIEmbeddings(
             api_key="not-required",

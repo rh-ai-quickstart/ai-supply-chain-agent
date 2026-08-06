@@ -1,19 +1,31 @@
-"""``LlamaStackClient`` helpers without calling a real stack."""
+"""``LlamaStackChatClient`` / ``ToolLoopOrchestrator`` / facade wiring — no real stack."""
 
-import os
 from unittest.mock import MagicMock, patch
 
+from clients.chat_completion_client import LlamaStackChatClient, _StreamAccumulator
 from clients.llama_stack_client import LlamaStackClient, timeout_seconds_from_env
+from clients.tool_loop_orchestrator import ToolLoopOrchestrator
+
+
+def _bare_chat_client() -> LlamaStackChatClient:
+    """A ``LlamaStackChatClient`` with its network-facing bits stubbed out."""
+    client = LlamaStackChatClient.__new__(LlamaStackChatClient)
+    client.base_url = "http://stack/v1"
+    client.label = "test"
+    client.model = "test-model"
+    client._timeout = 30
+    client.client = MagicMock()
+    return client
 
 
 def test_completion_to_json_none():
-    assert LlamaStackClient._completion_to_json(None) == {}
+    assert LlamaStackChatClient.completion_to_json(None) == {}
 
 
 def test_completion_to_json_uses_model_dump():
     completion = MagicMock()
     completion.model_dump.return_value = {"id": "c1"}
-    out = LlamaStackClient._completion_to_json(completion)
+    out = LlamaStackChatClient.completion_to_json(completion)
     assert out == {"id": "c1"}
 
 
@@ -27,28 +39,32 @@ def test_timeout_seconds_from_env_override(monkeypatch):
     assert timeout_seconds_from_env() == 120
 
 
-def test_client_uses_env_timeout(monkeypatch):
+def test_facade_uses_env_timeout(monkeypatch):
     monkeypatch.setenv("LLAMA_STACK_TIMEOUT_SECONDS", "90")
-    with patch("clients.llama_stack_client.OpenAI") as mock_openai:
+    with patch("clients.chat_completion_client.OpenAI") as mock_openai:
         LlamaStackClient()
     assert mock_openai.call_args.kwargs["timeout"] == 90
 
 
+def test_facade_delegates_identity_properties():
+    client = LlamaStackClient(base_url="http://stack", model="m", label="openai")
+    assert client.base_url == "http://stack/v1"
+    assert client.model == "m"
+    assert client.label == "openai"
+    assert client._client is client._chat.client
+
+
 def test_ask_returns_config_error_when_base_url_cleared():
-    client = LlamaStackClient.__new__(LlamaStackClient)
+    client = _bare_chat_client()
     client.base_url = ""
-    client._client = MagicMock()
-    client.model = "x"
     out = client.ask("hi")
     assert "endpoint" in out["answer"].lower()
-    client._client.chat.completions.create.assert_not_called()
+    client.client.chat.completions.create.assert_not_called()
 
 
 def test_ask_stream_yields_done_when_base_url_cleared():
-    client = LlamaStackClient.__new__(LlamaStackClient)
+    client = _bare_chat_client()
     client.base_url = ""
-    client._client = MagicMock()
-    client.model = "x"
     events = list(client.ask_stream("hi"))
     assert events == [
         {
@@ -57,16 +73,11 @@ def test_ask_stream_yields_done_when_base_url_cleared():
             "completion": None,
         }
     ]
-    client._client.chat.completions.create.assert_not_called()
+    client.client.chat.completions.create.assert_not_called()
 
 
 def test_ask_stream_yields_delta_and_done():
-    client = LlamaStackClient.__new__(LlamaStackClient)
-    client.base_url = "http://stack/v1"
-    client.label = "test"
-    client.model = "test-model"
-    client._timeout = 30
-    client._client = MagicMock()
+    client = _bare_chat_client()
 
     chunk1 = MagicMock()
     chunk1.usage = None
@@ -79,9 +90,9 @@ def test_ask_stream_yields_delta_and_done():
     chunk2.model = "test-model"
     chunk2.choices = [MagicMock(delta=MagicMock(content=" world"), finish_reason="stop")]
 
-    client._client.chat.completions.create.return_value = iter([chunk1, chunk2])
+    client.client.chat.completions.create.return_value = iter([chunk1, chunk2])
 
-    with patch.object(LlamaStackClient, "_build_messages", return_value=[{"role": "user", "content": "hi"}]):
+    with patch.object(LlamaStackChatClient, "build_messages", return_value=[{"role": "user", "content": "hi"}]):
         events = list(client.ask_stream("hi"))
 
     assert events[0] == {"type": "delta", "content": "Hello"}
@@ -89,21 +100,19 @@ def test_ask_stream_yields_delta_and_done():
     assert events[2]["type"] == "done"
     assert events[2]["answer"] == "Hello world"
     assert events[2]["completion"]["usage"] == {"total_tokens": 5}
-    create_kwargs = client._client.chat.completions.create.call_args.kwargs
+    create_kwargs = client.client.chat.completions.create.call_args.kwargs
     assert create_kwargs["stream"] is True
     assert create_kwargs["stream_options"] == {"include_usage": True}
 
 
 def test_stream_accumulator_absorbs_chunks():
-    from clients.llama_stack_client import _StreamAccumulator
-
     acc = _StreamAccumulator()
     chunk = MagicMock()
     chunk.usage = None
     chunk.model = "m1"
     chunk.choices = [MagicMock(delta=MagicMock(content="tok"), finish_reason="stop")]
 
-    delta = acc.absorb_chunk(chunk, LlamaStackClient._completion_to_json)
+    delta = acc.absorb_chunk(chunk, LlamaStackChatClient.completion_to_json)
 
     assert delta == "tok"
     assert acc.answer == "tok"
@@ -112,12 +121,8 @@ def test_stream_accumulator_absorbs_chunks():
 
 
 def test_ask_with_tools_executes_tool_then_returns_final_answer():
-    client = LlamaStackClient.__new__(LlamaStackClient)
-    client.base_url = "http://stack/v1"
-    client.label = "test"
-    client.model = "test-model"
-    client._timeout = 30
-    client._client = MagicMock()
+    chat = _bare_chat_client()
+    orchestrator = ToolLoopOrchestrator(chat)
 
     tool_call = MagicMock()
     tool_call.id = "call_1"
@@ -136,7 +141,7 @@ def test_ask_with_tools_executes_tool_then_returns_final_answer():
     ]
     second.model_dump.return_value = {"id": "c2"}
 
-    client._client.chat.completions.create.side_effect = [first, second]
+    chat.client.chat.completions.create.side_effect = [first, second]
     executed = []
 
     def execute_tool(name, args):
@@ -144,11 +149,11 @@ def test_ask_with_tools_executes_tool_then_returns_final_answer():
         return "headline list"
 
     with patch.object(
-        LlamaStackClient,
-        "_build_messages",
+        LlamaStackChatClient,
+        "build_messages",
         return_value=[{"role": "user", "content": "news?"}],
     ):
-        out = client.ask_with_tools(
+        out = orchestrator.ask_with_tools(
             "news?",
             tools=[{"type": "function", "function": {"name": "fetch_news"}}],
             execute_tool=execute_tool,
@@ -157,18 +162,14 @@ def test_ask_with_tools_executes_tool_then_returns_final_answer():
     assert out["answer"] == "Here are the headlines."
     assert executed == [("fetch_news", {"limit": 5})]
     assert out["tool_calls_made"][0]["name"] == "fetch_news"
-    assert client._client.chat.completions.create.call_count == 2
+    assert chat.client.chat.completions.create.call_count == 2
 
 
 def test_ask_with_tools_without_tools_falls_back_to_ask():
-    client = LlamaStackClient.__new__(LlamaStackClient)
-    client.base_url = "http://stack/v1"
-    client.label = "test"
-    client.model = "test-model"
-    client._timeout = 30
-    client._client = MagicMock()
-    with patch.object(client, "ask", return_value={"answer": "plain", "completion": None}) as ask:
-        out = client.ask_with_tools("hi", tools=None, execute_tool=None)
+    chat = _bare_chat_client()
+    orchestrator = ToolLoopOrchestrator(chat)
+    with patch.object(chat, "ask", return_value={"answer": "plain", "completion": None}) as ask:
+        out = orchestrator.ask_with_tools("hi", tools=None, execute_tool=None)
     ask.assert_called_once()
     assert out["answer"] == "plain"
     assert out["tool_calls_made"] == []
@@ -176,8 +177,8 @@ def test_ask_with_tools_without_tools_falls_back_to_ask():
 
 def test_build_messages_uses_single_leading_system_message():
     """Qwen / LiteMaaS reject a second role=system mid-list."""
-    client = LlamaStackClient.__new__(LlamaStackClient)
-    messages = client._build_messages(
+    client = LlamaStackChatClient.__new__(LlamaStackChatClient)
+    messages = client.build_messages(
         "what about ports?",
         context="Port strike risk is elevated.",
         conversation_messages=None,
@@ -191,8 +192,8 @@ def test_build_messages_uses_single_leading_system_message():
 
 
 def test_build_messages_drops_system_turns_from_history():
-    client = LlamaStackClient.__new__(LlamaStackClient)
-    messages = client._build_messages(
+    client = LlamaStackChatClient.__new__(LlamaStackChatClient)
+    messages = client.build_messages(
         "ignored when history present",
         context="",
         conversation_messages=[

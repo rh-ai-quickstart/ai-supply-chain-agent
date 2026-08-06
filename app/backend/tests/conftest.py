@@ -20,26 +20,6 @@ def reset_supply_chain_event_slot():
 
 
 @pytest.fixture
-def knowledge_bases_store_module(tmp_path, monkeypatch):
-    """Point the knowledge-base JSON catalog at a temp file (per test)."""
-    path = tmp_path / "knowledge_bases.json"
-    monkeypatch.setenv("KNOWLEDGE_BASES_STORE_PATH", str(path))
-    import services.knowledge_bases_store as kb
-
-    return kb
-
-
-@pytest.fixture
-def simulations_store_module(tmp_path, monkeypatch):
-    """Point the simulations JSON store at a temp file (per test)."""
-    path = tmp_path / "simulations.json"
-    monkeypatch.setenv("SIMULATIONS_STORE_PATH", str(path))
-    import services.simulations_store as sim
-
-    return sim
-
-
-@pytest.fixture
 def mock_llama_stack_client():
     def _ask_stream(*_args, **_kwargs):
         yield {"type": "delta", "content": "mocked "}
