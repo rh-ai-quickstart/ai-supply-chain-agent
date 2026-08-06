@@ -1,33 +1,19 @@
-import { apiGet, apiPost, apiPostStream } from "./apiClient";
+import { apiGet, apiPostStream } from "./apiClient";
 
-function chatRequestBody(input, chatHistory, vectorStoreId, useVllm) {
+function chatRequestBody(input, chatHistory, vectorStoreId, useVllm, scenarioId) {
   const trimmed = vectorStoreId && String(vectorStoreId).trim();
+  const scenario = scenarioId && String(scenarioId).trim();
   return {
     input,
     use_vllm: useVllm,
     ...(chatHistory.length ? { chat_history: chatHistory } : {}),
     ...(trimmed ? { vector_store_id: trimmed } : {}),
+    ...(scenario ? { scenario_id: scenario } : {}),
   };
-}
-
-export function getDashboardState() {
-  return apiGet("/api/v1/state");
 }
 
 export function getVectorStores({ signal } = {}) {
   return apiGet("/api/v1/vector_stores", { signal });
-}
-
-export async function triggerWorldEvent(mapView) {
-  return apiPost("/api/v1/trigger-event", { mapView });
-}
-
-export async function runSimulation({ scenario, optimize }) {
-  return apiPost("/api/v1/simulate", { scenario, optimize });
-}
-
-export async function sendChatMessage(input, chatHistory = [], vectorStoreId, useVllm = true) {
-  return apiPost("/api/v1/chat", chatRequestBody(input, chatHistory, vectorStoreId, useVllm));
 }
 
 export async function sendChatMessageStream(
@@ -36,6 +22,12 @@ export async function sendChatMessageStream(
   vectorStoreId,
   useVllm = true,
   onEvent,
+  { signal, scenarioId } = {},
 ) {
-  return apiPostStream("/api/v1/chat", chatRequestBody(input, chatHistory, vectorStoreId, useVllm), onEvent);
+  return apiPostStream(
+    "/api/v1/chat",
+    chatRequestBody(input, chatHistory, vectorStoreId, useVllm, scenarioId),
+    onEvent,
+    { signal },
+  );
 }

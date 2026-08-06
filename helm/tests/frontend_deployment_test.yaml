@@ -24,7 +24,7 @@ tests:
           value: frontend
       - equal:
           path: spec.template.spec.containers[0].image
-          value: "quay.io/rh-ai-quickstart/ai-supply-chain-agent-frontend:latest"
+          value: "quay.io/rh-ai-quickstart/ai-supply-chain-agent-frontend:dev"
       - contains:
           path: spec.template.spec.containers[0].env
           content:

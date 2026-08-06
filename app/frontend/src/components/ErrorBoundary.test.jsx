@@ -28,7 +28,7 @@ describe("ErrorBoundary", () => {
     expect(screen.getByText("boom")).toBeInTheDocument();
   });
 
-  it("shows empty error message for unknown error (Error() has no message)", () => {
+  it("shows fallback error message when Error() has no message", () => {
     const Throwy = () => {
       throw new Error();
     };
@@ -38,12 +38,8 @@ describe("ErrorBoundary", () => {
         <Throwy />
       </ErrorBoundary>
     );
-    // error.message is "" (empty string), and ?? only falls back on null/undefined
-    // so the <p> has empty text content — not "An unexpected error occurred."
     expect(screen.getByText("Something went wrong")).toBeInTheDocument();
-    const errorP = document.querySelector(".error-boundary .error");
-    expect(errorP).toBeInTheDocument();
-    expect(errorP.textContent).toBe("");
+    expect(screen.getByText("An unexpected error occurred.")).toBeInTheDocument();
   });
 
   it("renders try again button", () => {

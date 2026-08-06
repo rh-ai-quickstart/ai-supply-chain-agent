@@ -166,9 +166,8 @@ describe("KnowledgeBasesPage", () => {
       });
 
       expect(screen.getByRole("heading", { name: /Create knowledge base/i })).toBeInTheDocument();
-      const nameInput = document.getElementById("kb-display-name");
-      expect(nameInput).toBeInTheDocument();
-      expect(screen.getByText(/Documents/i)).toBeInTheDocument();
+      expect(screen.getByLabelText(/Display name/i)).toBeInTheDocument();
+      expect(screen.getByLabelText(/Documents/i)).toBeInTheDocument();
       expect(screen.getByRole("button", { name: /Create and ingest/i })).toBeInTheDocument();
     });
 
@@ -208,10 +207,10 @@ describe("KnowledgeBasesPage", () => {
         expect(screen.getByText("KB1")).toBeInTheDocument();
       });
 
-      expect(screen.getByText("Display name")).toBeInTheDocument();
-      expect(screen.getByText("Vector store ID")).toBeInTheDocument();
-      expect(screen.getByText("Files")).toBeInTheDocument();
-      expect(screen.getByText("Created")).toBeInTheDocument();
+      expect(screen.getByRole("columnheader", { name: "Display name" })).toBeInTheDocument();
+      expect(screen.getByRole("columnheader", { name: "Vector store ID" })).toBeInTheDocument();
+      expect(screen.getByRole("columnheader", { name: "Files" })).toBeInTheDocument();
+      expect(screen.getByRole("columnheader", { name: "Created" })).toBeInTheDocument();
     });
   });
 });

@@ -10,14 +10,14 @@ tests:
       backend.enabled: true
       backend.pgvectorSecretName: pgvector
       backend.env.LLAMA_STACK_URL: "http://llamastack.example:8321"
-      backend.env.LLAMA_STACK_MODEL: "llama-3-2-1b-instruct/meta-llama/Llama-3.2-1B-Instruct"
+      backend.env.LLAMA_STACK_MODEL: "llama-3-2-3b-instruct/meta-llama/Llama-3.2-3B-Instruct"
       backend.env.EMBED_MODEL: "all-MiniLM-L6-v2"
       backend.env.PG_HOST: pgvector
       backend.env.PG_PORT: "5432"
       backend.env.PG_USER: postgres
       backend.env.PG_DB: blueprint
       backend.env.GENERAL_SIMULATION_BASE_URL: "http://general-sim-api:8000"
-      global.models.llama-3-2-1b-instruct.enabled: true
+      global.models.llama-3-2-3b-instruct.enabled: true
       global.models.external-model.id: "gpt-4o-mini"
     asserts:
       - isKind:
@@ -58,6 +58,40 @@ tests:
               secretKeyRef:
                 name: pgvector
                 key: password
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: NEWS_FEED_URLS
+            value: ""
+      - equal:
+          path: spec.template.spec.containers[0].livenessProbe.httpGet.path
+          value: /healthz
+      - equal:
+          path: spec.template.spec.containers[0].readinessProbe.httpGet.path
+          value: /healthz
+
+  - it: uses external-model when local llm is disabled
+    set:
+      backend.enabled: true
+      backend.pgvectorSecretName: pgvector
+      backend.env.LLAMA_STACK_URL: "http://llamastack.example:8321"
+      backend.env.PG_HOST: pgvector
+      backend.env.PG_PORT: "5432"
+      backend.env.PG_USER: postgres
+      backend.env.PG_DB: blueprint
+      global.models.llama-3-2-3b-instruct.enabled: false
+      global.models.external-model.id: "Qwen3.6-35B-A3B"
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: LLAMA_STACK_MODEL
+            value: "external-model/Qwen3.6-35B-A3B"
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: LLAMA_STACK_OPENAI_MODEL
+            value: "external-model/Qwen3.6-35B-A3B"
 
   - it: does not render when backend is disabled
     set:

@@ -25,7 +25,7 @@ jobs:
 
       - uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 11
 
       - uses: actions/setup-node@v4
         with:
@@ -38,3 +38,9 @@ jobs:
 
       - name: Vitest (React dashboard)
         run: pnpm test
+
+      - name: ESLint
+        run: pnpm run lint
+
+      - name: Production build
+        run: pnpm run build

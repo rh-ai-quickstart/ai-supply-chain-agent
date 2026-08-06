@@ -1,9 +1,10 @@
 global:
   models:
+    # Same MaaS path as values.yaml; override id/url/token at deploy time.
     external-model:
       enabled: true
-      # id, url and apiToken set at deploy time via --set
-    llama-3-2-1b-instruct:
+      # id, url and apiToken set at deploy time via --set (or inherit values.yaml)
+    llama-3-2-3b-instruct:
       enabled: false
 
 llm-service:
@@ -16,4 +17,3 @@ llama-stack:
     enabled: true
   secrets: {}
   # External model API token set at deploy time via --set
-

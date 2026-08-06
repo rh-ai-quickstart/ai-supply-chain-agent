@@ -1,62 +1,22 @@
 import PropTypes from "prop-types";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { createKnowledgeBase, listKnowledgeBases } from "../services/knowledgeBasesService";
+import { useRef, useState } from "react";
+import { useKnowledgeBases } from "../hooks/useKnowledgeBases";
 
 export function KnowledgeBasesPage({ onKnowledgeBaseCreated }) {
   const fileInputRef = useRef(null);
-  const [rows, setRows] = useState([]);
-  const [name, setName] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [loadError, setLoadError] = useState("");
-  const [submitError, setSubmitError] = useState("");
-  const [warnings, setWarnings] = useState([]);
   const [hasFiles, setHasFiles] = useState(false);
-
-  const refresh = useCallback(async () => {
-    try {
-      setLoadError("");
-      const list = await listKnowledgeBases();
-      setRows(list);
-    } catch {
-      setLoadError("Unable to load knowledge bases.");
-    } finally {
-      setLoading(false);
-    }
-     
-  }, []);
-
-   
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
+  const kb = useKnowledgeBases(onKnowledgeBaseCreated);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    const trimmed = name.trim();
+    const trimmed = kb.name.trim();
     const files = fileInputRef.current?.files ?? null;
-    if (!trimmed || saving || !files?.length) {
-      return;
-    }
-    setSubmitError("");
-    setWarnings([]);
-    setSaving(true);
-    try {
-      const result = await createKnowledgeBase(trimmed, files);
-      setName("");
+    const created = await kb.submit(trimmed, files);
+    if (created) {
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
       setHasFiles(false);
-      if (result.warnings?.length) {
-        setWarnings(result.warnings);
-      }
-      await refresh();
-      onKnowledgeBaseCreated?.();
-    } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : "Unable to create knowledge base.");
-    } finally {
-      setSaving(false);
     }
   };
 
@@ -66,18 +26,19 @@ export function KnowledgeBasesPage({ onKnowledgeBaseCreated }) {
         <h2 className="kb-card-title">Create knowledge base</h2>
         <p className="kb-help muted">
           Upload text or PDF files. The API creates a LlamaStack vector store, ingests your documents, and
-          records a catalog entry (demo JSON under /tmp by default). Use the new vector store ID in chat.
+          records a catalog entry (demo JSON under /tmp by default). Chat auto-selects a matching store
+          for the active impact scenario by name keywords (UK/NATS, port strike, Suez).
         </p>
-        {submitError ? (
+        {kb.submitError ? (
           <p className="kb-alert error" role="alert">
-            {submitError}
+            {kb.submitError}
           </p>
         ) : null}
-        {warnings.length > 0 ? (
+        {kb.warnings.length > 0 ? (
           <div className="kb-alert kb-warn" role="status">
             <strong>Some files were skipped or failed</strong>
             <ul>
-              {warnings.map((w) => (
+              {kb.warnings.map((w) => (
                 <li key={w}>{w}</li>
               ))}
             </ul>
@@ -91,8 +52,8 @@ export function KnowledgeBasesPage({ onKnowledgeBaseCreated }) {
             id="kb-display-name"
             className="kb-input"
             type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
+            value={kb.name}
+            onChange={(e) => kb.setName(e.target.value)}
             autoComplete="off"
           />
           <label className="kb-label" htmlFor="kb-documents">
@@ -107,22 +68,22 @@ export function KnowledgeBasesPage({ onKnowledgeBaseCreated }) {
             accept=".txt,.md,.markdown,.pdf,text/plain,text/markdown,application/pdf"
             onChange={() => setHasFiles(!!fileInputRef.current?.files?.length)}
           />
-          <button className="kb-submit" type="submit" disabled={saving || !name.trim() || !hasFiles}>
-            {saving ? "Uploading…" : "Create and ingest"}
+          <button className="kb-submit" type="submit" disabled={kb.saving || !kb.name.trim() || !hasFiles}>
+            {kb.saving ? "Uploading…" : "Create and ingest"}
           </button>
         </form>
       </section>
 
       <section className="kb-card panel">
         <h2 className="kb-card-title">Registered knowledge bases</h2>
-        {loadError ? (
+        {kb.loadError ? (
           <p className="error" role="alert">
-            {loadError}
+            {kb.loadError}
           </p>
         ) : null}
-        {loading ? (
+        {kb.loading ? (
           <p className="muted">Loading knowledge bases…</p>
-        ) : rows.length === 0 ? (
+        ) : kb.rows.length === 0 ? (
           <p className="muted">No knowledge bases yet.</p>
         ) : (
           <div className="kb-table-wrap">
@@ -136,8 +97,8 @@ export function KnowledgeBasesPage({ onKnowledgeBaseCreated }) {
                 </tr>
               </thead>
               <tbody>
-                {rows.map((row) => (
-                  <tr key={row.id}>
+                {kb.rows.map((row) => (
+                  <tr key={row.id || row.vector_store_id || row.name}>
                     <td>{row.name}</td>
                     <td>
                       <code className="kb-code">{row.vector_store_id}</code>

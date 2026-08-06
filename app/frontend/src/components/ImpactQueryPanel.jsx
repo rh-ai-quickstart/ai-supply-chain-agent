@@ -1,7 +1,7 @@
 import PropTypes from "prop-types";
+import { DEFAULT_IMPACT_QUESTION, labelForScenario } from "../services/presetScenarioIds";
 
-export const DEFAULT_IMPACT_QUESTION =
-  "UK airspace is closed due to a NATS GPS failure. Which aircraft are affected, what diversions should be issued, and what is the estimated cost of impact?";
+export { DEFAULT_IMPACT_QUESTION };
 
 export function ImpactQueryPanel({
   scenarios = [],
@@ -13,37 +13,42 @@ export function ImpactQueryPanel({
   onChangeQuestion,
   onRunQuery,
   queryLoading = false,
+  chatBusy = false,
   queryError = "",
 }) {
-  const canRun = Boolean(scenarioId.trim()) && Boolean(question.trim()) && !queryLoading;
+  const locked = queryLoading || chatBusy;
+  const canRun = Boolean(scenarioId.trim()) && Boolean(question.trim()) && !locked;
 
   return (
     <section className="panel impact-query-panel">
       <h3>Impact Query</h3>
 
-      <label className="field-label" htmlFor="impact-scenario">
+      <span className="field-label" id="impact-scenario-label">
         Scenario
-      </label>
+      </span>
       {scenariosLoading ? (
         <p className="muted">Loading scenarios…</p>
+      ) : scenarios.length === 0 ? (
+        <p className="muted">No scenarios available</p>
       ) : (
-        <select
-          id="impact-scenario"
-          className="impact-select"
-          value={scenarioId}
-          onChange={(event) => onChangeScenarioId(event.target.value)}
-          disabled={queryLoading || scenarios.length === 0}
+        <div
+          className="stack"
+          role="group"
+          aria-labelledby="impact-scenario-label"
         >
-          {scenarios.length === 0 ? (
-            <option value="">No scenarios available</option>
-          ) : (
-            scenarios.map((id) => (
-              <option key={id} value={id}>
-                {id}
-              </option>
-            ))
-          )}
-        </select>
+          {scenarios.map((id) => (
+            <button
+              key={id}
+              type="button"
+              className={`btn${scenarioId === id ? " btn--active" : ""}`}
+              onClick={() => onChangeScenarioId(id)}
+              disabled={locked}
+              aria-pressed={scenarioId === id}
+            >
+              {labelForScenario(id)}
+            </button>
+          ))}
+        </div>
       )}
       {scenariosError ? <p className="error">{scenariosError}</p> : null}
 
@@ -56,7 +61,7 @@ export function ImpactQueryPanel({
         rows={8}
         value={question}
         onChange={(event) => onChangeQuestion(event.target.value)}
-        disabled={queryLoading}
+        disabled={locked}
       />
 
       <div className="stack">
@@ -65,6 +70,9 @@ export function ImpactQueryPanel({
         </button>
       </div>
       {queryLoading ? <p className="muted">Running impact query…</p> : null}
+      {chatBusy && !queryLoading ? (
+        <p className="muted">Chat in progress — map refresh and impact query paused…</p>
+      ) : null}
       {queryError ? <p className="error">{queryError}</p> : null}
     </section>
   );
@@ -80,5 +88,6 @@ ImpactQueryPanel.propTypes = {
   onChangeQuestion: PropTypes.func,
   onRunQuery: PropTypes.func,
   queryLoading: PropTypes.bool,
+  chatBusy: PropTypes.bool,
   queryError: PropTypes.string,
 };

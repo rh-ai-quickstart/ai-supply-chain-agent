@@ -12,14 +12,15 @@ describe("DashboardHeader", () => {
       <DashboardHeader
         isLightTheme={false}
         onToggleTheme={onToggleTheme}
-        activeView="dashboard"
+        activeView="simulation"
         onNavigate={onNavigate}
-      />
+      />,
     );
     await user.click(screen.getByRole("button", { name: /knowledge bases/i }));
     expect(onNavigate).toHaveBeenCalledWith("knowledge-bases");
-    await user.click(screen.getByRole("button", { name: /^dashboard$/i }));
-    expect(onNavigate).toHaveBeenCalledWith("dashboard");
+    await user.click(screen.getByRole("button", { name: /^simulation$/i }));
+    expect(onNavigate).toHaveBeenCalledWith("simulation");
+    expect(screen.queryByRole("button", { name: /^dashboard$/i })).not.toBeInTheDocument();
   });
 
   it("toggles theme from the theme control", async () => {
@@ -28,5 +29,11 @@ describe("DashboardHeader", () => {
     render(<DashboardHeader isLightTheme={false} onToggleTheme={onToggleTheme} />);
     await user.click(screen.getByRole("button", { name: /toggle theme/i }));
     expect(onToggleTheme).toHaveBeenCalled();
+  });
+
+  it("shows the build/version indicator so a running container can be verified", () => {
+    render(<DashboardHeader isLightTheme={false} onToggleTheme={vi.fn()} />);
+    // Local/test runs have no VITE_GIT_COMMIT baked in, so this falls back to "dev".
+    expect(screen.getByText(/dev/i)).toBeInTheDocument();
   });
 });

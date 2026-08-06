@@ -31,12 +31,28 @@ spec:
           imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
           ports:
             - containerPort: {{ .Values.backend.service.port }}
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: {{ .Values.backend.service.port }}
+            initialDelaySeconds: 20
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: {{ .Values.backend.service.port }}
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
           env:
             - name: LLAMA_STACK_URL
               value: {{ .Values.backend.env.LLAMA_STACK_URL | quote }}
             - name: LLAMA_STACK_MODEL
-              {{- if (.Values.global.models | dig "llama-3-2-1b-instruct" "enabled" false) }}
-              value: {{ printf "llama-3-2-1b-instruct/%s" (.Values.global.models | dig "llama-3-2-1b-instruct" "id" "meta-llama/Llama-3.2-1B-Instruct") | quote }}
+              {{- if (.Values.global.models | dig "llama-3-2-3b-instruct" "enabled" false) }}
+              value: {{ printf "llama-3-2-3b-instruct/%s" (.Values.global.models | dig "llama-3-2-3b-instruct" "id" "meta-llama/Llama-3.2-3B-Instruct") | quote }}
               {{- else }}
               value: {{ printf "external-model/%s" (required "global.models.external-model.id is required" (.Values.global.models | dig "external-model" "id" "")) | quote }}
               {{- end }}
@@ -48,13 +64,18 @@ spec:
               {{- $extId := .Values.global.models | dig "external-model" "id" "" }}
               {{- if $extId }}
               value: {{ printf "external-model/%s" $extId | quote }}
-              {{- else if (.Values.global.models | dig "llama-3-2-1b-instruct" "enabled" false) }}
-              value: {{ printf "llama-3-2-1b-instruct/%s" (.Values.global.models | dig "llama-3-2-1b-instruct" "id" "meta-llama/Llama-3.2-1B-Instruct") | quote }}
+              {{- else if (.Values.global.models | dig "llama-3-2-3b-instruct" "enabled" false) }}
+              value: {{ printf "llama-3-2-3b-instruct/%s" (.Values.global.models | dig "llama-3-2-3b-instruct" "id" "meta-llama/Llama-3.2-3B-Instruct") | quote }}
               {{- else }}
-              value: {{ printf "external-model/%s" (required "global.models.external-model.id is required when llama-3-2-1b-instruct is disabled" $extId) | quote }}
+              value: {{ printf "external-model/%s" (required "global.models.external-model.id is required when no local model is enabled" $extId) | quote }}
               {{- end }}
             - name: GENERAL_SIMULATION_BASE_URL
               value: {{ .Values.backend.env.GENERAL_SIMULATION_BASE_URL | quote }}
+            # Optional override for air-gapped / egress-restricted clusters.
+            # Format: "Name|https://feed.example/rss;Other|https://..."
+            # Empty uses built-in BBC + Guardian feeds (requires HTTPS egress).
+            - name: NEWS_FEED_URLS
+              value: {{ .Values.backend.env.NEWS_FEED_URLS | default "" | quote }}
             # PG_ prefix avoids collision with the Kubernetes-injected
             # PGVECTOR_PORT=tcp://ip:port service-discovery variable.
             - name: PG_HOST

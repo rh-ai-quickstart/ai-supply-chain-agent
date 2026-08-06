@@ -86,3 +86,8 @@ class LlamaStackVectorStoreClient:
         logger.info(
             "Attached file %s to vector store %s", file_id, vector_store_id
         )
+
+    def delete_vector_store(self, vector_store_id: str) -> None:
+        """Delete a vector store by id. Used for cleanup on partial ingestion failure."""
+        self._client.vector_stores.delete(vector_store_id)
+        logger.info("Deleted vector store %s", vector_store_id)

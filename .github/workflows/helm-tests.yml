@@ -30,6 +30,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # helm/Chart.yaml pulls the general-simulation subchart from a sibling
+      # checkout (file://../general-simulation/...) until it's published to
+      # https://robertsandoval.github.io/general-simulation. actions/checkout
+      # can't place a repo outside $GITHUB_WORKSPACE, so clone it directly to
+      # the workspace's parent dir to reproduce that local dev layout.
+      - name: Checkout general-simulation (sibling Helm chart dependency)
+        run: |
+          git clone --depth 1 --branch main \
+            https://github.com/robertsandoval/general-simulation.git \
+            "$(dirname "$GITHUB_WORKSPACE")/general-simulation"
+
       - uses: azure/setup-helm@v4
         with:
           version: v3.19.4

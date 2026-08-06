@@ -1,21 +1,6 @@
 import PropTypes from "prop-types";
 import { ChatMarkdownBody } from "./ChatMarkdownBody.jsx";
-
-function formatCurrency(amount, currency = "USD") {
-  const value = Number(amount);
-  if (!Number.isFinite(value)) {
-    return `${currency} —`;
-  }
-  try {
-    return new Intl.NumberFormat(undefined, {
-      style: "currency",
-      currency,
-      maximumFractionDigits: 0,
-    }).format(value);
-  } catch {
-    return `${currency} ${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
-  }
-}
+import { dedupeImpactAnswer, diversionKey, formatCurrency } from "../utils/impactEntityUtils";
 
 function formatScore(score) {
   const value = Number(score);
@@ -23,7 +8,65 @@ function formatScore(score) {
   return value.toFixed(3);
 }
 
-export function ImpactResultsPanel({ result = null, loading = false }) {
+function EntityLink({ entityId, onFocusEntity }) {
+  return (
+    <button
+      type="button"
+      className="impact-entity-link"
+      onClick={() => onFocusEntity?.(entityId)}
+      title={`Show ${entityId} on map`}
+    >
+      {entityId}
+    </button>
+  );
+}
+
+EntityLink.propTypes = {
+  entityId: PropTypes.string.isRequired,
+  onFocusEntity: PropTypes.func,
+};
+
+function DiversionRow({ route, isSelected, onFocusDiversion }) {
+  const label = route.target_label || route.target_id || "alternate";
+  const entityId = route.entity_id || "unknown";
+  return (
+    <li>
+      <button
+        type="button"
+        className={`impact-diversion-btn${isSelected ? " is-selected" : ""}`}
+        onClick={() => onFocusDiversion?.(route)}
+        aria-pressed={isSelected}
+        title={`Show diversion route for ${entityId} to ${label} on map`}
+      >
+        <span className="impact-diversion-route">
+          <span className="impact-diversion-entity">{entityId}</span>
+          <span aria-hidden="true"> → </span>
+          <strong>{label}</strong>
+        </span>
+        {route.rationale ? <span className="muted impact-diversion-rationale">{route.rationale}</span> : null}
+      </button>
+    </li>
+  );
+}
+
+DiversionRow.propTypes = {
+  route: PropTypes.shape({
+    entity_id: PropTypes.string,
+    target_id: PropTypes.string,
+    target_label: PropTypes.string,
+    rationale: PropTypes.string,
+  }).isRequired,
+  isSelected: PropTypes.bool,
+  onFocusDiversion: PropTypes.func,
+};
+
+export function ImpactResultsPanel({
+  result = null,
+  loading = false,
+  onFocusEntity,
+  onFocusDiversion,
+  focusedDiversionKey = "",
+}) {
   if (loading) {
     return (
       <section className="panel impact-results-panel">
@@ -46,8 +89,15 @@ export function ImpactResultsPanel({ result = null, loading = false }) {
   const currency = solver.currency || "USD";
   const breakdown = Array.isArray(solver.value_breakdown) ? solver.value_breakdown : [];
   const options = Array.isArray(solver.response_options) ? solver.response_options : [];
+  const reroutes = Array.isArray(solver.recommended_reroutes) ? solver.recommended_reroutes : [];
   const trace = Array.isArray(result.tool_call_trace) ? result.tool_call_trace : [];
   const affected = Array.isArray(result.affected_entities) ? result.affected_entities : [];
+  const hasValueAtRisk = Number.isFinite(Number(solver.total_value_at_risk));
+  const answer = dedupeImpactAnswer(result.answer, {
+    hasReroutes: reroutes.length > 0,
+    hasOptions: options.length > 0,
+    hasValueAtRisk,
+  });
 
   return (
     <section className="panel impact-results-panel insights-panel">
@@ -74,10 +124,10 @@ export function ImpactResultsPanel({ result = null, loading = false }) {
         </div>
       </div>
 
-      {result.answer ? (
+      {answer ? (
         <div className="impact-answer">
           <h4 className="impact-section-title">Answer</h4>
-          <ChatMarkdownBody content={result.answer} compact />
+          <ChatMarkdownBody content={answer} compact />
         </div>
       ) : null}
 
@@ -103,15 +153,42 @@ export function ImpactResultsPanel({ result = null, loading = false }) {
         </div>
       ) : null}
 
+      {reroutes.length > 0 ? (
+        <div className="impact-section">
+          <h4 className="impact-section-title">Recommended Diversions</h4>
+          <p className="muted impact-breakdown-hint">Select a diversion to show its route on the map.</p>
+          <ul className="impact-list impact-diversion-list">
+            {reroutes.map((route) => (
+              <DiversionRow
+                key={diversionKey(route)}
+                route={route}
+                isSelected={focusedDiversionKey === diversionKey(route)}
+                onFocusDiversion={onFocusDiversion}
+              />
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
       {breakdown.length > 0 ? (
         <div className="impact-section">
           <h4 className="impact-section-title">Value breakdown</h4>
+          <p className="muted impact-breakdown-hint">
+            Aircraft rows are flight revenue; cargo-* rows are shipment value on board.
+          </p>
           <ul className="impact-list">
-            {breakdown.map((row) => (
-              <li key={row.entity_id}>
-                <strong>{row.entity_id}</strong> — {formatCurrency(row.value_usd, currency)}
-              </li>
-            ))}
+            {breakdown.map((row) => {
+              const isCargo = String(row.entity_id || "").startsWith("cargo-");
+              return (
+                <li key={row.entity_id}>
+                  <EntityLink entityId={row.entity_id} onFocusEntity={onFocusEntity} />
+                  <span className="muted">
+                    {" "}
+                    ({isCargo ? "cargo" : "flight"}) — {formatCurrency(row.value_usd, currency)}
+                  </span>
+                </li>
+              );
+            })}
           </ul>
         </div>
       ) : null}
@@ -119,7 +196,13 @@ export function ImpactResultsPanel({ result = null, loading = false }) {
       {affected.length > 0 ? (
         <div className="impact-section">
           <h4 className="impact-section-title">Affected entities ({affected.length})</h4>
-          <p className="muted impact-entity-ids">{affected.join(", ")}</p>
+          <ul className="impact-entity-link-list">
+            {affected.map((entityId) => (
+              <li key={entityId}>
+                <EntityLink entityId={entityId} onFocusEntity={onFocusEntity} />
+              </li>
+            ))}
+          </ul>
         </div>
       ) : null}
 
@@ -154,4 +237,7 @@ ImpactResultsPanel.propTypes = {
     tool_call_trace: PropTypes.array,
   }),
   loading: PropTypes.bool,
+  onFocusEntity: PropTypes.func,
+  onFocusDiversion: PropTypes.func,
+  focusedDiversionKey: PropTypes.string,
 };

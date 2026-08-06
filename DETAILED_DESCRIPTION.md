@@ -38,8 +38,8 @@ Generative AI changes this by bringing a reasoning layer directly into the opera
 
 This quickstart provides a complete, deployable reference architecture for an AI-powered supply chain intelligence platform on Red Hat OpenShift. It includes:
 
-- A **standalone React dashboard** for operators with KPIs, live charts, a logistics map, and a RAG-powered AI chatbot
-- A **Flask backend API** managing dashboard state, disruption simulations, AI chat, and knowledge base management
+- A **standalone React SPA** for operators: impact simulation (scenario query, Leaflet map, solver results), streaming RAG chat, and knowledge-base management
+- A **Flask backend API** proxying general-simulation impact queries, AI chat, and knowledge base management
 - A **knowledge base ingestion pipeline** that loads pre-built supply chain risk analyses into Llama Stack vector stores or PGVector for RAG retrieval
 - A **Helm umbrella chart** that deploys the full stack — frontend, backend, ingest job, Llama Stack, LLM service, and PGVector — with a single command
 
@@ -51,12 +51,11 @@ Time to complete: 30–90 minutes (depending on deployment mode and hardware)
 
 By the end of this quickstart, you will have:
 
-- A fully functional AI supply chain dashboard deployed on OpenShift
-- A RAG-powered AI chatbot grounded in supply chain risk knowledge (Suez Canal blockage, US trucking shortage, Iceland ash cloud, and more)
-- Live and simulated dashboard data including KPIs, demand/revenue charts, alerts, and a Leaflet logistics map with air-freight tracking via OpenSky
-- Working disruption simulation scenarios (port strike, geopolitical event) that dynamically update KPIs and inject critical alerts
+- A fully functional AI supply chain impact workspace deployed on OpenShift
+- A RAG-powered AI chatbot grounded in supply chain risk knowledge (Suez Canal blockage, Port Strike LA, UK NATS GPS airspace closure, and more)
+- Impact simulation against general-simulation scenarios: affected entities, value-at-risk, recommended diversions, and an interactive map
 - A knowledge base management interface for uploading and querying custom risk documents at runtime
-- Experience with the vLLM & LLM-D performance toggle that surfaces distributed inference metrics
+- Streaming chat completions with per-scenario conversation history and auto-matched vector stores
 
 ---
 
@@ -66,16 +65,16 @@ Throughout this quickstart, you'll gain hands-on experience with modern AI and c
 
 **AI & LLM Technologies:**
 - **[Llama Stack](https://github.com/meta-llama/llama-stack)** — OpenAI-compatible API for chat completions, embeddings, and vector store management
-- **[vLLM](https://docs.vllm.ai/)** — High-throughput LLM serving engine; the default inference backend for `meta-llama/Llama-3.2-1B-Instruct`
+- **[vLLM](https://docs.vllm.ai/)** — High-throughput LLM serving engine; the default inference backend for `meta-llama/Llama-3.2-3B-Instruct`
 - **[LLM-D](https://github.com/llm-d/llm-d)** — Distributed LLM inference for disaggregated prefill/decode; demonstrated via the performance comparison toggle
 - **[RAG (Retrieval-Augmented Generation)](https://www.redhat.com/en/topics/ai/what-is-retrieval-augmented-generation)** — Dual-path RAG with Llama Stack vector stores (default) and LangChain + PGVector (alternative strategy)
 - **[LangChain](https://python.langchain.com/)** — Embeddings pipeline and PGVector similarity search integration
-- **[Llama 3.2](https://llama.meta.com/)** — 1B-parameter instruction-tuned model for supply chain query answering
+- **[Llama 3.2](https://huggingface.co/meta-llama/Llama-3.2-3B-Instruct)** — Default tool-capable instruct model for supply chain query answering
 
 **Frontend & Visualization:**
-- **[React 19](https://react.dev/) + [Vite 7](https://vitejs.dev/)** — Standalone operator dashboard SPA
-- **[Chart.js 4](https://www.chartjs.org/) + react-chartjs-2** — Demand forecasting and revenue trend charts
-- **[Leaflet 1.9](https://leafletjs.com/) + react-leaflet 5** — Interactive logistics map with global, regional, and air-freight views
+- **[React 19](https://react.dev/) + [Vite 7](https://vitejs.dev/)** — Standalone operator SPA
+- **[Leaflet 1.9](https://leafletjs.com/) + react-leaflet 5** — Interactive impact map with entity highlights and diversion routes
+- **[react-markdown](https://github.com/remarkjs/react-markdown)** — Streaming chat and impact-answer rendering
 
 **Cloud-Native Infrastructure:**
 - **[OpenShift 4.21+](https://www.redhat.com/en/technologies/cloud-computing/openshift) / [OpenShift AI 3.4+](https://www.redhat.com/en/technologies/cloud-computing/openshift/openshift-ai)** — Container orchestration and AI/ML platform
@@ -100,8 +99,8 @@ The platform is built as a React frontend and Flask backend API:
 ┌─────────────────────────────▼────────────────────────────────┐
 │                     Flask Backend API (:5001)                  │
 │                                                               │
-│  DashboardService   ChatService    RouteService               │
-│  (KPIs, map, alerts) (RAG + LLM)  (routing optimization)     │
+│  GeneralSimulation   ChatService    KnowledgeBases           │
+│  (impact query/map)  (RAG + LLM)    (ingest + catalog)       │
 └──────────┬──────────────────┬────────────────────────────────┘
            │                  │
 ┌──────────▼──────┐  ┌────────▼─────────────────────────────── ┐
@@ -114,30 +113,24 @@ The platform is built as a React frontend and Flask backend API:
 
 **Key request flows:**
 
-1. **Dashboard refresh (every 15 seconds):** The frontend polls `GET /api/v1/state`. The `DashboardService` assembles KPIs, chart data, alert feeds, and map layers — enriching with live OpenSky aircraft positions when available — and returns a single state JSON.
+1. **Impact simulation:** The operator picks a seeded scenario and runs a natural-language impact query (`POST /api/v1/general-simulation/query`). The backend forwards to general-simulation; the UI shows impact score, value at risk, affected entities, recommended diversions, and highlights entities on a GeoJSON map (`GET .../entities/geojson`).
 
-2. **Disruption simulation:** The operator selects a scenario preset in the Simulation Panel and clicks Simulate. A `POST /api/v1/simulate` request mutates KPIs and injects critical alerts for the selected scenario (e.g. Port Strike LA, Suez blockage). The frontend replaces dashboard state immediately without waiting for the next poll cycle.
+2. **AI chat (RAG):** The operator types a question in the chat dock. `POST /api/v1/chat` runs guardrails, then RAG against an auto-matched vector store for the active scenario. With `stream: true` (UI default), the backend relays token chunks over SSE so the reply renders incrementally as markdown.
 
-3. **AI chat (RAG):** The operator types a question in the chat panel. `POST /api/v1/chat` runs the request through guardrails (off-topic rejection), an optional deterministic route-optimization shortcut, then a full RAG pipeline: vector similarity search against the knowledge base, followed by an LLM completion via Llama Stack. When `stream: true` is set (the default in the UI), the backend relays token chunks over Server-Sent Events (SSE) so the assistant reply renders incrementally as markdown; non-streaming JSON responses remain supported for backward compatibility.
-
-4. **Knowledge base ingestion:** A post-install Kubernetes Job loads bundled risk analyses (Suez Canal, US trucking shortage, Iceland ash cloud) into Llama Stack vector stores. Operators can also upload custom `.txt`/`.pdf` documents at runtime via the knowledge base management panel.
+3. **Knowledge base ingestion:** A post-install Kubernetes Job loads bundled risk analyses (UK NATS GPS airspace closure, Port Strike LA/LGB, Suez Canal blockage) into Llama Stack vector stores — one store per document so scenarios can select the matching knowledge base by name keywords. Operators can also upload custom `.txt`/`.pdf` documents at runtime via the knowledge base page.
 
 **Bundled knowledge base documents:**
 
-| Document | Topic |
-|----------|-------|
-| `suez_blockage_analysis_2021.txt` | Ever Given incident: root causes, delays, global trade impact |
-| `land_risk_us_trucking_shortage_2023.txt` | Driver shortage, freight cost surge, port backlog metrics |
-| `air_risk_iceland_ash_cloud_2010.txt` | Eyjafjallajökull eruption: airspace closure, air-freight disruption |
+| Document | Topic | Simulation scenario |
+|----------|-------|---------------------|
+| `air_risk_uk_nats_gps_closure.txt` | UK NATS GPS/navigation failure: diversions, oceanic contingency tracks, air-freight impact | `opensky-uk-closure-001` |
+| `land_risk_port_strike_la.txt` | LA/LGB port strike: vessel holds, inland DC shortfalls, Oakland/Prince Rupert reroutes | `supply-chain-port-strike-la` |
+| `suez_blockage_analysis.txt` | Suez corridor blockage: Cape diversion (~14 days), Rotterdam backlog, high-value cargo VaR | `supply-chain-suez-blockage` |
 
-**Simulation scenarios:**
+**Impact scenarios (UI):**
 
-| Scenario | Dashboard effect |
-|----------|-----------------|
-| Port Strike (LA/LGB) | Lost-sales KPI → $4.2M; critical port-strike alert injected |
-| Geopolitical Event | Turnover KPI drops; Suez blockage 14-day delay alert injected |
-| World Event (map) | Ephemeral map-layer alerts (cyclone, labor dispute, airspace closure) with 120-second TTL |
-
-**vLLM & LLM-D performance toggle:**
-
-When enabled, the dashboard adds a Performance Metrics panel surfacing synthetic latency, cache-hit rate, and tokens-per-second statistics that compare distributed inference (vLLM + LLM-D) against standard monolithic serving. This provides a tangible, side-by-side demonstration of the infrastructure efficiency gains from deploying disaggregated inference on OpenShift AI.
+| Scenario ID | Label | Focus |
+|-------------|-------|-------|
+| `opensky-uk-closure-001` | UK Airspace Closure | Aircraft diversions / air cargo VaR |
+| `supply-chain-port-strike-la` | Port Strike LA | Vessel / inland facility impact |
+| `supply-chain-suez-blockage` | Suez Blockage | Delayed vessels and European port backlog |

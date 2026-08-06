@@ -1,4 +1,5 @@
 -r api/requirements.txt
 -r ingestion/requirements.txt
-pytest>=8.0
-ruff>=0.12
+pytest==9.1.1
+ruff==0.16.1
+mypy==2.3.0

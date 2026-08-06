@@ -30,3 +30,27 @@ ingest:
   enabled: false
   image:
     pullPolicy: IfNotPresent
+
+# Demo-only credentials so general-simulation's Postgres/Neo4j secret templates
+# render in the ephemeral Kind namespace (see helm/secrets.example.yaml for the
+# real-deployment equivalent, kept out of values.yaml on purpose). The matching
+# neo4j-auth Secret is pre-created by .github/actions/kind before `helm install`.
+general-simulation:
+  postgres:
+    postgres:
+      password: kind-demo-password
+  api:
+    postgres:
+      password: kind-demo-password
+    neo4j:
+      password: kind-demo-password
+  bootstrap:
+    postgres:
+      password: kind-demo-password
+    neo4j:
+      password: kind-demo-password
+  ingestion:
+    postgres:
+      password: kind-demo-password
+    neo4j:
+      password: kind-demo-password

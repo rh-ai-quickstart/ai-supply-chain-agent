@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { ChatBar } from "./ChatBar";
@@ -15,7 +15,7 @@ describe("ChatBar", () => {
       />
     );
     expect(screen.getByLabelText("Chat input")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "➤" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Send chat message" })).toBeInTheDocument();
   });
 
   it("renders user input value", () => {
@@ -42,8 +42,7 @@ describe("ChatBar", () => {
       />
     );
     expect(screen.getByLabelText("Chat input")).toBeDisabled();
-    // button text is "…" — match with regex since it's the Unicode ellipsis character
-    expect(screen.getByRole("button", { name: /\u2026$/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Sending" })).toBeDisabled();
   });
 
   it("shows loading text while loading", () => {
@@ -86,7 +85,7 @@ describe("ChatBar", () => {
         chatMessages={[]}
       />
     );
-    await user.click(screen.getByRole("button", { name: "➤" }));
+    await user.click(screen.getByRole("button", { name: "Send chat message" }));
     expect(onSubmitChat).toHaveBeenCalled();
   });
 
@@ -102,7 +101,7 @@ describe("ChatBar", () => {
         chatMessages={[]}
       />
     );
-    await user.click(screen.getByRole("button", { name: "➤" }));
+    await user.click(screen.getByRole("button", { name: "Send chat message" }));
     expect(onSubmitChat).not.toHaveBeenCalled();
   });
 
@@ -118,7 +117,7 @@ describe("ChatBar", () => {
         chatMessages={[]}
       />
     );
-    await user.click(screen.getByRole("button", { name: /\u2026$/ }));
+    await user.click(screen.getByRole("button", { name: "Sending" }));
     expect(onSubmitChat).not.toHaveBeenCalled();
   });
 
@@ -216,7 +215,7 @@ describe("ChatBar", () => {
     await user.click(screen.getByRole("button", { name: "View conversation" }));
     expect(screen.getByRole("dialog")).toBeInTheDocument();
     expect(screen.getByLabelText("Chat reply input")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Send" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Send chat message" })).toBeInTheDocument();
   });
 
   it("closes modal when dismiss button clicked", async () => {
@@ -233,6 +232,23 @@ describe("ChatBar", () => {
     await user.click(screen.getByRole("button", { name: "View conversation" }));
     expect(screen.getByRole("dialog")).toBeInTheDocument();
     await user.click(screen.getByLabelText("Close dialog"));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("closes modal on Escape", async () => {
+    const user = userEvent.setup();
+    render(
+      <ChatBar
+        chatInput="test"
+        onChangeChatInput={vi.fn()}
+        onSubmitChat={vi.fn()}
+        chatLoading={false}
+        chatMessages={[{ role: "user", content: "Hello" }, { role: "ai", content: "Hi" }]}
+      />
+    );
+    await user.click(screen.getByRole("button", { name: "View conversation" }));
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    await user.keyboard("{Escape}");
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
@@ -291,9 +307,27 @@ describe("ChatBar", () => {
     );
     await user.click(screen.getByRole("button", { name: "View conversation" }));
     const input = screen.getByLabelText("Chat reply input");
-    await user.clear(input);
-    await user.type(input, "hello");
-    const lastCall = onChangeChatInput.mock.calls.slice(-1)[0];
-    expect(lastCall).toEqual(["hello"]);
+    // Controlled input: fire a single change (parent does not re-render with new value).
+    fireEvent.change(input, { target: { value: "hello" } });
+    expect(onChangeChatInput).toHaveBeenCalledWith("hello");
   });
+
+  it.each(["general_simulation", "fetch_news", "knowledge_base"])(
+    "shows tool badge for %s",
+    (tool) => {
+      render(
+        <ChatBar
+          chatInput=""
+          onChangeChatInput={vi.fn()}
+          onSubmitChat={vi.fn()}
+          chatLoading={false}
+          chatMessages={[
+            { role: "human", content: "hi" },
+            { role: "ai", content: "Done.", tool },
+          ]}
+        />,
+      );
+      expect(screen.getByText(`Used tool: ${tool}`)).toBeInTheDocument();
+    },
+  );
 });

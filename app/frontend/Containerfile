@@ -7,6 +7,14 @@ RUN npm i -g pnpm && pnpm install --frozen-lockfile
 
 COPY . ./
 
+# Populated by `make build-frontend` (git sha + UTC timestamp). Vite inlines
+# any VITE_-prefixed env var into import.meta.env at build time, so the header
+# can show which commit/build is actually running in a given container.
+ARG GIT_COMMIT=unknown
+ARG BUILD_TIME=unknown
+ENV VITE_GIT_COMMIT=$GIT_COMMIT
+ENV VITE_BUILD_TIME=$BUILD_TIME
+
 RUN pnpm run build
 
 FROM docker.io/nginxinc/nginx-unprivileged:stable-alpine

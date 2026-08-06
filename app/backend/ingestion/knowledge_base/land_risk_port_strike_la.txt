@@ -1,0 +1,37 @@
+Analysis: Port Strike at Los Angeles and Long Beach (LA/LGB)
+
+Event: Labor action halts container operations at the Ports of Los Angeles and Long Beach.
+Duration: Multi-day to multi-week stoppage depending on bargaining progress.
+
+Primary Impacts:
+
+Container vessel calls at LA/LGB are suspended or held offshore; Asia–US West Coast
+inbound cargo cannot discharge.
+
+Inland distribution centers that depend on LA/LGB face inventory shortfalls within
+approximately 72 hours for fast-moving SKUs.
+
+Rail and truck transfer points at the ports idle; container dwell times surge as
+equipment and chassis cannot clear the terminals.
+
+Reroute options include Oakland and Prince Rupert, with multi-day rail delays and
+higher inland freight costs into Chicago, Dallas, and other hubs.
+
+Economic Impact: Lost sales and expedited freight for retailers and manufacturers
+tied to Southern California gateways. Spot trucking and intermodal rates on
+LA–Chicago and LA–Dallas lanes spike while capacity is diverted to alternate ports.
+
+Secondary Impacts:
+
+Critical backlog forms at inland DCs once vessels finally discharge post-strike.
+
+Last-mile networks absorb delayed containers unevenly, extending e-commerce and
+store replenishment lead times by several days.
+
+Shippers with dual West Coast gateways (e.g., Seattle/Tacoma or Canadian gateways
+plus LA/LGB) recover faster than single-port dependent networks.
+
+Key Takeaway: LA/LGB is a primary North American import bottleneck. A port strike
+immediately stresses inland rail/truck capacity and DC inventory. Pre-negotiated
+alternate gateways, safety stock at inland hubs, and flexible intermodal contracts
+are the main resilience levers.

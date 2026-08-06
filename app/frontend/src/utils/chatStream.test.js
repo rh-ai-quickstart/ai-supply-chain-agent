@@ -23,6 +23,20 @@ describe("applyChatStreamEvent", () => {
       completion: { usage: { total_tokens: 3 } },
     });
   });
+
+  it("attaches simulation payload from a tool done event", () => {
+    const next = applyChatStreamEvent(base, {
+      type: "done",
+      answer: "Sim done",
+      tool: "general_simulation",
+      simulation: { scenario_id: "opensky-uk-closure-001", affected_entities: ["a"] },
+    });
+    expect(next?.[1].tool).toBe("general_simulation");
+    expect(next?.[1].simulation).toEqual({
+      scenario_id: "opensky-uk-closure-001",
+      affected_entities: ["a"],
+    });
+  });
 });
 
 describe("consumeChatSseStream", () => {

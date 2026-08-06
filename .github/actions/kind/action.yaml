@@ -86,6 +86,17 @@ runs:
       shell: bash
       run: make k8s-namespace NAMESPACE=${{ inputs.namespace }}
 
+    # general-simulation's neo4j subchart does a live-cluster lookup for this
+    # Secret at install time (see helm/secrets.example.yaml); the password here
+    # must match helm/values-kind.yaml's general-simulation.*.neo4j.password.
+    - name: Create neo4j-auth Secret (general-simulation demo credentials)
+      shell: bash
+      run: |
+        kubectl create secret generic neo4j-auth \
+          --namespace ${{ inputs.namespace }} \
+          --from-literal=NEO4J_AUTH="neo4j/kind-demo-password" \
+          --dry-run=client -o yaml | kubectl apply -f -
+
     - name: Helm install (Kind values)
       shell: bash
       env:

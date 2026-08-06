@@ -5,8 +5,8 @@ Umbrella chart for the AI Supply Chain Agent quickstart. It deploys the applicat
 ## What it deploys
 
 - **pgvector** — PostgreSQL with the pgvector extension (agent RAG; kept even when gen-sim is enabled)
-- **llama-stack** — Llama Stack API (chat, vector stores)
-- **llm-service** — Model serving (e.g. Llama 3.2 1B)
+- **llama-stack** — Llama Stack API (chat, vector stores); default inference via MaaS / `external-model`
+- **llm-service** — Optional in-cluster model serving (disabled by default)
 - **general-simulation** — Optional subchart (own Postgres + Neo4j + API + ingestion); see below
 - **backend** — Flask API
 - **frontend** — React dashboard (nginx)
@@ -16,12 +16,13 @@ Umbrella chart for the AI Supply Chain Agent quickstart. It deploys the applicat
 
 - Helm 3.14+
 - OpenShift CLI (`oc`) for cluster deploys
-- A [Hugging Face token](https://huggingface.co/settings/tokens) (required for gated models)
-- When `general-simulation.enabled: true`: chart repo [robertsandoval.github.io/general-simulation](https://robertsandoval.github.io/general-simulation) (after the first `chart-v*` publish), plus Neo4j auth Secret (below)
+- A MaaS / LiteMaaS API token (default path: `global.models.external-model.apiToken` in `secrets.yaml`)
+- A [Hugging Face token](https://huggingface.co/settings/tokens) only if you re-enable `llm-service` for gated models
+- When `general-simulation.enabled: true`: Neo4j auth Secret (below)
 
-## Provide the Hugging Face token
+## Provide the MaaS API token (default)
 
-The `llm-service` sub-chart reads the token from a Secret named `huggingface-secret` (key `HF_TOKEN`).
+Set a **literal** token on `global.models.external-model.apiToken` (via `helm/secrets.yaml` or `--set`). Do not use `${env.VAR}` — the llama-stack `wait-for-models` init script expands that unquoted and bash fails with `bad substitution`.
 
 **Option A — use `helm/secrets.yaml`** (recommended for local development):
 
@@ -29,7 +30,7 @@ The `llm-service` sub-chart reads the token from a Secret named `huggingface-sec
 
 ```bash
 cp helm/secrets.example.yaml helm/secrets.yaml
-# Edit helm/secrets.yaml and add your HF token
+# Edit helm/secrets.yaml and set global.models.external-model.apiToken
 ```
 
 2. Deploy as usual — the Makefile automatically applies `helm/secrets.yaml` if it exists:
@@ -38,15 +39,19 @@ cp helm/secrets.example.yaml helm/secrets.yaml
 make helm-install
 ```
 
-**Option B — set it in `values.yaml`** (not recommended):
+**Option B — pass at install time:**
 
-```yaml
-llm-service:
-  secret:
-    hf_token: "<your-hf-token>"
+```bash
+helm upgrade --install supply-chain-dashboard ./helm \
+  -f helm/values.yaml \
+  --set global.models.external-model.apiToken="<your-maas-token>" \
+  --namespace supply-chain-dashboard \
+  --create-namespace
 ```
 
-**Option C — pre-create the Secret** (recommended for production; the token never touches a values file or secrets.yaml):
+## Optional: local model (Hugging Face token)
+
+Only when `llm-service.enabled: true`. The `llm-service` sub-chart reads Secret `huggingface-secret` (key `HF_TOKEN`), or `llm-service.secret.hf_token` from `secrets.yaml`.
 
 ```bash
 oc create secret generic huggingface-secret \
@@ -57,6 +62,8 @@ oc create secret generic huggingface-secret \
 ## General Simulation subchart
 
 Enabled by default via `general-simulation.enabled`. Gen-sim brings its **own** Postgres and Neo4j into the **same** namespace as this release. The agent keeps `pgvector` for its own RAG.
+
+**Gen-sim does not use MaaS.** It calls OpenAI (`api.llm.backend: openai`) with `apiKey` from `helm/secrets.yaml`. Override `baseUrl` if you want a different OpenAI-compatible endpoint.
 
 Before install, create Neo4j auth and set passwords in `helm/secrets.yaml` (see `secrets.example.yaml`):
 
@@ -109,9 +116,10 @@ curl -s http://general-sim-api:8000/health   # from a pod in the namespace
 
 ## Customize
 
-- **Models** — `global.models` and `llm-service.models`
-- **GPU** — `llm-service.device` and per-model `device` (default is CPU in `values.yaml`)
+- **MaaS** — `global.models.external-model` (`id`, `url`, `apiToken` via secrets)
+- **Local models** — re-enable `llm-service` and `global.models.<model>.enabled`
+- **GPU** — `llm-service.device` and per-model `device` when local serving is on
 - **Ingest** — `ingest.strategy` (`llamastack` | `langchain`), `ingest.enabled`, chunking under `ingest.*` for LangChain only
-- **General simulation** — `general-simulation.enabled` and nested passwords / LLM settings
+- **General simulation** — `general-simulation.enabled` and nested passwords / OpenAI `llm.apiKey` (not MaaS)
 
 Full operator documentation: [README.md](../README.md) and [docs/WHAT_TO_EXPECT.md](../docs/WHAT_TO_EXPECT.md).

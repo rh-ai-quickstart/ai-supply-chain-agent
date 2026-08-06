@@ -16,11 +16,13 @@ export function ChatBar({
   chatLoading = false,
   chatError = "",
   chatMessages = [],
+  chatRagHint = "",
 }) {
   const [isChatModalOpen, setIsChatModalOpen] = useState(false);
   const logEndRef = useRef(null);
   const modalInputRef = useRef(null);
   const wasChatLoadingRef = useRef(false);
+  const previouslyFocusedRef = useRef(null);
 
   useEffect(() => {
     if (!isChatModalOpen || !logEndRef.current) {
@@ -46,8 +48,25 @@ export function ChatBar({
     if (!isChatModalOpen) {
       return;
     }
+    previouslyFocusedRef.current = document.activeElement;
     const timer = window.setTimeout(() => modalInputRef.current?.focus(), 0);
-    return () => clearTimeout(timer);
+
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setIsChatModalOpen(false);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("keydown", onKeyDown);
+      const prior = previouslyFocusedRef.current;
+      if (prior && typeof prior.focus === "function") {
+        prior.focus();
+      }
+    };
   }, [isChatModalOpen]);
 
   const openModal = () => setIsChatModalOpen(true);
@@ -86,6 +105,9 @@ export function ChatBar({
             <div key={`${message.role}-${index}`} className={messageBubbleClassName(message.role, compact)}>
               {message.role === "ai" ? (
                 <>
+                  {["general_simulation", "fetch_news", "knowledge_base"].includes(message.tool) ? (
+                    <p className="muted chat-tool-badge">Used tool: {message.tool}</p>
+                  ) : null}
                   <ChatMarkdownBody content={message.content} compact={compact} />
                   {hasCompletion && message.completion ? (
                     <div className="chat-completion-meta">
@@ -108,6 +130,11 @@ export function ChatBar({
       )}
       {chatLoading ? <p className="muted">Thinking…</p> : null}
       {chatError ? <p className="error">{chatError}</p> : null}
+      {chatRagHint ? (
+        <p className="muted" role="status">
+          {chatRagHint}
+        </p>
+      ) : null}
       {compact ? null : <div ref={logEndRef} />}
     </>
   );
@@ -130,7 +157,12 @@ export function ChatBar({
             disabled={chatLoading}
             aria-label="Chat input"
           />
-          <button type="button" onClick={handleSend} disabled={chatLoading || !chatInput.trim()}>
+          <button
+            type="button"
+            onClick={handleSend}
+            disabled={chatLoading || !chatInput.trim()}
+            aria-label={chatLoading ? "Sending" : "Send chat message"}
+          >
             {chatLoading ? "…" : "➤"}
           </button>
           {chatMessages.length > 0 ? (
@@ -147,6 +179,11 @@ export function ChatBar({
           role="dialog"
           aria-modal="true"
           aria-labelledby="chat-modal-title"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              closeModal();
+            }
+          }}
         >
           <div className="chat-modal-content">
             <div className="chat-modal-header">
@@ -185,4 +222,5 @@ ChatBar.propTypes = {
   chatLoading: PropTypes.bool,
   chatError: PropTypes.string,
   chatMessages: PropTypes.array,
+  chatRagHint: PropTypes.string,
 };
