@@ -1,68 +1,18 @@
 import PropTypes from "prop-types";
-import { useState } from "react";
-import { createScenario, proposeScenario } from "../services/scenarioCreateService";
-
-const EMPTY_DRAFT = {
-  name: "",
-  scenario_id: "",
-  description: "",
-  affect_bbox: "",
-  place_summary: "",
-  rationale: "",
-};
+import { useCreateScenario } from "../hooks/useCreateScenario";
 
 export function CreateScenarioPage({ onCreated }) {
-  const [prompt, setPrompt] = useState("");
-  const [draft, setDraft] = useState(null);
-  const [proposing, setProposing] = useState(false);
-  const [creating, setCreating] = useState(false);
-  const [error, setError] = useState("");
+  const scenario = useCreateScenario(onCreated);
+  const { draft, locked } = scenario;
 
-  const locked = proposing || creating;
-
-  const handlePropose = async (event) => {
+  const handlePropose = (event) => {
     event.preventDefault();
-    const text = prompt.trim();
-    if (!text || locked) return;
-    setError("");
-    setProposing(true);
-    try {
-      const result = await proposeScenario(text);
-      if (!result?.success || !result.draft) {
-        setError(result?.error || "Unable to propose a scenario.");
-        setDraft(null);
-        return;
-      }
-      setDraft({ ...EMPTY_DRAFT, ...result.draft });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to propose a scenario.");
-      setDraft(null);
-    } finally {
-      setProposing(false);
-    }
+    scenario.propose();
   };
 
-  const updateDraftField = (key, value) => {
-    setDraft((prev) => (prev ? { ...prev, [key]: value } : prev));
-  };
-
-  const handleCreate = async (event) => {
+  const handleCreate = (event) => {
     event.preventDefault();
-    if (!draft || locked) return;
-    setError("");
-    setCreating(true);
-    try {
-      const result = await createScenario(draft);
-      if (!result?.success || !result.scenario_id) {
-        setError(result?.error || "Unable to create scenario.");
-        return;
-      }
-      onCreated?.(result.scenario_id);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to create scenario.");
-    } finally {
-      setCreating(false);
-    }
+    scenario.create();
   };
 
   return (
@@ -74,9 +24,9 @@ export function CreateScenarioPage({ onCreated }) {
           description, and geographic bbox. Confirm to persist it in general-simulation so Impact
           Query can run against live entities in that area.
         </p>
-        {error ? (
+        {scenario.error ? (
           <p className="kb-alert error" role="alert">
-            {error}
+            {scenario.error}
           </p>
         ) : null}
 
@@ -88,13 +38,13 @@ export function CreateScenarioPage({ onCreated }) {
             id="scenario-prompt"
             className="kb-input create-scenario-textarea"
             rows={5}
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
+            value={scenario.prompt}
+            onChange={(e) => scenario.setPrompt(e.target.value)}
             disabled={locked}
             placeholder="e.g. France airspace is closed for 48 hours due to ATC outage"
           />
-          <button className="kb-submit" type="submit" disabled={locked || !prompt.trim()}>
-            {proposing ? "Proposing…" : "Propose scenario"}
+          <button className="kb-submit" type="submit" disabled={locked || !scenario.prompt.trim()}>
+            {scenario.proposing ? "Proposing…" : "Propose scenario"}
           </button>
         </form>
       </section>
@@ -116,7 +66,7 @@ export function CreateScenarioPage({ onCreated }) {
               className="kb-input"
               type="text"
               value={draft.name}
-              onChange={(e) => updateDraftField("name", e.target.value)}
+              onChange={(e) => scenario.updateDraftField("name", e.target.value)}
               disabled={locked}
             />
 
@@ -128,7 +78,7 @@ export function CreateScenarioPage({ onCreated }) {
               className="kb-input"
               type="text"
               value={draft.scenario_id}
-              onChange={(e) => updateDraftField("scenario_id", e.target.value)}
+              onChange={(e) => scenario.updateDraftField("scenario_id", e.target.value)}
               disabled={locked}
               autoComplete="off"
             />
@@ -141,7 +91,7 @@ export function CreateScenarioPage({ onCreated }) {
               className="kb-input create-scenario-textarea"
               rows={4}
               value={draft.description}
-              onChange={(e) => updateDraftField("description", e.target.value)}
+              onChange={(e) => scenario.updateDraftField("description", e.target.value)}
               disabled={locked}
             />
 
@@ -153,7 +103,7 @@ export function CreateScenarioPage({ onCreated }) {
               className="kb-input"
               type="text"
               value={draft.affect_bbox}
-              onChange={(e) => updateDraftField("affect_bbox", e.target.value)}
+              onChange={(e) => scenario.updateDraftField("affect_bbox", e.target.value)}
               disabled={locked}
               autoComplete="off"
             />
@@ -166,7 +116,7 @@ export function CreateScenarioPage({ onCreated }) {
               className="kb-input"
               type="text"
               value={draft.place_summary || ""}
-              onChange={(e) => updateDraftField("place_summary", e.target.value)}
+              onChange={(e) => scenario.updateDraftField("place_summary", e.target.value)}
               disabled={locked}
             />
 
@@ -181,7 +131,7 @@ export function CreateScenarioPage({ onCreated }) {
                 !draft.affect_bbox.trim()
               }
             >
-              {creating ? "Creating…" : "Create scenario"}
+              {scenario.creating ? "Creating…" : "Create scenario"}
             </button>
           </form>
         </section>

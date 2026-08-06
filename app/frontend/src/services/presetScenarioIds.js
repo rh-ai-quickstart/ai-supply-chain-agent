@@ -19,6 +19,9 @@ export const SCENARIO_QUESTIONS = {
     "The Suez Canal is blocked. Which vessels and cargoes are delayed, what is the impact on European ports, and what is the estimated cost of impact?",
 };
 
+/** Default Impact Query question shown before any scenario is selected. */
+export const DEFAULT_IMPACT_QUESTION = SCENARIO_QUESTIONS["opensky-uk-closure-001"];
+
 /** Map bboxes (minLon,minLat,maxLon,maxLat) focused on each scenario. */
 export const SCENARIO_BBOXES = {
   "opensky-uk-closure-001": "-15,35,40,62",

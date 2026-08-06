@@ -1,8 +1,7 @@
 import PropTypes from "prop-types";
-import { labelForScenario } from "../services/presetScenarioIds";
+import { DEFAULT_IMPACT_QUESTION, labelForScenario } from "../services/presetScenarioIds";
 
-export const DEFAULT_IMPACT_QUESTION =
-  "UK airspace is closed due to a NATS GPS failure. Which aircraft are affected, what diversions should be issued, and what is the estimated cost of impact?";
+export { DEFAULT_IMPACT_QUESTION };
 
 export function ImpactQueryPanel({
   scenarios = [],
