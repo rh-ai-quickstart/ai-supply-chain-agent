@@ -47,7 +47,7 @@ export function useHashRoute() {
 
   useEffect(() => {
     const { path } = hashPathAndQuery();
-    if (path === "" || path === "dashboard") {
+    if (path === "" || path === "dashboard" || path === "live") {
       const scenario = scenarioIdFromHash();
       const qs = scenario ? `?scenario=${encodeURIComponent(scenario)}` : "";
       window.location.hash = `#/simulation${qs}`;
@@ -63,6 +63,7 @@ export function useHashRoute() {
       window.location.hash = "#/create-scenario";
       return;
     }
+    // Legacy ``live`` tab is folded into Simulation (map mode toggle).
     const qs = scenarioId ? `?scenario=${encodeURIComponent(scenarioId)}` : "";
     window.location.hash = `#/simulation${qs}`;
   }, []);

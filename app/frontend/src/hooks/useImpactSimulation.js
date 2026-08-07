@@ -5,11 +5,15 @@ import {
   listImpactScenarios,
   runImpactQuery,
 } from "../services/generalSimulationService";
-import { bboxForScenario, questionForScenario } from "../services/presetScenarioIds";
+import {
+  GLOBAL_DEMO_BBOX,
+  bboxForScenario,
+  questionForScenario,
+} from "../services/presetScenarioIds";
 import { buildValueByEntity, diversionKey } from "../utils/impactEntityUtils";
 import { messageFromError } from "../utils/errorMessage";
 
-export const DEFAULT_GEOJSON_LIMIT = 1000;
+export const DEFAULT_GEOJSON_LIMIT = 3000;
 
 function pickScenarioId(list, preferred) {
   if (!Array.isArray(list) || list.length === 0) return "";
@@ -65,6 +69,8 @@ export function useImpactSimulation({
   const [focusNonce, setFocusNonce] = useState(0);
   const [selectedDiversionKey, setSelectedDiversionKey] = useState("");
   const [diversionFocusNonce, setDiversionFocusNonce] = useState(0);
+  /** ``live`` = world fit (default); ``scenario`` = camera framed to scenario bbox. */
+  const [mapMode, setMapMode] = useState("live");
 
   useEffect(() => {
     const controller = new AbortController();
@@ -115,7 +121,7 @@ export function useImpactSimulation({
       setMapLoading(false);
       return;
     }
-    // Defer heavy bbox loads while chat is using the LLM / gen-sim stack.
+    // Defer heavy map loads while chat is using the LLM / gen-sim stack.
     if (chatLoading) {
       return;
     }
@@ -128,8 +134,9 @@ export function useImpactSimulation({
       setMapError("");
       setMapWarning("");
       try {
+        // Load the full seeded demo world; scenario bbox is camera-only (focusBbox).
         const geoRes = await getImpactEntitiesGeoJson({
-          bbox: bboxForScenario(scenarioId),
+          bbox: GLOBAL_DEMO_BBOX,
           limit: DEFAULT_GEOJSON_LIMIT,
           signal: controller.signal,
         });
@@ -161,6 +168,13 @@ export function useImpactSimulation({
     setMapScenarioId("");
     setQuestion(questionForScenario(nextId));
     setQueryError("");
+    setMapMode("scenario");
+  }, []);
+
+  const handleMapModeChange = useCallback((mode) => {
+    if (mode === "live" || mode === "scenario") {
+      setMapMode(mode);
+    }
   }, []);
 
   useEffect(() => {
@@ -256,6 +270,13 @@ export function useImpactSimulation({
     }
   }, []);
 
+  const focusBbox = useMemo(() => {
+    if (mapMode !== "scenario" || !scenarioId) return "";
+    return bboxForScenario(scenarioId);
+  }, [mapMode, scenarioId]);
+
+  const mapTitle = mapMode === "live" ? "Live Flights" : "Impact Map";
+
   return {
     scenarios,
     scenariosLoading,
@@ -265,10 +286,15 @@ export function useImpactSimulation({
     setQuestion,
     handleChangeScenarioId,
 
+    mapMode,
+    handleMapModeChange,
+    mapTitle,
+
     collection,
     mapLoading,
     mapError,
     mapWarning,
+    focusBbox,
 
     queryLoading,
     queryError,

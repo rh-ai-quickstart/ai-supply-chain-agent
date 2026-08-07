@@ -139,7 +139,7 @@ describe("ImpactSimulationPage", () => {
     });
   });
 
-  it("loads map entities once for the selected scenario bbox", async () => {
+  it("loads map entities once with the global demo bbox", async () => {
     render(<ImpactSimulationPage />);
 
     await waitFor(() => {
@@ -148,15 +148,15 @@ describe("ImpactSimulationPage", () => {
     await waitFor(() => {
       expect(getImpactEntitiesGeoJson).toHaveBeenCalledWith(
         expect.objectContaining({
-          bbox: "-15,35,40,62",
-          limit: 1000,
+          bbox: "-130,20,50,62",
+          limit: 3000,
         }),
       );
     });
     expect(getImpactEntitiesGeoJson).toHaveBeenCalledTimes(1);
   });
 
-  it("defers heavy map bbox load while chat is in progress", async () => {
+  it("defers heavy map load while chat is in progress", async () => {
     const { rerender } = render(<ImpactSimulationPage chatLoading />);
 
     await waitFor(() => {
@@ -172,8 +172,8 @@ describe("ImpactSimulationPage", () => {
     await waitFor(() => {
       expect(getImpactEntitiesGeoJson).toHaveBeenCalledWith(
         expect.objectContaining({
-          bbox: "-15,35,40,62",
-          limit: 1000,
+          bbox: "-130,20,50,62",
+          limit: 3000,
         }),
       );
     });

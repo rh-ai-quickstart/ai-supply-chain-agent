@@ -43,6 +43,36 @@ tests:
                 name: pgvector
                 key: password
 
+  - it: keeps failed jobs by default for log inspection
+    set:
+      ingest.enabled: true
+      ingest.strategy: llamastack
+      backend.env.LLAMA_STACK_URL: "http://llamastack:8321"
+      backend.env.EMBED_MODEL: "all-MiniLM-L6-v2"
+      backend.env.PG_HOST: pgvector
+      backend.env.PG_PORT: "5432"
+      backend.env.PG_USER: postgres
+      backend.env.PG_DB: blueprint
+    asserts:
+      - notExists:
+          path: metadata.annotations["helm.sh/hook-delete-policy"]
+
+  - it: renders hook-delete-policy when configured
+    set:
+      ingest.enabled: true
+      ingest.strategy: llamastack
+      ingest.hookDeletePolicy: before-hook-creation
+      backend.env.LLAMA_STACK_URL: "http://llamastack:8321"
+      backend.env.EMBED_MODEL: "all-MiniLM-L6-v2"
+      backend.env.PG_HOST: pgvector
+      backend.env.PG_PORT: "5432"
+      backend.env.PG_USER: postgres
+      backend.env.PG_DB: blueprint
+    asserts:
+      - equal:
+          path: metadata.annotations["helm.sh/hook-delete-policy"]
+          value: before-hook-creation
+
   - it: does not render when ingest is disabled
     set:
       ingest.enabled: false

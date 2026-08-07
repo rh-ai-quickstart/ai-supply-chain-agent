@@ -9,6 +9,8 @@ export function ImpactQueryPanel({
   scenariosError = "",
   scenarioId = "",
   onChangeScenarioId,
+  mapMode = "live",
+  onChangeMapMode,
   question = "",
   onChangeQuestion,
   onRunQuery,
@@ -21,6 +23,29 @@ export function ImpactQueryPanel({
 
   return (
     <section className="panel impact-query-panel">
+      <span className="field-label" id="impact-map-mode-label">
+        Map view
+      </span>
+      <div className="impact-map-mode" role="group" aria-labelledby="impact-map-mode-label">
+        <button
+          type="button"
+          className={`btn${mapMode === "live" ? " btn--active" : ""}`}
+          onClick={() => onChangeMapMode?.("live")}
+          aria-pressed={mapMode === "live"}
+        >
+          Live Flights
+        </button>
+        <button
+          type="button"
+          className={`btn${mapMode === "scenario" ? " btn--active" : ""}`}
+          onClick={() => onChangeMapMode?.("scenario")}
+          disabled={!scenarioId.trim()}
+          aria-pressed={mapMode === "scenario"}
+        >
+          Scenario focus
+        </button>
+      </div>
+
       <h3>Impact Query</h3>
 
       <span className="field-label" id="impact-scenario-label">
@@ -84,6 +109,8 @@ ImpactQueryPanel.propTypes = {
   scenariosError: PropTypes.string,
   scenarioId: PropTypes.string,
   onChangeScenarioId: PropTypes.func,
+  mapMode: PropTypes.oneOf(["live", "scenario"]),
+  onChangeMapMode: PropTypes.func,
   question: PropTypes.string,
   onChangeQuestion: PropTypes.func,
   onRunQuery: PropTypes.func,

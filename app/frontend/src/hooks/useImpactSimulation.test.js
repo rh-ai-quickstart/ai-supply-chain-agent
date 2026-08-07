@@ -33,6 +33,36 @@ describe("useImpactSimulation", () => {
     expect(result.current.scenarioId).toBe("opensky-uk-closure-001");
   });
 
+  it("loads map entities with the global demo bbox and defaults to live map mode", async () => {
+    const { result } = renderHook(() =>
+      useImpactSimulation({ initialScenarioId: "opensky-uk-closure-001" }),
+    );
+    await waitFor(() => expect(result.current.scenariosLoading).toBe(false));
+    await waitFor(() =>
+      expect(getImpactEntitiesGeoJson).toHaveBeenCalledWith(
+        expect.objectContaining({
+          bbox: "-130,20,50,62",
+          limit: 3000,
+        }),
+      ),
+    );
+    expect(result.current.mapMode).toBe("live");
+    expect(result.current.focusBbox).toBe("");
+    expect(result.current.mapTitle).toBe("Live Flights");
+  });
+
+  it("switches focusBbox when map mode becomes scenario", async () => {
+    const { result } = renderHook(() =>
+      useImpactSimulation({ initialScenarioId: "opensky-uk-closure-001" }),
+    );
+    await waitFor(() => expect(result.current.scenariosLoading).toBe(false));
+
+    act(() => result.current.handleMapModeChange("scenario"));
+    expect(result.current.mapMode).toBe("scenario");
+    expect(result.current.focusBbox).toBe("-15,35,40,62");
+    expect(result.current.mapTitle).toBe("Impact Map");
+  });
+
   it("surfaces a scenarios-loading error", async () => {
     listImpactScenarios.mockResolvedValue({ success: false, error: "boom" });
     const { result } = renderHook(() => useImpactSimulation({}));

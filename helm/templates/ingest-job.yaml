@@ -6,9 +6,13 @@ metadata:
   annotations:
     # Fires after every helm install / upgrade.
     helm.sh/hook: post-install,post-upgrade
-    # Delete the previous completed Job before creating a new one so
-    # re-runs never get blocked by a leftover Completed/Failed Job object.
-    helm.sh/hook-delete-policy: before-hook-creation
+    # Kept empty by default so a Failed Job and its Pod are left in place and
+    # you can inspect logs (`oc logs job/<release>-ingest`) after a failed
+    # install. Set ingest.hookDeletePolicy=before-hook-creation to auto-delete
+    # the previous Job before the next helm run instead.
+    {{- with .Values.ingest.hookDeletePolicy }}
+    helm.sh/hook-delete-policy: {{ . }}
+    {{- end }}
     helm.sh/hook-weight: "10"
 spec:
   backoffLimit: 2

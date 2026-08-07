@@ -30,8 +30,12 @@ describe("App", () => {
     render(<App />);
 
     await waitFor(() => {
-      expect(screen.getByRole("heading", { name: /impact map/i })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: /live flights/i })).toBeInTheDocument();
     });
+    expect(screen.getByRole("button", { name: "Live Flights" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
     expect(screen.getByRole("button", { name: /^simulation$/i })).toHaveClass(
       "dashboard-nav-btn--active",
     );

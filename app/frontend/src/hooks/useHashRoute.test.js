@@ -32,10 +32,14 @@ describe("useHashRoute", () => {
     expect(create.current.activeView).toBe("create-scenario");
   });
 
-  it("redirects the legacy #/dashboard (and empty) hash to #/simulation", () => {
+  it("redirects legacy #/live (and empty/dashboard) hash to #/simulation", () => {
     setHash("#/dashboard?scenario=abc");
     renderHook(() => useHashRoute());
     expect(window.location.hash).toBe("#/simulation?scenario=abc");
+
+    setHash("#/live");
+    renderHook(() => useHashRoute());
+    expect(window.location.hash).toBe("#/simulation");
   });
 
   it("updates view/scenario id on hashchange events", () => {
@@ -55,6 +59,9 @@ describe("useHashRoute", () => {
 
     act(() => result.current.navigate("create-scenario"));
     expect(window.location.hash).toBe("#/create-scenario");
+
+    act(() => result.current.navigate("live"));
+    expect(window.location.hash).toBe("#/simulation");
 
     act(() => result.current.navigate("simulation", { scenarioId: "abc" }));
     expect(window.location.hash).toBe("#/simulation?scenario=abc");

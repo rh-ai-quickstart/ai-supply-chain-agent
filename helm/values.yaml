@@ -9,7 +9,7 @@ global:
     external-model:
       enabled: true
       id: Qwen3.6-35B-A3B
-      url: https://litellm-litemaas.apps.prod.rhoai.rh-aiservices-bu.com/v1
+      url: https://litemaas.rhoai.rh-aiservices-bu.com/v1
       apiToken: "" # Set in helm/secrets.yaml
 
 pgvector:
@@ -75,7 +75,13 @@ general-simulation:
     waitFor:
       enabled: true
       timeoutSeconds: 300
+  # Live OpenSky CronJob (opensky-network.org). Keep disabled on AWS/hyperscaler
+  # clusters: OpenSky drops those source IPs at TCP (documented; they refuse AI
+  # dashboard allowlists). Cluster NetworkPolicy / EgressFirewall cannot fix it.
+  # Seed offline demo data with general-simulation scripts/seed_demo.py instead.
+  # To use live data: egress via a non-hyperscaler proxy, or swap the adapter.
   ingestion:
+    enabled: false
     image: quay.io/rh-ai-quickstart/general-simulation-api:latest
     llm:
       backend: openai
@@ -86,6 +92,19 @@ general-simulation:
   # and Neo4j Secret neo4j-auth must be provided before install.
 
 imagePullSecrets: []
+
+# Egress NetworkPolicy for clusters that default-deny outbound traffic via
+# Kubernetes NetworkPolicy (common on managed/shared OpenShift). Unblocks
+# OpenAI, LiteMaaS, RSS, etc. Does NOT fix OpenSky: that service blocks AWS
+# and other hyperscaler source IPs itself (TCP never completes to
+# 194.209.200.34). Set egress.enabled to false when the namespace already
+# allows egress by default.
+networkPolicy:
+  egress:
+    enabled: true
+    # true  = allow all egress (simplest for NetworkPolicy default-deny).
+    # false = scope egress to DNS, same-namespace services, and 80/443 only.
+    allowAll: true
 
 backend:
   enabled: true
@@ -129,6 +148,10 @@ ingest:
   # Set to true to run the knowledge-base ingestion Job on every
   # helm install / upgrade.
   enabled: true
+  # Hook deletion policy on the post-install/post-upgrade Job. Leave empty to
+  # keep Completed/Failed Jobs (and their Pods) so you can read logs after a
+  # failed run; set to "before-hook-creation" to auto-delete the prior Job.
+  hookDeletePolicy: ""
   image:
     repository: quay.io/rh-ai-quickstart/ai-supply-chain-agent-ingestion
     tag: dev

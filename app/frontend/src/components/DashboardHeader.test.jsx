@@ -20,6 +20,7 @@ describe("DashboardHeader", () => {
     expect(onNavigate).toHaveBeenCalledWith("knowledge-bases");
     await user.click(screen.getByRole("button", { name: /^simulation$/i }));
     expect(onNavigate).toHaveBeenCalledWith("simulation");
+    expect(screen.queryByRole("button", { name: /live flights/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^dashboard$/i })).not.toBeInTheDocument();
   });
 

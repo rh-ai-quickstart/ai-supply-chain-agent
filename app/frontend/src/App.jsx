@@ -40,14 +40,15 @@ function App() {
     [activeScenarioId, chat, setActiveScenarioId, syncScenarioHash],
   );
 
+  const isKbOrCreate =
+    activeView === "knowledge-bases" || activeView === "create-scenario";
+
   return (
     <div className={`dashboard-root ${isLightTheme ? "light-theme" : ""}`}>
       <ErrorBoundary>
         <div
           className={`dashboard-wrapper${
-            activeView === "knowledge-bases" || activeView === "create-scenario"
-              ? " dashboard-wrapper--kb"
-              : " dashboard-wrapper--simulation"
+            isKbOrCreate ? " dashboard-wrapper--kb" : " dashboard-wrapper--simulation"
           }`}
         >
           <DashboardHeader

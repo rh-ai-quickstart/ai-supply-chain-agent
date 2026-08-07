@@ -54,7 +54,13 @@ describe("ImpactMapPanel", () => {
 
   it("shows empty-state copy when there are no features", () => {
     render(<ImpactMapPanel features={[]} />);
-    expect(screen.getByText(/No map entities for this scenario yet/i)).toBeInTheDocument();
+    expect(screen.getByText(/No map entities yet/i)).toBeInTheDocument();
+  });
+
+  it("shows entity count in the header when not loading", () => {
+    render(<ImpactMapPanel title="Live Flights" features={[aircraftFeature]} />);
+    expect(screen.getByRole("heading", { name: "Live Flights" })).toBeInTheDocument();
+    expect(screen.getAllByText(/Entities: 1/).length).toBeGreaterThanOrEqual(1);
   });
 
   it("shows warning text when provided", () => {
@@ -95,8 +101,20 @@ describe("ImpactMapPanel", () => {
         reroutes={[reroute]}
       />,
     );
-    expect(screen.getByText(/Entities: 1/)).toBeInTheDocument();
-    expect(screen.getByText(/Highlighted: 1/)).toBeInTheDocument();
-    expect(screen.getByText(/Diversions: 1/)).toBeInTheDocument();
+    const footer = document.querySelector(".map-counts");
+    expect(footer).toHaveTextContent(/Entities: 1/);
+    expect(footer).toHaveTextContent(/Highlighted: 1/);
+    expect(footer).toHaveTextContent(/Diversions: 1/);
+  });
+
+  it("renders a color legend with labels for each marker state", () => {
+    render(<ImpactMapPanel features={[aircraftFeature]} />);
+    const legend = screen.getByRole("list", { name: /map legend/i });
+    expect(legend).toBeInTheDocument();
+    expect(screen.getByText(/Entity \(flight, facility, or vessel\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/Affected by scenario/i)).toBeInTheDocument();
+    expect(screen.getByText(/Focused entity/i)).toBeInTheDocument();
+    expect(screen.getByText(/Diversion destination/i)).toBeInTheDocument();
+    expect(screen.getByText(/Selected diversion \/ route/i)).toBeInTheDocument();
   });
 });

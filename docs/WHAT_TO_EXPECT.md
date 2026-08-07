@@ -44,7 +44,8 @@ A single **Flask** service that owns business logic for the dashboard and AI fea
 
 - **Llama Stack** — chat completions and (optionally) LlamaStack-native vector stores
 - **PGVector** — similarity search for RAG when `VectorStoreClient` initializes successfully
-- **OpenSky** (where available) — live aircraft positions for map views; falls back to static demo data on errors
+- **OpenSky** (where available) — not used by the Impact Map or Live Flights UI. Those views read seeded PostGIS geometries from general-simulation (`make seed-gen-sim`). OpenSky may block AWS/hyperscaler IPs (TCP timeout to `opensky-network.org`); keep `general-simulation.ingestion.enabled: false` on those clusters. Cluster allowlists cannot override OpenSky’s source-IP block.
+- **Impact Map / Live Flights** — seeded aircraft, facilities, and vessels on the Simulation tab. Default map mode is **Live Flights** (world fit); **Scenario focus** frames the camera to the selected scenario bbox. Use `make seed-gen-sim` for demo scenarios/maritime; use `make seed-opensky-live GEN_SIM_NAMESPACE=supply-chain-dashboard` to pull many live OpenSky aircraft from your laptop into the same cluster DBs (OpenSky is blocked from in-cluster AWS pods).
 
 Persistent demo data for **simulations** (name/description catalog) is stored in the API container under `/tmp` — suitable for demos, not production durability.
 
@@ -119,37 +120,22 @@ A **React + Vite** single-page app served by nginx. It is the operator UI for th
 oc get route supply-chain-dashboard-frontend -n supply-chain-dashboard
 ```
 
-Open the **https** URL in a browser. The app polls `GET /api/v1/state` every **15 seconds** and merges simulation results immediately when you run a scenario.
+Open the **https** URL in a browser. Use **Simulation** (`#/simulation`) for the map and impact queries. Seed map data with `make seed-gen-sim` against the dashboard namespace.
 
 ### Layout and interactions
 
 **Header**
 
 - Toggle light/dark theme
-- Navigate between **Dashboard** and **Knowledge bases** (hash routes `#/` and `#/knowledge-bases`)
+- Navigate between **Simulation**, **Knowledge bases**, and **Create scenario** (`#/simulation`, `#/knowledge-bases`, `#/create-scenario`)
 
-**Dashboard view** (main grid)
+**Simulation view** (main grid)
 
-1. **AI Simulation & Presets** (left)
-   - **Enable vLLM & LLM-D** — passes `optimize` to the backend for performance block in the response
-   - **Live Dashboard** — `scenario: none`
-   - **Port Strike LA** — port-strike simulation
-   - **Suez Blockage** — geopolitical simulation
-   - **Trigger World Event** — disruption tied to the active map view
-
-2. **Center**
-   - **Demand** and **revenue** charts (Chart.js)
-   - **System health** — derived from KPIs, alerts, and load/error state
-   - **Logistics map** (Leaflet) — switch **Global**, **Regional**, or **Air freight**; markers and counts update from backend map payloads
-
-3. **Alerts** (right) — critical/warning/info lines from the current state
-
-4. **KPI bar** (bottom) — inventory, turnover, lost sales, revenue, etc.
-
-5. **Chat bar** (fixed bottom)
-   - Optional **vector store** selector (Llama Stack stores from `GET /api/v1/vector_stores`)
-   - Type a question and send (Enter or button); opens an expanded modal for the thread
-   - Answers render as markdown; may include completion metadata when the model returns it
+1. **Map view** (above Impact Query) — toggle **Live Flights** (default, world fit) or **Scenario focus** (camera framed to the selected scenario)
+2. **Impact query** (left) — pick a scenario (UK Airspace Closure, Port Strike LA, Suez Blockage, …) and run an impact question against general-simulation
+3. **Map** (center) — Leaflet markers for seeded demo / live OpenSky entities; entity count and color legend in the panel
+4. **Impact results** (right) — answer, affected entities, diversions
+5. **Chat bar** (bottom) — RAG chat with optional vector-store selector
 
 **Knowledge bases view**
 

@@ -14,22 +14,75 @@ import {
 
 const DEFAULT_CENTER = [51.5, -0.5];
 const DEFAULT_ZOOM = 5;
-const DIVERSION_COLOR = "#2ECC71";
-const DIVERSION_SELECTED_COLOR = "#F1C40F";
 
-function FitBounds({ features, highlightedIds, reroutes, selectedDiversionKey }) {
+/** Marker / route colors shared by the map and legend. */
+export const MAP_COLORS = {
+  entity: "#00E0FF",
+  affected: "#FF4757",
+  focused: "#FFC312",
+  diversion: "#2ECC71",
+  diversionSelected: "#F1C40F",
+};
+
+const DIVERSION_COLOR = MAP_COLORS.diversion;
+const DIVERSION_SELECTED_COLOR = MAP_COLORS.diversionSelected;
+
+export const MAP_LEGEND_ITEMS = [
+  { color: MAP_COLORS.entity, label: "Entity (flight, facility, or vessel)" },
+  { color: MAP_COLORS.affected, label: "Affected by scenario" },
+  { color: MAP_COLORS.focused, label: "Focused entity" },
+  { color: MAP_COLORS.diversion, label: "Diversion destination" },
+  { color: MAP_COLORS.diversionSelected, label: "Selected diversion / route" },
+];
+
+/** Parse ``minLon,minLat,maxLon,maxLat`` into Leaflet ``[[lat,lon],[lat,lon]]`` corners. */
+export function parseFocusBbox(bbox) {
+  if (!bbox || typeof bbox !== "string") return null;
+  const parts = bbox.split(",").map((part) => Number(String(part).trim()));
+  if (parts.length !== 4 || parts.some((n) => !Number.isFinite(n))) return null;
+  const [minLon, minLat, maxLon, maxLat] = parts;
+  return [
+    [minLat, minLon],
+    [maxLat, maxLon],
+  ];
+}
+
+function FitBounds({ features, highlightedIds, reroutes, selectedDiversionKey, focusBbox }) {
   const map = useMap();
 
   useEffect(() => {
     if (selectedDiversionKey) return;
 
     const highlighted = new Set(highlightedIds);
-    const focus =
-      highlighted.size > 0
-        ? features.filter((feature) => highlighted.has(feature.properties?.id ?? feature.id))
-        : features;
+    if (highlighted.size > 0) {
+      const focus = features.filter((feature) =>
+        highlighted.has(feature.properties?.id ?? feature.id),
+      );
+      const positions = focus.map(featureLatLng).filter(Boolean);
+      for (const route of reroutes) {
+        if (typeof route.latitude === "number" && typeof route.longitude === "number") {
+          positions.push([route.latitude, route.longitude]);
+        }
+      }
+      if (positions.length === 0) {
+        map.setView(DEFAULT_CENTER, DEFAULT_ZOOM);
+        return;
+      }
+      if (positions.length === 1) {
+        map.setView(positions[0], 7);
+        return;
+      }
+      map.fitBounds(positions, { padding: [40, 40], maxZoom: 8 });
+      return;
+    }
 
-    const positions = focus.map(featureLatLng).filter(Boolean);
+    const scenarioCorners = parseFocusBbox(focusBbox);
+    if (scenarioCorners) {
+      map.fitBounds(scenarioCorners, { padding: [40, 40], maxZoom: 6 });
+      return;
+    }
+
+    const positions = features.map(featureLatLng).filter(Boolean);
     for (const route of reroutes) {
       if (typeof route.latitude === "number" && typeof route.longitude === "number") {
         positions.push([route.latitude, route.longitude]);
@@ -46,9 +99,9 @@ function FitBounds({ features, highlightedIds, reroutes, selectedDiversionKey })
     }
     map.fitBounds(positions, {
       padding: [40, 40],
-      maxZoom: highlighted.size > 0 || reroutes.length > 0 ? 8 : 6,
+      maxZoom: reroutes.length > 0 ? 8 : 6,
     });
-  }, [features, highlightedIds, reroutes, selectedDiversionKey, map]);
+  }, [features, highlightedIds, reroutes, selectedDiversionKey, focusBbox, map]);
 
   return null;
 }
@@ -132,8 +185,12 @@ function EntityMarker({
       center={coords}
       radius={isHighlighted || isFocused ? 9 : 5}
       pathOptions={{
-        color: isFocused ? "#FFC312" : isHighlighted ? "#FF4757" : "#00E0FF",
-        fillColor: isFocused ? "#FFC312" : isHighlighted ? "#FF4757" : "#00E0FF",
+        color: isFocused ? MAP_COLORS.focused : isHighlighted ? MAP_COLORS.affected : MAP_COLORS.entity,
+        fillColor: isFocused
+          ? MAP_COLORS.focused
+          : isHighlighted
+            ? MAP_COLORS.affected
+            : MAP_COLORS.entity,
         fillOpacity: isHighlighted || isFocused ? 0.9 : 0.55,
         weight: isHighlighted || isFocused ? 2 : 1,
       }}
@@ -276,6 +333,8 @@ DiversionMarker.propTypes = {
 
 export const ImpactMapPanel = memo(function ImpactMapPanel({
   features = [],
+  focusBbox = "",
+  title = "Impact Map",
   highlightedIds = [],
   reroutes = [],
   focusedEntityId = "",
@@ -315,13 +374,17 @@ export const ImpactMapPanel = memo(function ImpactMapPanel({
   return (
     <article className="panel map-panel impact-map-panel">
       <div className="map-header">
-        <h3>Impact Map</h3>
-        {loading ? <span className="muted">Loading entities…</span> : null}
+        <h3>{title}</h3>
+        {loading ? (
+          <span className="muted">Loading entities…</span>
+        ) : (
+          <span className="muted">Entities: {features.length}</span>
+        )}
       </div>
       {error ? <p className="error">{error}</p> : null}
       {warning ? <p className="muted" role="status">{warning}</p> : null}
       {!loading && !error && features.length === 0 ? (
-        <p className="muted">No map entities for this scenario yet.</p>
+        <p className="muted">No map entities yet.</p>
       ) : null}
       <div className="map-viewport">
         <MapContainer center={DEFAULT_CENTER} zoom={DEFAULT_ZOOM} scrollWheelZoom style={{ height: "100%" }}>
@@ -331,6 +394,7 @@ export const ImpactMapPanel = memo(function ImpactMapPanel({
           />
           <FitBounds
             features={features}
+            focusBbox={focusBbox}
             highlightedIds={highlightedIds}
             reroutes={reroutes}
             selectedDiversionKey={selectedDiversionKey}
@@ -383,6 +447,18 @@ export const ImpactMapPanel = memo(function ImpactMapPanel({
             />
           ))}
         </MapContainer>
+        <ul className="impact-map-legend" aria-label="Map legend">
+          {MAP_LEGEND_ITEMS.map((item) => (
+            <li key={item.label} className="impact-map-legend-item">
+              <span
+                className="impact-map-legend-swatch"
+                style={{ backgroundColor: item.color }}
+                aria-hidden="true"
+              />
+              <span>{item.label}</span>
+            </li>
+          ))}
+        </ul>
       </div>
       <div className="muted map-counts">
         Entities: {features.length} | Highlighted: {highlightedIds.length} | Diversions:{" "}
@@ -394,6 +470,8 @@ export const ImpactMapPanel = memo(function ImpactMapPanel({
 
 ImpactMapPanel.propTypes = {
   features: PropTypes.arrayOf(PropTypes.object),
+  focusBbox: PropTypes.string,
+  title: PropTypes.string,
   highlightedIds: PropTypes.arrayOf(PropTypes.string),
   reroutes: PropTypes.arrayOf(
     PropTypes.shape({
