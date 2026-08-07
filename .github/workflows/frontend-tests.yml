@@ -2,7 +2,7 @@ name: Frontend unit tests
 
 on:
   push:
-    branches: [main, master, development]
+    branches: [main, master, development, chore/*, feat/*]
     paths:
       - "app/frontend/**"
       - ".github/workflows/frontend-tests.yml"

@@ -3,7 +3,7 @@ name: Helm tests
 # Same triggers as backend and frontend unit test workflows.
 on:
   push:
-    branches: [main, master, development]
+    branches: [main, master, development, chore/*, feat/*]
     paths:
       - "app/backend/**"
       - "app/frontend/**"

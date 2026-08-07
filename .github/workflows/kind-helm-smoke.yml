@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
   pull_request:
     types: [opened, synchronize, reopened]
-    branches: [main, master, development]
+    branches: [main, master, development, chore/*, feat/*]
     paths:
       - "app/backend/**"
       - "app/frontend/**"
