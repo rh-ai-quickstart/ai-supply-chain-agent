@@ -124,9 +124,8 @@ backend:
   pgvectorSecretName: pgvector
   env:
     LLAMA_STACK_URL: http://llamastack.supply-chain-dashboard.svc.cluster.local:8321
-    # Overridden by backend-deployment from global.models when local model is off:
-    # external-model/<id>
-    LLAMA_STACK_MODEL: external-model/Qwen3.6-35B-A3B
+    # LLAMA_STACK_MODEL is set by backend-deployment from global.models
+    # (external-model/<id> or llama-3-2-3b-instruct/<id>), not from this map.
     # OpenAI client timeout (seconds) for chat and vector-store API calls.
     LLAMA_STACK_TIMEOUT_SECONDS: "300"
     EMBED_MODEL: all-MiniLM-L6-v2

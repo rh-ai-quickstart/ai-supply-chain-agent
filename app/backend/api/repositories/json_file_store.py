@@ -1,11 +1,8 @@
 """Atomic JSON-file-backed append-only store (demo persistence; ephemeral).
 
-Extracted from the two near-identical implementations that used to live in
-``services/knowledge_bases_store.py`` and ``services/simulations_store.py``
-(``suggestions.md`` debt M3). Both are lost on container restart unless the
-configured path is on a persistent volume — this is intentionally a demo
-backend behind the ``Repository`` protocol; see ``KnowledgeBaseRepository``
-and ``SimulationRepository``.
+Extracted from near-identical store helpers (``suggestions.md`` debt M3).
+Data is lost on container restart unless the configured path is on a persistent
+volume — this is intentionally a demo backend; see ``KnowledgeBaseRepository``.
 """
 
 from __future__ import annotations

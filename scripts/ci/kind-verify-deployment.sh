@@ -51,13 +51,14 @@ curl_body() {
   curl -sf --max-time "${CURL_MAX_TIME}" "${url}"
 }
 
-# /api/v1/state calls OpenSky (8s timeout) on cold start; retry until kpis appear.
-wait_for_dashboard_state() {
+# Retry until the response body contains a needle (gen-sim / proxy warm-up).
+wait_for_body_contains() {
   local url="$1"
-  local attempts="${2:-30}"
+  local needle="$2"
+  local attempts="${3:-30}"
   local i body
   for i in $(seq 1 "${attempts}"); do
-    if body=$(curl_body "${url}" 2>/dev/null) && body_contains "kpis" "${body}"; then
+    if body=$(curl_body "${url}" 2>/dev/null) && body_contains "${needle}" "${body}"; then
       echo "${body}"
       return 0
     fi
@@ -94,9 +95,14 @@ HEALTH=$(curl_body "http://127.0.0.1:${BACKEND_PF_PORT}/healthz")
 body_contains '"ok"' "${HEALTH}" || fail "unexpected /healthz body: ${HEALTH}"
 log "PASS backend GET /healthz"
 
-STATE=$(wait_for_dashboard_state "http://127.0.0.1:${BACKEND_PF_PORT}/api/v1/state" 30) \
-  || fail "GET /api/v1/state not ready or missing kpis (OpenSky may be slow; see backend logs)"
-log "PASS backend GET /api/v1/state"
+VERSION=$(curl_body "http://127.0.0.1:${BACKEND_PF_PORT}/api/v1/version")
+body_contains 'git_commit' "${VERSION}" || fail "unexpected /api/v1/version body: ${VERSION}"
+log "PASS backend GET /api/v1/version"
+
+SCENARIOS=$(wait_for_body_contains \
+  "http://127.0.0.1:${BACKEND_PF_PORT}/api/v1/general-simulation/scenarios" "scenarios" 30) \
+  || fail "GET /api/v1/general-simulation/scenarios not ready (see backend / gen-sim logs)"
+log "PASS backend GET /api/v1/general-simulation/scenarios"
 
 GUARD=$(curl -sf --max-time "${CURL_MAX_TIME}" -X POST "http://127.0.0.1:${BACKEND_PF_PORT}/api/v1/chat" \
   -H 'Content-Type: application/json' \
@@ -104,12 +110,6 @@ GUARD=$(curl -sf --max-time "${CURL_MAX_TIME}" -X POST "http://127.0.0.1:${BACKE
 body_contains 'answer' "${GUARD}" || fail "POST /api/v1/chat (guardrail) missing answer"
 body_contains_ci 'supply chain' "${GUARD}" || fail "guardrail response unexpected: ${GUARD}"
 log "PASS backend POST /api/v1/chat (off-topic guardrail)"
-
-ROUTE=$(curl -sf --max-time "${CURL_MAX_TIME}" -X POST "http://127.0.0.1:${BACKEND_PF_PORT}/api/v1/chat" \
-  -H 'Content-Type: application/json' \
-  -d '{"input":"Find the best truck route","chat_history":[]}')
-body_contains 'routeData' "${ROUTE}" || fail "route chat response missing routeData: ${ROUTE}"
-log "PASS backend POST /api/v1/chat (route optimization)"
 
 log "Port-forward frontend Service"
 kubectl port-forward -n "${NAMESPACE}" "svc/${HELM_RELEASE}-frontend" \
@@ -122,9 +122,10 @@ INDEX=$(curl_body "http://127.0.0.1:${FRONTEND_PF_PORT}/")
 body_contains '<html' "${INDEX}" || fail "frontend index does not look like HTML"
 log "PASS frontend GET / (SPA shell)"
 
-PROXY_STATE=$(wait_for_dashboard_state "http://127.0.0.1:${FRONTEND_PF_PORT}/api/v1/state" 30) \
-  || fail "frontend /api proxy failed: ${PROXY_STATE}"
-log "PASS frontend GET /api/v1/state (nginx same-origin proxy)"
+PROXY_VERSION=$(wait_for_body_contains \
+  "http://127.0.0.1:${FRONTEND_PF_PORT}/api/v1/version" "git_commit" 30) \
+  || fail "frontend /api proxy failed: ${PROXY_VERSION}"
+log "PASS frontend GET /api/v1/version (nginx same-origin proxy)"
 
 if [[ "${RUN_UI_E2E:-}" == "1" || "${RUN_UI_E2E:-}" == "true" ]]; then
   log "Running Playwright UI E2E tests"

@@ -2,7 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 
-vi.mock("./services/dashboardService", () => ({
+vi.mock("./services/chatService", () => ({
   getVectorStores: vi.fn(() => Promise.resolve({ vector_stores: [] })),
   sendChatMessageStream: vi.fn(),
 }));

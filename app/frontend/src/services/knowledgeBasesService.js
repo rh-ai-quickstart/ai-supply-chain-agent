@@ -1,5 +1,5 @@
 import { apiGet, apiPostFormData } from "./apiClient";
-import { getVectorStores } from "./dashboardService";
+import { getVectorStores } from "./chatService";
 
 function vectorStoreCreatedAtToIso(createdAt) {
   if (createdAt == null || createdAt === "") {

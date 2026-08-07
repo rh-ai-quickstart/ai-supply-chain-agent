@@ -20,10 +20,11 @@ Hash routes (no React Router):
 
 | Hash | View |
 |------|------|
-| `#/simulation?scenario=…` | Impact query + map + results, plus chat dock |
+| `#/simulation?scenario=…` | Impact query + map + results, news ticker, chat dock |
 | `#/knowledge-bases` | Create/list Llama Stack knowledge bases |
+| `#/create-scenario` | Propose and create a general-simulation scenario |
 
-Chat auto-selects a vector store for the active scenario by keyword match on store names.
+Chat auto-selects a vector store for the active scenario by keyword match on store names. Map data comes from general-simulation GeoJSON (seed with `make seed-gen-sim` / `make seed-opensky-live`).
 
 ## Production image
 

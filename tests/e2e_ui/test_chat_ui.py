@@ -1,5 +1,5 @@
 """
-Chat UI E2E tests — guardrail and route optimization (parity with kind-verify-deployment.sh).
+Chat UI E2E tests — off-topic guardrail (parity with kind-verify-deployment.sh).
 """
 
 import os
@@ -57,10 +57,3 @@ class TestChatUI:
         _send_chat_message(page, "Where is the best pizza?")
         _wait_for_ai_reply(page, re.compile(r"supply chain", re.IGNORECASE))
         expect(page.locator(".chat-message.human").last).to_contain_text("pizza")
-
-    def test_route_optimization_prompt(self, page: Page):
-        _send_chat_message(page, "Find the best truck route")
-        _wait_for_ai_reply(
-            page,
-            re.compile(r"route|truck|optim", re.IGNORECASE),
-        )

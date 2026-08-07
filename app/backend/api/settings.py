@@ -66,10 +66,6 @@ class Settings:
 
     # Demo JSON catalogs (ephemeral; overridable for tests/tooling)
     knowledge_bases_store_path: str = "/tmp/supply-chain-knowledge-bases.json"
-    simulations_store_path: str = "/tmp/supply-chain-simulations.json"
-
-    # Static dashboard config (airports/routes/fallback data)
-    supply_chain_config_path: str | None = None
 
     # Build/version identifiers baked into the container image (see Containerfile
     # ARG/ENV + Makefile build-* targets); lets operators confirm a running pod
@@ -100,15 +96,14 @@ class Settings:
             general_simulation_base_url=os.getenv(
                 "GENERAL_SIMULATION_BASE_URL", "http://localhost:8000"
             ),
+            general_simulation_timeout_seconds=_env_int(
+                "GENERAL_SIMULATION_TIMEOUT_SECONDS", 120
+            ),
             news_feed_urls_raw=os.getenv("NEWS_FEED_URLS", ""),
             news_user_agent=os.getenv("NEWS_USER_AGENT") or None,
             knowledge_bases_store_path=os.getenv(
                 "KNOWLEDGE_BASES_STORE_PATH", "/tmp/supply-chain-knowledge-bases.json"
             ),
-            simulations_store_path=os.getenv(
-                "SIMULATIONS_STORE_PATH", "/tmp/supply-chain-simulations.json"
-            ),
-            supply_chain_config_path=os.getenv("SUPPLY_CHAIN_CONFIG_PATH") or None,
             git_commit=os.getenv("GIT_COMMIT", "unknown"),
             build_time=os.getenv("BUILD_TIME", "unknown"),
         )

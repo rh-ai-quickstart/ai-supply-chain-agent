@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { sendChatMessageStream } from "../services/dashboardService";
+import { sendChatMessageStream } from "../services/chatService";
 import { findVectorStoreIdForScenario } from "../services/presetScenarioIds";
 import { applyChatStreamEvent } from "../utils/chatStream.js";
 

@@ -31,11 +31,11 @@ def _make_mock_sim_client() -> MagicMock:
 class TestAgentService:
     def test_tools_are_registered(self):
         service = AgentService(_make_mock_llama_stack())
-        assert len(service.tools) == 4
+        assert len(service.tools) == 3
         names = {t.name for t in service.tools}
-        assert names == {"knowledge_base", "general_simulation", "fetch_news", "unknown"}
+        assert names == {"knowledge_base", "general_simulation", "fetch_news"}
 
-    def test_openai_tools_excludes_unknown(self):
+    def test_openai_tools_matches_registered(self):
         service = AgentService(_make_mock_llama_stack())
         schemas = service.openai_tools()
         names = {s["function"]["name"] for s in schemas}
@@ -117,13 +117,6 @@ class TestAgentService:
         client.search_vector_store.assert_called_once_with(
             "vs_123", "risk", max_num_results=3,
         )
-
-    def test_unknown_placeholder_tool(self):
-        service = AgentService(_make_mock_llama_stack())
-        result = service.run_tool("unknown", input="hello")
-        assert result.success is True
-        assert "Placeholder tool" in result.output
-        assert "hello" in result.output
 
     def test_tool_failure_is_caught(self):
         client = _make_mock_llama_stack()

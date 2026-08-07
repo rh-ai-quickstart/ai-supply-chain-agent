@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { getVectorStores } from "../services/dashboardService";
+import { getVectorStores } from "../services/chatService";
 
 /**
  * Loads the LlamaStack vector stores used for chat RAG retrieval, extracted

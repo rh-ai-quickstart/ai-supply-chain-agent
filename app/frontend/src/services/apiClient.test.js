@@ -13,7 +13,7 @@ describe("apiClient", () => {
         status: 503,
         text: () => Promise.resolve(""),
       });
-      await expect(apiGet("/api/v1/state")).rejects.toThrow("503");
+      await expect(apiGet("/api/v1/version")).rejects.toThrow("503");
     });
 
     it("prefers JSON error message from failure body", async () => {
@@ -30,8 +30,8 @@ describe("apiClient", () => {
         ok: true,
         json: () => Promise.resolve({ ok: true }),
       });
-      await expect(apiGet("/api/v1/state")).resolves.toEqual({ ok: true });
-      expect(globalThis.fetch).toHaveBeenCalledWith("/api/v1/state", { signal: undefined });
+      await expect(apiGet("/api/v1/version")).resolves.toEqual({ ok: true });
+      expect(globalThis.fetch).toHaveBeenCalledWith("/api/v1/version", { signal: undefined });
     });
   });
 

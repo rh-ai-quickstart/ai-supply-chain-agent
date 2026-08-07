@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { DEFAULT_IMPACT_QUESTION } from "../components/ImpactQueryPanel";
 import {
   getImpactEntitiesGeoJson,
   listImpactScenarios,
   runImpactQuery,
 } from "../services/generalSimulationService";
 import {
+  DEFAULT_IMPACT_QUESTION,
   GLOBAL_DEMO_BBOX,
   bboxForScenario,
   questionForScenario,
@@ -13,7 +13,7 @@ import {
 import { buildValueByEntity, diversionKey } from "../utils/impactEntityUtils";
 import { messageFromError } from "../utils/errorMessage";
 
-export const DEFAULT_GEOJSON_LIMIT = 3000;
+const DEFAULT_GEOJSON_LIMIT = 3000;
 
 function pickScenarioId(list, preferred) {
   if (!Array.isArray(list) || list.length === 0) return "";

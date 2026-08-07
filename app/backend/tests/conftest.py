@@ -8,18 +8,6 @@ import pytest
 
 
 @pytest.fixture
-def reset_supply_chain_event_slot():
-    """Clear the module-level simulated event TTL slot between tests."""
-    import services.supply_chain_state_builder as mod
-
-    mod._event_slot["event"] = None
-    mod._event_slot["timestamp"] = 0.0
-    yield
-    mod._event_slot["event"] = None
-    mod._event_slot["timestamp"] = 0.0
-
-
-@pytest.fixture
 def mock_llama_stack_client():
     def _ask_stream(*_args, **_kwargs):
         yield {"type": "delta", "content": "mocked "}
@@ -54,14 +42,3 @@ def mock_llama_stack_client():
     client.attach_file_to_vector_store.return_value = None
     client.delete_vector_store.return_value = None
     return client
-
-
-@pytest.fixture
-def mock_route_service():
-    svc = MagicMock()
-    svc.is_route_query.return_value = False
-    svc.get_optimized_route.return_value = {
-        "answer": "route",
-        "routeData": {"type": "optimized_land_route", "coordinates": [], "color": "#000"},
-    }
-    return svc

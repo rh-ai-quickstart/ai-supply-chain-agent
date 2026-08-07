@@ -1,4 +1,4 @@
-"""Tests for ``ChatService`` guardrails, routing branch, RAG, and LLM tool calling."""
+"""Tests for ``ChatService`` guardrails, RAG, and LLM tool calling."""
 
 from unittest.mock import MagicMock
 
@@ -9,8 +9,8 @@ from services.chat_service import ChatService, _GUARDRAIL_RESPONSE
 
 
 @pytest.fixture
-def chat_service(mock_llama_stack_client, mock_route_service):
-    return ChatService(mock_llama_stack_client, mock_route_service, vector_store_client=None)
+def chat_service(mock_llama_stack_client):
+    return ChatService(mock_llama_stack_client, vector_store_client=None)
 
 
 def test_guardrail_blocks_off_topic(chat_service):
@@ -20,23 +20,9 @@ def test_guardrail_blocks_off_topic(chat_service):
     mock_llama.ask_with_tools.assert_not_called()
 
 
-def test_route_query_uses_route_service(chat_service, mock_route_service):
-    mock_route_service.is_route_query.return_value = True
-    mock_route_service.get_optimized_route.return_value = {
-        "answer": "Calculated route.",
-        "routeData": {"type": "optimized_land_route", "coordinates": [[0, 0], [1, 1]]},
-    }
-    out = chat_service.reply("Find the best truck route", chat_history=[])
-    assert out["answer"] == "Calculated route."
-    assert "routeData" in out
-    mock_route_service.get_optimized_route.assert_called_once()
-    chat_service.llama_stack_client.ask_with_tools.assert_not_called()
-
-
 def test_reply_uses_llama_with_context_from_vector_store_id(
-    chat_service, mock_llama_stack_client, mock_route_service
+    chat_service, mock_llama_stack_client
 ):
-    mock_route_service.is_route_query.return_value = False
     out = chat_service.reply(
         "Summarize supplier risk",
         chat_history=[],
@@ -60,11 +46,9 @@ def test_latest_user_text_prefers_history():
         "completion": None,
         "tool_calls_made": [],
     }
-    mock_route = MagicMock()
-    mock_route.is_route_query.return_value = False
     agent = MagicMock()
     agent.openai_tools.return_value = []
-    svc = ChatService(mock_llama, mock_route, vector_store_client=None, agent_service=agent)
+    svc = ChatService(mock_llama, vector_store_client=None, agent_service=agent)
     history = [
         {"role": "human", "content": "first"},
         {"role": "ai", "content": "mid"},
@@ -96,15 +80,13 @@ def test_retrieve_context_via_pgvector_client_fallback():
         "completion": None,
         "tool_calls_made": [],
     }
-    mock_route = MagicMock()
     agent = MagicMock()
     agent.openai_tools.return_value = []
     doc = MagicMock()
     doc.page_content = "doc a"
     vs = MagicMock()
     vs.similarity_search.return_value = [doc]
-    svc = ChatService(mock_llama, mock_route, vector_store_client=vs, agent_service=agent)
-    mock_route.is_route_query.return_value = False
+    svc = ChatService(mock_llama, vector_store_client=vs, agent_service=agent)
     svc.reply("query text", chat_history=[], vector_store_id=None)
     vs.similarity_search.assert_called_once_with("query text", k=3)
     ctx = mock_llama.ask_with_tools.call_args.kwargs["context"]
@@ -119,29 +101,14 @@ def test_reply_stream_guardrail(chat_service):
     chat_service.llama_stack_client.ask_stream_with_tools.assert_not_called()
 
 
-def test_reply_stream_route_shortcut(chat_service, mock_route_service):
-    mock_route_service.is_route_query.return_value = True
-    mock_route_service.get_optimized_route.return_value = {
-        "answer": "Calculated route.",
-        "routeData": {"type": "optimized_land_route", "coordinates": [[0, 0]]},
-    }
-    events = list(chat_service.reply_stream("Find the best truck route", chat_history=[]))
-    assert events[0]["type"] == "done"
-    assert events[0]["answer"] == "Calculated route."
-    assert "routeData" in events[0]
-    chat_service.llama_stack_client.ask_stream_with_tools.assert_not_called()
-
-
-def test_reply_stream_delegates_to_llama(chat_service, mock_llama_stack_client, mock_route_service):
-    mock_route_service.is_route_query.return_value = False
+def test_reply_stream_delegates_to_llama(chat_service, mock_llama_stack_client):
     events = list(chat_service.reply_stream("Summarize supplier risk", chat_history=[]))
     assert [e["type"] for e in events] == ["delta", "delta", "done"]
     assert events[-1]["answer"] == "mocked answer"
     mock_llama_stack_client.ask_stream_with_tools.assert_called_once()
 
 
-def test_llm_tool_calling_runs_general_simulation(mock_llama_stack_client, mock_route_service):
-    mock_route_service.is_route_query.return_value = False
+def test_llm_tool_calling_runs_general_simulation(mock_llama_stack_client):
     agent = MagicMock()
     agent.openai_tools.return_value = [
         {"type": "function", "function": {"name": "general_simulation", "parameters": {}}},
@@ -172,7 +139,6 @@ def test_llm_tool_calling_runs_general_simulation(mock_llama_stack_client, mock_
     mock_llama_stack_client.ask_with_tools.side_effect = _ask_with_tools
     svc = ChatService(
         mock_llama_stack_client,
-        mock_route_service,
         vector_store_client=None,
         agent_service=agent,
     )
@@ -191,11 +157,8 @@ def test_llm_tool_calling_runs_general_simulation(mock_llama_stack_client, mock_
     )
 
 
-def test_llm_tool_calling_overrides_invented_scenario_id(
-    mock_llama_stack_client, mock_route_service
-):
+def test_llm_tool_calling_overrides_invented_scenario_id(mock_llama_stack_client):
     """Small models invent labels like 'UK NATS GPS failure'; prefer UI scenario."""
-    mock_route_service.is_route_query.return_value = False
     agent = MagicMock()
     agent.openai_tools.return_value = []
     agent.run_tool.return_value = ToolResult(
@@ -225,7 +188,6 @@ def test_llm_tool_calling_overrides_invented_scenario_id(
     mock_llama_stack_client.ask_with_tools.side_effect = _ask_with_tools
     svc = ChatService(
         mock_llama_stack_client,
-        mock_route_service,
         agent_service=agent,
     )
     svc.reply(
@@ -240,10 +202,7 @@ def test_llm_tool_calling_overrides_invented_scenario_id(
     )
 
 
-def test_llm_tool_calling_binds_vector_store_for_knowledge_base(
-    mock_llama_stack_client, mock_route_service
-):
-    mock_route_service.is_route_query.return_value = False
+def test_llm_tool_calling_binds_vector_store_for_knowledge_base(mock_llama_stack_client):
     agent = MagicMock()
     agent.openai_tools.return_value = []
     agent.run_tool.return_value = ToolResult(
@@ -260,7 +219,6 @@ def test_llm_tool_calling_binds_vector_store_for_knowledge_base(
     mock_llama_stack_client.ask_with_tools.side_effect = _ask_with_tools
     svc = ChatService(
         mock_llama_stack_client,
-        mock_route_service,
         agent_service=agent,
     )
     out = svc.reply("supplier risk?", chat_history=[], vector_store_id="vs_abc")
@@ -272,8 +230,7 @@ def test_llm_tool_calling_binds_vector_store_for_knowledge_base(
     )
 
 
-def test_llm_tool_calling_fetch_news(mock_llama_stack_client, mock_route_service):
-    mock_route_service.is_route_query.return_value = False
+def test_llm_tool_calling_fetch_news(mock_llama_stack_client):
     agent = MagicMock()
     agent.openai_tools.return_value = []
     agent.run_tool.return_value = ToolResult(
@@ -289,7 +246,6 @@ def test_llm_tool_calling_fetch_news(mock_llama_stack_client, mock_route_service
     mock_llama_stack_client.ask_with_tools.side_effect = _ask_with_tools
     svc = ChatService(
         mock_llama_stack_client,
-        mock_route_service,
         agent_service=agent,
     )
     out = svc.reply("Any supply chain news?", chat_history=[])

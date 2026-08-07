@@ -1,8 +1,8 @@
 """Agentic tool-calling loop layered on top of a plain chat-completion client.
 
 Split out of the former monolithic ``LlamaStackClient`` (SRP). This class is
-composed with a ``LlamaStackChatClient`` (has-a, not is-a) so any object
-satisfying the ``ChatCompletionClient`` protocol can drive the loop.
+composed with a ``LlamaStackChatClient`` (has-a, not is-a) so any compatible
+chat-completion client can drive the loop.
 """
 
 from __future__ import annotations

@@ -15,18 +15,14 @@ from typing import Optional
 from clients.general_simulation_client import GeneralSimulationClient
 from clients.llama_stack_client import LlamaStackClient
 from clients.news_client import NewsClient
-from clients.opensky_client import OpenSkyClient
 from clients.vector_store_client import VectorStoreClient
 from repositories.knowledge_base_repository import KnowledgeBaseRepository
-from repositories.simulation_repository import SimulationRepository
+from services.agent_service import AgentService
 from services.chat_service import ChatService
-from services.dashboard_service import DashboardService
 from services.general_simulation_service import GeneralSimulationService
 from services.news_service import NewsService
 from services.readiness_service import ReadinessService
-from services.route_service import RouteService
 from services.scenario_create_service import ScenarioCreateService
-from services.supply_chain_state_builder import SupplyChainStateBuilder
 from settings import Settings
 
 logger = logging.getLogger(__name__)
@@ -97,9 +93,6 @@ class Container:
     def __init__(self, settings: Settings):
         self.settings = settings
 
-        self.route_service = RouteService()
-        self.opensky_client = OpenSkyClient()
-
         self.news_client = NewsClient(
             feed_urls_raw=settings.news_feed_urls_raw,
             user_agent=settings.news_user_agent,
@@ -112,10 +105,6 @@ class Container:
         )
         self.general_simulation_service = GeneralSimulationService(
             client=self.general_simulation_client
-        )
-
-        self.dashboard_service = DashboardService(
-            state_builder=SupplyChainStateBuilder(self.opensky_client)
         )
 
         self.vector_store_client = _build_vector_store_client(settings)
@@ -131,11 +120,16 @@ class Container:
             vector_store_provider=settings.vector_store_provider,
         )
 
+        self.agent_service = AgentService(
+            self.primary_llama_client,
+            general_simulation_client=self.general_simulation_client,
+            news_client=self.news_client,
+        )
         self.chat_service = ChatService(
             self.primary_llama_client,
-            self.route_service,
             vector_store_client=self.vector_store_client,
             openai_client=self.openai_llama_client,
+            agent_service=self.agent_service,
         )
         self.scenario_create_service = ScenarioCreateService(
             llama_stack_client=self.primary_llama_client,
@@ -143,7 +137,6 @@ class Container:
         )
 
         self.knowledge_base_repository = KnowledgeBaseRepository(settings.knowledge_bases_store_path)
-        self.simulation_repository = SimulationRepository(settings.simulations_store_path)
 
         self.readiness_service = ReadinessService(
             self.primary_llama_client,

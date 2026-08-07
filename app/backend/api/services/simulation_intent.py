@@ -1,23 +1,9 @@
-"""Detect when chat should invoke the general_simulation tool."""
+"""Resolve scenario IDs for general_simulation tool calls."""
 
 from __future__ import annotations
 
 import re
 from typing import Optional
-
-# Phrases that indicate the user wants an impact / what-if simulation.
-_SIMULATION_INTENT_RE = re.compile(
-    r"\b("
-    r"simulate|simulation|what[\s-]?if|"
-    r"run\s+(an?\s+)?impact|"
-    r"impact\s+(query|analysis|score)|"
-    r"value\s+at\s+risk|"
-    r"diversions?\s+(should|to)\b|"
-    r"which\s+(aircraft|flights|vessels|entities)\s+are\s+affected|"
-    r"affected\s+by\s+(the\s+)?(scenario|closure|strike|blockage)"
-    r")\b",
-    re.IGNORECASE,
-)
 
 # Map free-text clues → seeded scenario IDs (used when request has no scenario_id).
 _SCENARIO_CLUES: list[tuple[re.Pattern[str], str]] = [
@@ -36,10 +22,6 @@ _SCENARIO_CLUES: list[tuple[re.Pattern[str], str]] = [
 ]
 
 KNOWN_SCENARIO_IDS: frozenset[str] = frozenset(sid for _, sid in _SCENARIO_CLUES)
-
-
-def is_simulation_intent(text: str) -> bool:
-    return bool(text and _SIMULATION_INTENT_RE.search(text))
 
 
 def resolve_scenario_id(text: str, preferred: Optional[str] = None) -> str:

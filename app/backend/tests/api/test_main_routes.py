@@ -8,16 +8,11 @@ from werkzeug.datastructures import FileStorage
 
 
 @pytest.fixture
-def flask_client(monkeypatch, mock_llama_stack_client, mock_route_service):
+def flask_client(monkeypatch, mock_llama_stack_client):
     import main as app_main
     from services.chat_service import ChatService
 
     container = app_main.container
-
-    dash = MagicMock()
-    dash.get_state.return_value = {"kpis": {}, "alerts": {}, "charts": {}, "mapData": {}}
-    dash.trigger_event.return_value = {"after": "event"}
-    dash.simulate.return_value = {"scenario": "done"}
 
     sim = MagicMock()
     sim.run_simulation.return_value = {
@@ -38,7 +33,7 @@ def flask_client(monkeypatch, mock_llama_stack_client, mock_route_service):
         "geojson": {"type": "FeatureCollection", "features": []},
     }
 
-    chat = ChatService(mock_llama_stack_client, mock_route_service, vector_store_client=None)
+    chat = ChatService(mock_llama_stack_client, vector_store_client=None)
     scenario_svc = MagicMock()
     scenario_svc.propose.return_value = {
         "success": True,
@@ -60,7 +55,6 @@ def flask_client(monkeypatch, mock_llama_stack_client, mock_route_service):
         "affected_count": 2,
     }
 
-    monkeypatch.setattr(container, "dashboard_service", dash)
     monkeypatch.setattr(container, "general_simulation_service", sim)
     monkeypatch.setattr(container, "chat_service", chat)
     monkeypatch.setattr(container, "scenario_create_service", scenario_svc)
@@ -103,13 +97,6 @@ def test_version(flask_client):
         "git_commit": container.settings.git_commit,
         "build_time": container.settings.build_time,
     }
-
-
-def test_get_state(flask_client):
-    client, container = flask_client
-    rv = client.get("/api/v1/state")
-    assert rv.status_code == 200
-    assert rv.get_json() == container.dashboard_service.get_state.return_value
 
 
 def test_get_news(flask_client, monkeypatch):
@@ -155,29 +142,6 @@ def test_post_chat_stream(flask_client, mock_llama_stack_client):
     assert '"answer": "mocked answer"' in body
     mock_llama_stack_client.ask_stream_with_tools.assert_called()
     mock_llama_stack_client.ask_with_tools.assert_not_called()
-
-
-def test_post_simulate(flask_client):
-    client, _ = flask_client
-    rv = client.post("/api/v1/simulate", json={"scenario": "none", "optimize": False})
-    assert rv.status_code == 200
-    assert rv.get_json()["scenario"] == "done"
-
-
-def test_simulations_post_validation(flask_client, tmp_path, monkeypatch):
-    import main as app_main
-    from repositories.simulation_repository import SimulationRepository
-
-    monkeypatch.setattr(
-        app_main.container,
-        "simulation_repository",
-        SimulationRepository(str(tmp_path / "sim.json")),
-    )
-    client, _ = flask_client
-    bad = client.post("/api/v1/simulations", json={})
-    assert bad.status_code == 400
-    ok = client.post("/api/v1/simulations", json={"name": "Run A", "description": "x"})
-    assert ok.status_code == 201
 
 
 def test_get_vector_stores(flask_client, mock_llama_stack_client):

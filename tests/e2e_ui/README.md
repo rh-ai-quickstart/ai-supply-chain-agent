@@ -46,6 +46,8 @@ pytest tests/e2e_ui/ -v --headed --slowmo 500 --browser chromium
 
 | File | Coverage |
 |------|----------|
-| `test_dashboard_ui.py` | Header, nav, simulation panel, KPIs, chat bar |
-| `test_chat_ui.py` | Off-topic guardrail, route optimization prompt |
+| `test_impact_simulation_ui.py` | Header, Simulation / KB / Create scenario nav, Impact Query panel, Live Flights default, chat input |
+| `test_chat_ui.py` | Off-topic guardrail |
 | `test_knowledge_bases_ui.py` | Nav + `#/knowledge-bases` hash route |
+
+Current SPA routes: `#/simulation`, `#/knowledge-bases`, `#/create-scenario`. Prefer unit tests under `app/frontend/src/**/*.test.*` for map/results deep coverage; this suite is chrome + chat smoke for Kind.

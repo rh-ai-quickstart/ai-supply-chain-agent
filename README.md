@@ -12,27 +12,30 @@ An AI-powered supply chain intelligence dashboard that combines real-time logist
   - [Option B: Local CPU/GPU](#option-b-local-cpugpu)
 - [References](#references)
 - [Technical details](#technical-details)
+- [Contributing](#contributing)
 - [Tags](#tags)
 
 ## Detailed description
 
 This quickstart deploys an interactive supply chain impact workspace backed by a Llama Stack LLM, a PGVector knowledge base, and a general-simulation impact engine. Operators run what-if scenarios (port strikes, airspace closures, Suez blockage), inspect affected entities and diversions on a map, and ask natural-language questions via a RAG chatbot grounded in curated risk documents.
 
+For a longer product narrative (audience, problem statement, and demo scenario catalog), see [DETAILED_DESCRIPTION.md](DETAILED_DESCRIPTION.md).
+
 Key capabilities:
 - **Impact simulation**: Pick a seeded scenario, run a natural-language impact query, and review score, value at risk, affected entities, and recommended diversions on a Leaflet map.
 - **RAG chatbot**: Streaming chat with per-scenario history; the UI auto-matches a Llama Stack vector store by scenario keywords.
-- **Knowledge bases**: Upload `.txt`/`.pdf` documents at runtime; a Helm post-install job also loads bundled risk analyses into Llama Stack vector stores (`ingest.strategy: llamastack`) or optionally PGVector (`langchain`).
+- **Knowledge bases**: Upload `.txt`/`.md`/`.pdf` documents at runtime; a Helm post-install job also loads bundled risk analyses into Llama Stack vector stores (`ingest.strategy: llamastack`) or optionally PGVector (`langchain`).
 
 ### Architecture diagrams
 
-The quickstart runs on OpenShift as a Helm umbrella chart (`supply-chain-dashboard`). Operators reach the dashboard through a standalone Route. The Flask backend drives UI state, simulations, and RAG chat; Llama Stack and PGVector provide inference and retrieval.
+The quickstart runs on OpenShift as a Helm umbrella chart (`supply-chain-dashboard`). Operators reach the impact workspace through a standalone Route. The Flask backend proxies general-simulation impact queries, RAG chat, and knowledge-base management; Llama Stack, PGVector, and the general-simulation subchart provide inference, retrieval, and spatial impact.
 
 #### Deployment (OpenShift)
 
 ```mermaid
 flowchart TB
   subgraph users["Operators"]
-    U1["Browser — standalone dashboard"]
+    U1["Browser — impact workspace"]
   end
 
   subgraph ocp["OpenShift cluster"]
@@ -42,22 +45,24 @@ flowchart TB
         R_BE["supply-chain-dashboard-backend"]
       end
 
-      FE["Frontend<br/>React + nginx :8080<br/>polls /api/v1/state"]
+      FE["Frontend<br/>React + nginx :8080"]
       BE["Backend<br/>Flask API :5001"]
 
       subgraph jobs["Jobs"]
-        ING["Ingest Job<br/>chunk .txt → embeddings"]
+        ING["Ingest Job<br/>risk docs → embeddings"]
       end
 
       subgraph data["Data & AI (Helm subcharts)"]
         PG[("PGVector<br/>PostgreSQL + pgvector")]
         LS["Llama Stack<br/>:8321"]
+        GS["General Simulation<br/>API + Neo4j + Postgres"]
       end
     end
   end
 
   subgraph external["External"]
     MAAS["LiteMaaS / OpenAI-compatible<br/>inference (default)"]
+    OAI["OpenAI-compatible<br/>(gen-sim LLM)"]
   end
 
   U1 --> R_FE --> FE
@@ -65,9 +70,11 @@ flowchart TB
   U1 -.->|"direct API (curl, tools)"| R_BE
   R_BE --> BE
 
+  BE -->|"impact query / GeoJSON"| GS
   BE -->|"RAG similarity search"| PG
   BE -->|"chat, vector stores, ingest API"| LS
   LS --> MAAS
+  GS --> OAI
 
   ING -->|"llamastack or langchain strategy"| LS
   ING -.->|"langchain path"| PG
@@ -79,42 +86,48 @@ flowchart TB
   classDef ext fill:#eff6ff,stroke:#2563eb,color:#111
   class U1 user
   class FE,BE,ING app
-  class PG,LS data
+  class PG,LS,GS data
   class R_FE,R_BE route
-  class MAAS ext
+  class MAAS,OAI ext
 ```
 
-#### RAG chat and dashboard refresh
+#### Impact simulation and RAG chat
 
 ```mermaid
 sequenceDiagram
   autonumber
   participant UI as Frontend
   participant BE as Backend (Flask)
+  participant GS as General Simulation
   participant PG as PGVector
   participant LS as Llama Stack
   participant LLM as MaaS / external model
 
-  Note over UI,LLM: Dashboard — every 15s
-  UI->>BE: GET /api/v1/state
-  BE-->>UI: KPIs, charts, map, alerts
+  Note over UI,LLM: Impact map
+  UI->>BE: GET /api/v1/general-simulation/scenarios
+  BE->>GS: list scenarios
+  GS-->>BE: scenario IDs
+  BE-->>UI: picker options
+  UI->>BE: GET /api/v1/general-simulation/entities/geojson
+  BE->>GS: GeoJSON features
+  GS-->>UI: map markers (via BE)
 
-  Note over UI,LLM: Simulation
-  UI->>BE: POST /api/v1/simulate
-  BE-->>UI: Updated state + analysis
+  Note over UI,LLM: Impact query
+  UI->>BE: POST /api/v1/general-simulation/query
+  BE->>GS: NL impact question + scenario
+  GS-->>BE: score, VaR, entities, diversions
+  BE-->>UI: Impact results + map highlights
 
-  Note over UI,LLM: RAG chat
+  Note over UI,LLM: RAG chat (SSE stream)
   UI->>BE: POST /api/v1/chat
   alt Off-topic prompt
     BE-->>UI: Guardrail reply
-  else Route optimization question
-    BE-->>UI: Route narrative + routeData
-  else RAG path
-    BE->>PG: Similarity search (context chunks)
+  else RAG / tools path
+    BE->>PG: Similarity search (optional fallback)
     BE->>LS: Chat completion (augmented prompt)
     LS->>LLM: Inference
     LLM-->>LS: Tokens
-    LS-->>BE: Completion
+    LS-->>BE: Completion / stream chunks
     BE-->>UI: Markdown answer
   end
 ```
@@ -218,13 +231,15 @@ Everything else in `helm/values.yaml` works with the chart defaults (images, PGV
 |-------------------|------------------|
 | `backend.image.repository` / `tag`, `frontend.image.*`, `ingest.image.*` | Images built and pushed to your own registry (defaults: `quay.io/rh-ai-quickstart/...`) |
 | `frontend.apiProxyUpstream` | Backend Service is not `http://<release>-backend:<port>` in the release namespace |
-| `global.models.external-model.id` / `url` | Different MaaS model or endpoint |
-| `backend.env.LLAMA_STACK_MODEL` / `EMBED_MODEL` | Different model or embedding IDs |
+| `global.models.external-model.id` / `url` | Different MaaS model or endpoint (also drives `LLAMA_STACK_MODEL` / `LLAMA_STACK_OPENAI_MODEL` in the backend Deployment) |
+| `backend.env.EMBED_MODEL` | Different embedding model ID |
 | `backend.env.LLAMA_STACK_URL` | Release installed outside `supply-chain-dashboard` namespace (default URL is namespace-scoped) |
 | `pgvector.secret.*` | Non-demo database credentials |
 | `llm-service.enabled` + `device` / per-model `device` | Local inference instead of MaaS |
 | `ingest.strategy` | `langchain` for PGVector ingest instead of default `llamastack` |
 | `general-simulation.api.llm.*` | Gen-sim OpenAI endpoint / model overrides (`apiKey` in secrets) |
+| `general-simulation.ingestion.enabled` | Keep `false` on AWS/hyperscaler clusters (OpenSky IP block); seed from laptop instead |
+| `networkPolicy.egress.*` | Egress NetworkPolicy for default-deny namespaces (`enabled`/`allowAll`; does not fix OpenSky) |
 
 
 ### 3. Install Helm dependencies
@@ -277,8 +292,9 @@ The umbrella chart in `helm/` deploys:
 - **Frontend** — React SPA served by nginx (port 8080), Route `supply-chain-dashboard-frontend`
 - **PGVector** — PostgreSQL + pgvector (subchart)
 - **Llama Stack** — inference API (subchart); default provider is MaaS / external-model
-- **General Simulation** — optional subchart (OpenAI LLM via secrets; not wired to MaaS)
+- **General Simulation** — subchart enabled by default (own Postgres + Neo4j + API; OpenAI LLM via secrets; not wired to MaaS). Live OpenSky CronJob is **off** by default.
 - **Ingest Job** — optional post-install job (`ingest.enabled`) that loads the knowledge base
+- **Egress NetworkPolicy** — optional (`networkPolicy.egress.enabled`) for namespaces that default-deny outbound traffic
 
 To point at a non-default OpenAI-compatible endpoint (same pattern as `helm/gpu-values.yaml`):
 
@@ -313,10 +329,9 @@ llm-service:
   models:
     llama-3-2-3b-instruct:
       enabled: true
-backend:
-  env:
-    LLAMA_STACK_MODEL: llama-3-2-3b-instruct/meta-llama/Llama-3.2-3B-Instruct
 ```
+
+`LLAMA_STACK_MODEL` is derived from `global.models` by the backend Deployment template (no `backend.env.LLAMA_STACK_MODEL` override).
 
 Set `llm-service.secret.hf_token` (or Secret `huggingface-secret`), then install with the same `helm upgrade --install` / `make helm-install` commands as Option A. Use `llm-service.device: gpu` (and matching per-model `device`) when GPUs are available.
 
@@ -337,9 +352,18 @@ oc get route supply-chain-dashboard-frontend -n supply-chain-dashboard -o jsonpa
 make oc-status
 ```
 
-Open the frontend Route URL in your browser.
+Open the frontend Route URL in your browser. See [What to expect after deployment](./docs/WHAT_TO_EXPECT.md) for the Simulation / Knowledge bases / Create scenario walkthrough.
 
-**Optional — re-run ingestion without a full Helm upgrade:**
+**Seed general-simulation map data** (required for scenarios and markers). Gen-sim’s in-cluster OpenSky job is disabled by default — OpenSky often blocks hyperscaler IPs. From a laptop with `oc` login and a sibling [general-simulation](https://github.com/robertsandoval/general-simulation) checkout:
+
+```bash
+make seed-gen-sim
+# optional denser live aircraft (OpenSky pulled on your laptop → cluster DBs)
+make seed-opensky-live GEN_SIM_NAMESPACE=supply-chain-dashboard
+# or: make seed
+```
+
+**Optional — re-run knowledge-base ingestion without a full Helm upgrade:**
 
 ```bash
 make ingest
@@ -402,27 +426,21 @@ oc delete project supply-chain-dashboard
 app/
 ├── backend/
 │   ├── api/                        # Python Flask API (runtime image)
-│   │   ├── main.py                 # App entry point and route definitions
+│   │   ├── main.py                 # App entry point
+│   │   ├── app_factory.py          # Flask app + blueprint registration
 │   │   ├── requirements.txt
 │   │   ├── Containerfile
-│   │   ├── clients/
-│   │   │   ├── llama_stack_client.py   # OpenAI-compatible LLM client
-│   │   │   ├── vector_store_client.py  # PGVector / LangChain client
-│   │   │   └── opensky_client.py       # Live aircraft positions (map)
-│   │   └── services/
-│   │       ├── chat_service.py         # RAG pipeline + guardrails
-│   │       ├── dashboard_service.py    # KPI / alert / chart state
-│   │       ├── route_service.py        # Route optimization logic
-│   │       ├── knowledge_base_ingest_service.py
-│   │       ├── knowledge_bases_store.py
-│   │       └── simulations_store.py
+│   │   ├── clients/                # Llama Stack, PGVector, gen-sim, OpenSky, news
+│   │   ├── routes/                 # HTTP blueprints (chat, gen-sim, KB, …)
+│   │   ├── services/               # Chat, impact proxy, scenario create, RAG
+│   │   └── repositories/           # JSON file stores for KB / simulations catalog
 │   └── ingestion/                  # Knowledge-base ingestion CLI (ingest image)
 │       ├── main.py
 │       ├── config.py
 │       ├── loaders/document_loader.py
 │       ├── services/ingestion_service.py
 │       ├── services/llamastack_ingestion_service.py
-│       └── knowledge_base/         # .txt source documents
+│       └── knowledge_base/         # Bundled .txt risk documents
 └── frontend/              # React + Vite SPA
     ├── index.html
     ├── package.json
@@ -430,15 +448,14 @@ app/
     ├── Containerfile
     └── src/
         ├── App.jsx
-        ├── components/    # AlertsPanel, ChatBar, DashboardHeader,
-        │                  # DemandChartPanel, KpiBar, LogisticsMapPanel,
-        │                  # RevenueChartPanel, SimulationPanel, SystemHealthPanel
-        ├── hooks/
-        │   └── useDashboardState.js   # Polls /api/v1/state every 15 s
-        └── services/
-            ├── apiClient.js           # same-origin fetch to /api/... (nginx or Vite proxy)
-            ├── dashboardService.js    # API call helpers
-            └── dashboardMappers.js    # Backend state → UI data shapes
+        ├── components/    # ImpactSimulationPage, ImpactMapPanel,
+        │                  # ImpactQueryPanel, ImpactResultsPanel, ChatBar,
+        │                  # KnowledgeBasesPage, CreateScenarioPage, NewsTicker
+        ├── hooks/         # useImpactSimulation, useChatSession, useHashRoute, …
+        └── services/      # apiClient, generalSimulationService, …
+scripts/
+├── seed-gen-sim-demo.sh   # Laptop → cluster Neo4j+Postgres demo seed
+└── seed-opensky-live.sh   # Laptop OpenSky pull → cluster DBs
 ```
 
 ### Backend API
@@ -446,13 +463,17 @@ app/
 | Method | Path | Description |
 |--------|------|-------------|
 | `GET` | `/healthz` | Liveness probe |
-| `GET` | `/api/v1/state` | Full dashboard state (KPIs, alerts, charts, map) |
-| `POST` | `/api/v1/trigger-event` | Trigger a disruption event for a given map view |
-| `POST` | `/api/v1/simulate` | Run a named scenario with optional route optimization |
-| `POST` | `/api/v1/chat` | RAG-augmented chat with the LLM |
+| `GET` | `/readyz` | Readiness (dependency checks) |
+| `GET` | `/api/v1/version` | Build metadata |
+| `GET` | `/api/v1/general-simulation/scenarios` | Scenario IDs for the impact picker |
+| `POST` | `/api/v1/general-simulation/query` | Natural-language impact query |
+| `GET` | `/api/v1/general-simulation/entities/geojson` | Map entity GeoJSON |
+| `POST` | `/api/v1/chat` | RAG-augmented chat (SSE when `stream: true`) |
 | `GET` | `/api/v1/vector_stores` | List Llama Stack vector stores (chat picker) |
 | `GET` / `POST` | `/api/v1/knowledge-bases` | List or upload UI-managed knowledge bases |
-| `GET` / `POST` | `/api/v1/simulations` | List or create named simulation records |
+| `POST` | `/api/v1/scenarios/propose` | Propose a scenario draft from NL |
+| `POST` | `/api/v1/scenarios` | Create a scenario in general-simulation |
+| `GET` | `/api/v1/news` | RSS headlines for the news ticker |
 
 ### Environment variables
 
@@ -470,6 +491,8 @@ app/
 | `PG_USER` | PostgreSQL user | — |
 | `PG_PASSWORD` | PostgreSQL password | — |
 | `PG_DB` | PostgreSQL database name | — |
+| `GENERAL_SIMULATION_BASE_URL` | General-simulation API base URL | `http://general-sim-api:8000` (chart) |
+| `NEWS_FEED_URLS` | Optional custom RSS feeds (`Name\|url` pairs) | empty → BBC/Guardian defaults |
 
 **Ingestion job (additional)**
 
@@ -501,6 +524,10 @@ app/
 - **openai** — Llama Stack OpenAI-compatible client
 - **LangChain** (`langchain`, `langchain-community`, `langchain-text-splitters`, `langchain-openai`, `langchain-postgres`) — document loading, splitting, embedding, PGVector integration
 - **psycopg[binary]** — PostgreSQL driver
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for prerequisites, local setup, and the quality gate (`make lint`, `make test`, `make pre-commit`, `make helm-test`). Remaining optional polish lives in [suggestions.md](suggestions.md); completed cleanup is summarized in [tech_debt.md](tech_debt.md).
 
 ## Tags
 

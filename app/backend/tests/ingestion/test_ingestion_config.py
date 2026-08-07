@@ -5,13 +5,13 @@ from config import IngestConfig, IngestionStrategy
 
 def test_from_env_default():
     cfg = IngestConfig.from_env()
-    assert isinstance(cfg.strategy, IngestionStrategy)
+    assert cfg.strategy == IngestionStrategy.LLAMASTACK
 
 
-def test_from_env_unknown_strategy_defaults_to_langchain(monkeypatch):
+def test_from_env_unknown_strategy_defaults_to_llamastack(monkeypatch):
     monkeypatch.setenv("INGEST_STRATEGY", "not-a-real-strategy")
     cfg = IngestConfig.from_env()
-    assert cfg.strategy == IngestionStrategy.LANGCHAIN
+    assert cfg.strategy == IngestionStrategy.LLAMASTACK
 
 
 def test_from_env_llamastack(monkeypatch):

@@ -4,8 +4,6 @@ import { ImpactQueryPanel } from "./ImpactQueryPanel";
 import { ImpactResultsPanel } from "./ImpactResultsPanel";
 import { useImpactSimulation } from "../hooks/useImpactSimulation";
 
-export { DEFAULT_GEOJSON_LIMIT } from "../hooks/useImpactSimulation";
-
 export function ImpactSimulationPage({
   initialScenarioId = "",
   onScenarioChange,

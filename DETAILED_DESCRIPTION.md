@@ -23,13 +23,13 @@ Generative AI changes this by bringing a reasoning layer directly into the opera
 **For supply chain operators**
 
 - **Faster situational awareness.** Rather than reading through reports or calling subject matter experts, operators can ask natural-language questions grounded in a curated knowledge base of past disruptions and risk analyses.
-- **AI-assisted disruption response.** When a scenario such as a port strike or geopolitical event is triggered, the AI assistant provides context-aware guidance drawn from historical incident analyses.
-- **Continuous monitoring.** Live KPIs, logistics maps, and alert feeds refresh automatically so operators maintain an accurate picture of global operations at all times.
+- **AI-assisted disruption response.** When a scenario such as a port strike or airspace closure is run, the impact engine returns affected entities, value at risk, and recommended diversions, while the AI assistant provides context-aware guidance from historical incident analyses.
+- **What-if exploration on a map.** Seeded aircraft, vessels, and facilities appear on a Leaflet map with Live Flights (world) or Scenario focus camera modes so operators can inspect spatial impact.
 
 **For operations leadership**
 
-- **Disruption simulation.** Teams can model the impact of hypothetical events — port strikes, Suez Canal blockages, regional weather — before they occur, enabling proactive contingency planning.
-- **Infrastructure comparison.** A built-in performance toggle demonstrates the throughput and latency improvements of distributed LLM inference (vLLM + LLM-D) versus standard monolithic serving, supporting infrastructure investment decisions.
+- **Disruption simulation.** Teams can model the impact of hypothetical events — port strikes, Suez Canal blockages, regional airspace closures — before they occur, enabling proactive contingency planning.
+- **Custom scenarios.** Operators can propose and create new disruption scenarios from natural language via the Create scenario flow.
 - **Extensible knowledge base.** Custom risk analyses, incident reports, and policy documents can be uploaded at runtime and immediately queried through the AI chat interface.
 
 ---
@@ -38,10 +38,10 @@ Generative AI changes this by bringing a reasoning layer directly into the opera
 
 This quickstart provides a complete, deployable reference architecture for an AI-powered supply chain intelligence platform on Red Hat OpenShift. It includes:
 
-- A **standalone React SPA** for operators: impact simulation (scenario query, Leaflet map, solver results), streaming RAG chat, and knowledge-base management
-- A **Flask backend API** proxying general-simulation impact queries, AI chat, and knowledge base management
+- A **standalone React SPA** for operators: impact simulation (scenario query, Leaflet map, solver results), streaming RAG chat, knowledge-base management, and scenario creation
+- A **Flask backend API** proxying general-simulation impact queries, AI chat, news, and knowledge base management
 - A **knowledge base ingestion pipeline** that loads pre-built supply chain risk analyses into Llama Stack vector stores or PGVector for RAG retrieval
-- A **Helm umbrella chart** that deploys the full stack — frontend, backend, ingest job, Llama Stack, LLM service, and PGVector — with a single command
+- A **Helm umbrella chart** that deploys the full stack — frontend, backend, ingest job, Llama Stack, optional LLM service, PGVector, and general-simulation — with a single command
 
 ---
 
@@ -54,8 +54,10 @@ By the end of this quickstart, you will have:
 - A fully functional AI supply chain impact workspace deployed on OpenShift
 - A RAG-powered AI chatbot grounded in supply chain risk knowledge (Suez Canal blockage, Port Strike LA, UK NATS GPS airspace closure, and more)
 - Impact simulation against general-simulation scenarios: affected entities, value-at-risk, recommended diversions, and an interactive map
+- Demo map data seeded from your laptop (`make seed-gen-sim` / optional `make seed-opensky-live`) when in-cluster OpenSky is unavailable
 - A knowledge base management interface for uploading and querying custom risk documents at runtime
 - Streaming chat completions with per-scenario conversation history and auto-matched vector stores
+- Optional Create scenario flow to propose and register new disruptions
 
 ---
 
@@ -65,11 +67,10 @@ Throughout this quickstart, you'll gain hands-on experience with modern AI and c
 
 **AI & LLM Technologies:**
 - **[Llama Stack](https://github.com/meta-llama/llama-stack)** — OpenAI-compatible API for chat completions, embeddings, and vector store management
-- **[vLLM](https://docs.vllm.ai/)** — High-throughput LLM serving engine; the default inference backend for `meta-llama/Llama-3.2-3B-Instruct`
-- **[LLM-D](https://github.com/llm-d/llm-d)** — Distributed LLM inference for disaggregated prefill/decode; demonstrated via the performance comparison toggle
+- **[vLLM](https://docs.vllm.ai/)** — Optional high-throughput LLM serving when `llm-service` is re-enabled (default path uses MaaS / LiteMaaS)
 - **[RAG (Retrieval-Augmented Generation)](https://www.redhat.com/en/topics/ai/what-is-retrieval-augmented-generation)** — Dual-path RAG with Llama Stack vector stores (default) and LangChain + PGVector (alternative strategy)
 - **[LangChain](https://python.langchain.com/)** — Embeddings pipeline and PGVector similarity search integration
-- **[Llama 3.2](https://huggingface.co/meta-llama/Llama-3.2-3B-Instruct)** — Default tool-capable instruct model for supply chain query answering
+- **LiteMaaS / OpenAI-compatible models** — Default chat inference via `global.models.external-model` (e.g. Qwen); local Llama 3.2 available when Option B is enabled
 
 **Frontend & Visualization:**
 - **[React 19](https://react.dev/) + [Vite 7](https://vitejs.dev/)** — Standalone operator SPA
@@ -80,7 +81,8 @@ Throughout this quickstart, you'll gain hands-on experience with modern AI and c
 - **[OpenShift 4.21+](https://www.redhat.com/en/technologies/cloud-computing/openshift) / [OpenShift AI 3.4+](https://www.redhat.com/en/technologies/cloud-computing/openshift/openshift-ai)** — Container orchestration and AI/ML platform
 - **[Helm 3](https://helm.sh/)** — Umbrella chart with AI architecture subcharts for one-command deployment
 - **[PGVector](https://github.com/pgvector/pgvector)** — PostgreSQL extension for vector similarity search
-- **[OpenSky Network API](https://openskynetwork.github.io/opensky-api/)** — Live aircraft position data for air-freight logistics map
+- **[general-simulation](https://github.com/robertsandoval/general-simulation)** — Impact engine (scenarios, GeoJSON entities, NL impact queries); map data seeded offline or via laptop OpenSky pull
+- **[OpenSky Network API](https://openskynetwork.github.io/opensky-api/)** — Optional live aircraft seeding from a non-hyperscaler egress path (`make seed-opensky-live`); in-cluster CronJob disabled by default on AWS
 
 ---
 
@@ -99,15 +101,15 @@ The platform is built as a React frontend and Flask backend API:
 ┌─────────────────────────────▼────────────────────────────────┐
 │                     Flask Backend API (:5001)                  │
 │                                                               │
-│  GeneralSimulation   ChatService    KnowledgeBases           │
-│  (impact query/map)  (RAG + LLM)    (ingest + catalog)       │
+│  GeneralSimulation   ChatService    KnowledgeBases / Scenarios│
+│  (impact query/map)  (RAG + LLM)    (ingest + create)         │
 └──────────┬──────────────────┬────────────────────────────────┘
            │                  │
-┌──────────▼──────┐  ┌────────▼─────────────────────────────── ┐
-│  Llama Stack     │  │  PGVector (PostgreSQL)                   │
-│  (:8321)         │  │  LangChain RAG fallback                  │
-│  LLM Service     │  │                                          │
-│  (vLLM / LLM-D)  │  │                                          │
+┌──────────▼──────┐  ┌────────▼───────────────────────────────┐
+│  Llama Stack     │  │  PGVector (PostgreSQL)                  │
+│  (:8321)         │  │  LangChain RAG fallback                 │
+│  → MaaS /        │  │                                         │
+│    optional vLLM │  │  General Simulation (Neo4j + Postgres)  │
 └──────────────────┘  └─────────────────────────────────────────┘
 ```
 

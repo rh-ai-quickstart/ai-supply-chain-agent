@@ -11,6 +11,7 @@ Umbrella chart for the AI Supply Chain Agent quickstart. It deploys the applicat
 - **backend** — Flask API
 - **frontend** — React dashboard (nginx)
 - **ingest** — Optional post-install Job (`ingest.enabled`)
+- **networkPolicy.egress** — Optional egress NetworkPolicy for default-deny namespaces
 
 ## Prerequisites
 
@@ -81,6 +82,16 @@ backend:
     GENERAL_SIMULATION_BASE_URL: "http://general-sim-api:8000"
 ```
 
+**OpenSky / map data:** `general-simulation.ingestion.enabled` defaults to **`false`**. OpenSky Network often blocks AWS and other hyperscaler source IPs at TCP; a cluster NetworkPolicy cannot fix that. Seed demo scenarios and maritime entities from your laptop after install:
+
+```bash
+make seed-gen-sim
+# optional: live aircraft via laptop egress
+make seed-opensky-live GEN_SIM_NAMESPACE=supply-chain-dashboard
+```
+
+Requires a local [general-simulation](https://github.com/robertsandoval/general-simulation) checkout (default `../general-simulation`) and `oc` login.
+
 To use a **standalone** gen-sim install in another project instead:
 
 ```yaml
@@ -107,6 +118,17 @@ helm upgrade --install supply-chain-dashboard ./helm \
 
 Or use `make helm-deps` and `make helm-install` (see root `Makefile`).
 
+## Chart dependencies
+
+| Subchart | Source | Notes |
+|----------|--------|-------|
+| `pgvector`, `llama-stack`, `llm-service` | Remote: [ai-architecture-charts](https://rh-ai-quickstart.github.io/ai-architecture-charts) | Fetched by `helm dependency update` into `helm/charts/` (gitignored `*.tgz`) |
+| `general-simulation` | Local `file://../../general-simulation/deploy/helm/general-simulation` | Sibling checkout required until a published chart includes the wait/retry fixes this umbrella expects |
+
+Do **not** commit `helm/charts/*.tgz` — they are a local Helm cache. Kind CI clones the sibling `general-simulation` repo next to this workspace before `helm dependency update`.
+
+**GPU / local models:** use `helm/gpu-values.yaml` (or the Option B snippet in the root README) when enabling in-cluster `llm-service`.
+
 ## Verify
 
 ```bash
@@ -119,7 +141,8 @@ curl -s http://general-sim-api:8000/health   # from a pod in the namespace
 - **MaaS** — `global.models.external-model` (`id`, `url`, `apiToken` via secrets)
 - **Local models** — re-enable `llm-service` and `global.models.<model>.enabled`
 - **GPU** — `llm-service.device` and per-model `device` when local serving is on
-- **Ingest** — `ingest.strategy` (`llamastack` | `langchain`), `ingest.enabled`, chunking under `ingest.*` for LangChain only
-- **General simulation** — `general-simulation.enabled` and nested passwords / OpenAI `llm.apiKey` (not MaaS)
+- **Ingest** — `ingest.strategy` (`llamastack` | `langchain`), `ingest.enabled`, `ingest.hookDeletePolicy`, chunking under `ingest.*` for LangChain only
+- **General simulation** — `general-simulation.enabled`, nested passwords / OpenAI `llm.apiKey` (not MaaS), `ingestion.enabled` (keep false on hyperscalers)
+- **Egress** — `networkPolicy.egress.enabled` / `allowAll` (unblocks LiteMaaS/OpenAI/RSS on default-deny namespaces; does not restore OpenSky)
 
 Full operator documentation: [README.md](../README.md) and [docs/WHAT_TO_EXPECT.md](../docs/WHAT_TO_EXPECT.md).

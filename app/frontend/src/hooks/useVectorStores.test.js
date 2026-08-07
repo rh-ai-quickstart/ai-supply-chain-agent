@@ -4,7 +4,7 @@ import { useVectorStores } from "./useVectorStores";
 
 const getVectorStores = vi.hoisted(() => vi.fn());
 
-vi.mock("../services/dashboardService", () => ({
+vi.mock("../services/chatService", () => ({
   getVectorStores: (...args) => getVectorStores(...args),
 }));
 

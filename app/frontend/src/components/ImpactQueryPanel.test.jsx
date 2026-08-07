@@ -1,7 +1,8 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { DEFAULT_IMPACT_QUESTION, ImpactQueryPanel } from "./ImpactQueryPanel";
+import { DEFAULT_IMPACT_QUESTION } from "../services/presetScenarioIds";
+import { ImpactQueryPanel } from "./ImpactQueryPanel";
 
 describe("ImpactQueryPanel", () => {
   it("renders scenario buttons, question, and run button", () => {

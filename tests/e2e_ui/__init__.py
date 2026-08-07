@@ -1,1 +1,1 @@
-"""Browser E2E tests for the supply chain dashboard (Playwright + pytest)."""
+"""Browser E2E tests for the Impact Simulation SPA (Playwright + pytest)."""

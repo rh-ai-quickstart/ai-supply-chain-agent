@@ -4,7 +4,7 @@ import { useChatSession } from "./useChatSession";
 
 const sendChatMessageStream = vi.hoisted(() => vi.fn());
 
-vi.mock("../services/dashboardService", () => ({
+vi.mock("../services/chatService", () => ({
   sendChatMessageStream: (...args) => sendChatMessageStream(...args),
 }));
 

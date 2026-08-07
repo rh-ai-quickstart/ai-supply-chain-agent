@@ -7,7 +7,7 @@ const mocks = vi.hoisted(() => ({
   apiPostFormData: vi.fn(),
 }));
 
-vi.mock("./dashboardService", () => ({
+vi.mock("./chatService", () => ({
   getVectorStores: mocks.getVectorStores,
 }));
 

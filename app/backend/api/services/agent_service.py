@@ -10,7 +10,6 @@ from services.news_service import NewsService
 
 logger = logging.getLogger(__name__)
 
-# Tools exposed to the LLM (excludes the ``unknown`` stub).
 _LLM_TOOL_NAMES = ("knowledge_base", "general_simulation", "fetch_news")
 
 
@@ -134,23 +133,6 @@ class AgentService:
         )
         self._tools[fetch_news.name] = fetch_news
 
-        unknown = ToolSpec(
-            name="unknown",
-            description="A placeholder tool for future functionality — not yet implemented",
-            parameters={
-                "type": "object",
-                "properties": {
-                    "input": {
-                        "type": "string",
-                        "description": "Arbitrary input for the placeholder tool",
-                    },
-                },
-                "required": ["input"],
-            },
-            fn=self._run_unknown,
-        )
-        self._tools[unknown.name] = unknown
-
     @property
     def tools(self) -> list[ToolSpec]:
         return list(self._tools.values())
@@ -273,11 +255,4 @@ class AgentService:
             success=True,
             output=answer,
             data=items,
-        )
-
-    def _run_unknown(self, input: str = "") -> ToolResult:
-        return ToolResult(
-            success=True,
-            output=f"Placeholder tool 'unknown' received input: {input}. Not yet implemented.",
-            data=input,
         )

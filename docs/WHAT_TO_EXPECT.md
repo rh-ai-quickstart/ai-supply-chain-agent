@@ -12,12 +12,14 @@ A Helm install (`supply-chain-dashboard` in `./helm`) brings up the application 
 
 | Component | Role |
 |-----------|------|
-| **Backend** (`supply-chain-dashboard-backend`) | Flask API on port 5001 — dashboard state, simulations, RAG chat, knowledge-base uploads |
-| **Frontend** (`supply-chain-dashboard-frontend`) | React SPA on port 8080 — operator dashboard (standalone Route) |
+| **Backend** (`supply-chain-dashboard-backend`) | Flask API on port 5001 — impact simulation proxy, RAG chat, knowledge-base uploads, scenario create |
+| **Frontend** (`supply-chain-dashboard-frontend`) | React SPA on port 8080 — impact workspace (standalone Route) |
+| **General Simulation** (subchart, enabled by default) | Impact engine (API + Neo4j + Postgres) for scenarios, GeoJSON entities, and NL impact queries |
 | **PGVector** (subchart) | PostgreSQL with pgvector; used for LangChain ingest and default chat RAG when no vector store is selected |
-| **Llama Stack** (subchart) | LLM and vector-store APIs for chat and ingestion |
-| **LLM service** (subchart) | Model serving (e.g. llama-3-2-3b-instruct) backing Llama Stack |
-| **Ingest Job** (optional, `ingest.enabled`) | Post-install job that loads bundled `.txt` documents (`ingest.strategy`: **`llamastack`** by default → Llama Stack vector stores; set `langchain` for PGVector) |
+| **Llama Stack** (subchart) | LLM and vector-store APIs for chat and ingestion (default inference: MaaS / `external-model`) |
+| **LLM service** (subchart, **disabled** by default) | Optional in-cluster model serving; enable only for Option B (local CPU/GPU) |
+| **Ingest Job** (optional, `ingest.enabled`) | Post-install job that loads bundled risk documents (`ingest.strategy`: **`llamastack`** by default → Llama Stack vector stores; set `langchain` for PGVector) |
+| **Egress NetworkPolicy** (`networkPolicy.egress`, enabled by default) | Allows outbound HTTPS from the namespace on clusters that default-deny egress (LiteMaaS, OpenAI, RSS). Does **not** fix OpenSky IP blocks |
 
 OpenShift **Routes** (main Helm release `supply-chain-dashboard`):
 
@@ -32,7 +34,24 @@ make oc-status
 oc get pods,route -n supply-chain-dashboard
 ```
 
-Wait until backend, frontend, pgvector, and llamastack pods are **Running** and the ingest job (if enabled) has **Completed**. First startup can take several minutes while models pull and Llama Stack becomes ready.
+Wait until backend, frontend, pgvector, llamastack, and general-simulation pods are **Running** and the ingest job (if enabled) has **Completed**. First startup can take several minutes while Llama Stack becomes ready (and longer if you enable a local model).
+
+### Map / OpenSky data (important)
+
+The Impact Map and **Live Flights** UI read **seeded PostGIS geometries** from general-simulation — not live calls from the backend to OpenSky.
+
+- In-cluster OpenSky ingestion is **disabled** by default (`general-simulation.ingestion.enabled: false`). OpenSky often blocks AWS/hyperscaler source IPs (TCP timeout); cluster NetworkPolicy/EgressFirewall cannot override that.
+- After deploy, seed demo scenarios and maritime data from your laptop:
+
+```bash
+make seed-gen-sim
+# optional: many live aircraft via laptop egress (OpenSky reachable from your machine)
+make seed-opensky-live GEN_SIM_NAMESPACE=supply-chain-dashboard
+# or both:
+make seed
+```
+
+Requires a local checkout of [general-simulation](https://github.com/robertsandoval/general-simulation) (sibling directory by default: `../general-simulation`) and `oc` login.
 
 ---
 
@@ -44,10 +63,10 @@ A single **Flask** service that owns business logic for the dashboard and AI fea
 
 - **Llama Stack** — chat completions and (optionally) LlamaStack-native vector stores
 - **PGVector** — similarity search for RAG when `VectorStoreClient` initializes successfully
-- **OpenSky** (where available) — not used by the Impact Map or Live Flights UI. Those views read seeded PostGIS geometries from general-simulation (`make seed-gen-sim`). OpenSky may block AWS/hyperscaler IPs (TCP timeout to `opensky-network.org`); keep `general-simulation.ingestion.enabled: false` on those clusters. Cluster allowlists cannot override OpenSky’s source-IP block.
-- **Impact Map / Live Flights** — seeded aircraft, facilities, and vessels on the Simulation tab. Default map mode is **Live Flights** (world fit); **Scenario focus** frames the camera to the selected scenario bbox. Use `make seed-gen-sim` for demo scenarios/maritime; use `make seed-opensky-live GEN_SIM_NAMESPACE=supply-chain-dashboard` to pull many live OpenSky aircraft from your laptop into the same cluster DBs (OpenSky is blocked from in-cluster AWS pods).
+- **General Simulation** — impact queries, scenario list, entity GeoJSON (`GENERAL_SIMULATION_BASE_URL`)
+- **RSS news** — headlines for the ticker (`GET /api/v1/news`); needs HTTPS egress
 
-Persistent demo data for **simulations** (name/description catalog) is stored in the API container under `/tmp` — suitable for demos, not production durability.
+Persistent demo data for knowledge-base catalog metadata is stored in the API container under `/tmp` — suitable for demos, not production durability.
 
 ### How to reach it
 
@@ -67,28 +86,26 @@ The **frontend** is built with a proxy pointing at this Route (same-origin `/api
 | Method | Path | Purpose |
 |--------|------|---------|
 | `GET` | `/healthz` | Liveness |
-| `GET` | `/api/v1/state` | Full dashboard JSON (KPIs, charts, map layers, alerts) |
-| `POST` | `/api/v1/trigger-event` | Random disruption on the current map view (`mapView` in body) |
-| `POST` | `/api/v1/simulate` | Scenario preset (`scenario`, optional `optimize`) — returns updated state |
-| `POST` | `/api/v1/chat` | RAG chat (`input`, `chat_history`, optional `vector_store_id`) |
+| `GET` | `/readyz` | Readiness (Llama Stack / gen-sim / PGVector checks) |
+| `GET` | `/api/v1/version` | Build commit / timestamp |
+| `GET` | `/api/v1/general-simulation/scenarios` | Scenario IDs for the picker |
+| `POST` | `/api/v1/general-simulation/query` | Natural-language impact query (`question`, `scenario_id`) |
+| `GET` | `/api/v1/general-simulation/entities/geojson` | Map features (bbox / scenario filters) |
+| `POST` | `/api/v1/chat` | RAG chat (`input`, `chat_history`, optional `vector_store_id`; UI uses SSE streaming) |
 | `GET` | `/api/v1/vector_stores` | Llama Stack vector stores (chat knowledge-base picker) |
 | `GET` / `POST` | `/api/v1/knowledge-bases` | List UI-upload catalog / upload files (multipart) |
-| `GET` / `POST` | `/api/v1/simulations` | List or create named simulation records |
+| `POST` | `/api/v1/scenarios/propose` | Draft a scenario from a natural-language prompt |
+| `POST` | `/api/v1/scenarios` | Create a scenario in general-simulation |
+| `GET` | `/api/v1/news` | Supply-chain-relevant RSS headlines |
 
-**Simulate** scenarios understood by the backend:
-
-- `none` — refresh live-style dashboard
-- `port-strike` — elevates lost-sales KPI and port-strike alerts
-- `geopolitical` — Suez-style delay messaging and turnover KPI shift
-
-With `optimize: true`, the response includes synthetic **performance** metrics (vLLM vs monolithic latency/token stats) for demo storytelling.
+**Primary UI path:** pick a seeded scenario → `POST .../general-simulation/query` → map GeoJSON + impact results.
 
 **Chat** behavior:
 
 - Supply-chain guardrails reject off-topic prompts (food, sports, jokes, etc.).
-- Route-style questions can return optimization narrative from `RouteService`.
-- With a **vector store** selected in the UI: context comes from Llama Stack (`search_vector_store`).
+- With a **vector store** selected (UI auto-matches by scenario keywords): context comes from Llama Stack (`search_vector_store`).
 - Otherwise: context comes from **PGVector** similarity search when `VectorStoreClient` initialized; if PGVector is empty (default `llamastack` ingest), chat still runs but with little or no RAG context until you pick a Llama Stack store or re-ingest with `langchain`.
+- Chat can also invoke tools (general-simulation query, news, knowledge base) depending on the prompt.
 
 Example (chat):
 
@@ -120,7 +137,7 @@ A **React + Vite** single-page app served by nginx. It is the operator UI for th
 oc get route supply-chain-dashboard-frontend -n supply-chain-dashboard
 ```
 
-Open the **https** URL in a browser. Use **Simulation** (`#/simulation`) for the map and impact queries. Seed map data with `make seed-gen-sim` against the dashboard namespace.
+Open the **https** URL in a browser. Use **Simulation** (`#/simulation`) for the map and impact queries. Seed map data with `make seed-gen-sim` (and optionally `make seed-opensky-live`) against the dashboard namespace before expecting markers.
 
 ### Layout and interactions
 
@@ -131,31 +148,39 @@ Open the **https** URL in a browser. Use **Simulation** (`#/simulation`) for the
 
 **Simulation view** (main grid)
 
-1. **Map view** (above Impact Query) — toggle **Live Flights** (default, world fit) or **Scenario focus** (camera framed to the selected scenario)
-2. **Impact query** (left) — pick a scenario (UK Airspace Closure, Port Strike LA, Suez Blockage, …) and run an impact question against general-simulation
-3. **Map** (center) — Leaflet markers for seeded demo / live OpenSky entities; entity count and color legend in the panel
-4. **Impact results** (right) — answer, affected entities, diversions
-5. **Chat bar** (bottom) — RAG chat with optional vector-store selector
+1. **News ticker** (top) — RSS headlines from `/api/v1/news`
+2. **Impact query** (left) — **Map view** toggle (**Live Flights** default = world fit, or **Scenario focus** = camera framed to the selected scenario bbox); pick a scenario (UK Airspace Closure, Port Strike LA, Suez Blockage, …); run an impact question against general-simulation
+3. **Map** (center) — Leaflet markers for seeded demo / live-seeded OpenSky entities; entity count and color legend in the panel
+4. **Impact results** (right) — answer, score / value at risk, affected entities, diversions
+5. **Chat bar** (bottom) — streaming RAG chat; vector store auto-matched to the active scenario when possible
 
 **Knowledge bases view**
 
-- Upload a name plus one or more `.txt` files
+- Upload a name plus one or more `.txt` / `.md` / `.pdf` files
 - Backend ingests into Llama Stack and registers the catalog
-- After a successful upload, return to the dashboard and pick the new store in chat if listed
+- After a successful upload, return to Simulation and pick the new store in chat if listed
+
+**Create scenario view**
+
+- Describe a disruption in natural language → propose draft → create in general-simulation
+- On success, navigates to Simulation with the new scenario selected
 
 ### What to expect behaviorally
 
-- Map and KPIs reflect **simulated** supply-chain operations, not a live ERP feed.
+- Map entities and impact answers reflect **seeded / simulated** supply-chain data, not a live ERP feed.
+- Until you run `make seed-gen-sim`, the scenario list or map may be empty.
 - Until Llama Stack and ingestion finish, chat may work without RAG context or vector-store options may be empty — check backend logs and `make ingest-status`.
-- Simulation buttons show **Running simulation...** while waiting; errors appear inline in the panel.
+- Impact query shows a loading state while waiting; errors appear inline in the panel.
 
 ---
 
 ## Suggested walkthrough
 
-1. Open the **frontend Route** and confirm KPIs and map load (backend healthy).
-2. Run **Port Strike LA** and watch alerts/KPIs change.
-3. Ask the chat: *“Summarize current critical alerts.”* (optionally select a vector store after ingest).
-4. Open **Knowledge bases**, upload a short `.txt`, then ask a question grounded in that content.
+1. Open the **frontend Route** and confirm the Simulation view loads (backend healthy).
+2. Seed demo data: `make seed-gen-sim` (add `make seed-opensky-live` if you want denser live aircraft).
+3. Select **Port Strike LA** (or UK Airspace Closure / Suez Blockage), keep or edit the impact question, and run the query — review entities and diversions on the map and in Impact results.
+4. Ask the chat: *“Summarize current critical alerts.”* (vector store may auto-select after ingest).
+5. Open **Knowledge bases**, upload a short `.txt`, then ask a question grounded in that content.
+6. Optionally use **Create scenario** to propose and add a custom disruption.
 
 For troubleshooting pods, routes, and ingest jobs, use `make oc-status`, `make ingest-status`, and `make ingest-logs`.

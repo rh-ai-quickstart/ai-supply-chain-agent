@@ -260,7 +260,6 @@ MYPY_BACKEND_TARGETS ?= \
 	app/backend/api/app_factory.py \
 	app/backend/api/main.py \
 	app/backend/api/errors.py \
-	app/backend/api/clients/interfaces.py \
 	app/backend/api/clients/chat_completion_client.py \
 	app/backend/api/clients/tool_loop_orchestrator.py \
 	app/backend/api/clients/llama_vector_store_admin.py \
@@ -268,7 +267,6 @@ MYPY_BACKEND_TARGETS ?= \
 	app/backend/api/repositories \
 	app/backend/api/services/guardrail_policy.py \
 	app/backend/api/services/rag_context_provider.py \
-	app/backend/api/services/flight_tracking_service.py \
 	app/backend/api/services/readiness_service.py \
 	app/backend/api/routes
 
@@ -449,8 +447,8 @@ oc-status:
 # ============================================================
 
 # Run the ingestion Job as a one-off oc run (no Helm required).
-# Override INGEST_STRATEGY=llamastack to use the LlamaStack-native pipeline.
-INGEST_STRATEGY ?= langchain
+# Default matches helm/values.yaml ingest.strategy; override to langchain for PGVector.
+INGEST_STRATEGY ?= llamastack
 
 .PHONY: ingest
 ingest:

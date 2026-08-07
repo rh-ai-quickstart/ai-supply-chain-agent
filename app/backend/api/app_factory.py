@@ -13,13 +13,11 @@ from errors import register_error_handlers
 from flask import Flask
 from flask_cors import CORS
 from routes import chat as chat_routes
-from routes import dashboard as dashboard_routes
 from routes import general_simulation as general_simulation_routes
 from routes import health as health_routes
 from routes import knowledge_bases as knowledge_bases_routes
 from routes import news as news_routes
 from routes import scenarios as scenarios_routes
-from routes import simulations as simulations_routes
 from settings import Settings
 
 
@@ -41,11 +39,9 @@ def create_app(settings: Settings | None = None, container: Container | None = N
 
     for module in (
         health_routes,
-        dashboard_routes,
         news_routes,
         chat_routes,
         knowledge_bases_routes,
-        simulations_routes,
         scenarios_routes,
         general_simulation_routes,
     ):

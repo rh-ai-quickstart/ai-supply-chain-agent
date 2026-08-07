@@ -49,4 +49,52 @@ describe("CreateScenarioPage", () => {
     await user.click(screen.getByRole("button", { name: /Create scenario/i }));
     expect(onCreated).toHaveBeenCalledWith("france-closure");
   });
+
+  it("disables propose when the prompt is empty", () => {
+    render(<CreateScenarioPage />);
+    expect(screen.getByRole("button", { name: /Propose scenario/i })).toBeDisabled();
+  });
+
+  it("shows an alert when propose fails and does not render a draft", async () => {
+    const user = userEvent.setup();
+    vi.mocked(proposeScenario).mockResolvedValue({
+      success: false,
+      error: "prompt is required",
+    });
+
+    render(<CreateScenarioPage onCreated={vi.fn()} />);
+    await user.type(screen.getByLabelText(/Disruption description/i), "something");
+    await user.click(screen.getByRole("button", { name: /Propose scenario/i }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/prompt is required/i);
+    expect(screen.queryByRole("heading", { name: /Review draft/i })).not.toBeInTheDocument();
+  });
+
+  it("keeps the draft and skips onCreated when create fails", async () => {
+    const user = userEvent.setup();
+    const onCreated = vi.fn();
+    vi.mocked(proposeScenario).mockResolvedValue({
+      success: true,
+      draft: {
+        name: "France Closure",
+        scenario_id: "france-closure",
+        description: "Closed.",
+        affect_bbox: "-5,42,8,51",
+      },
+    });
+    vi.mocked(createScenario).mockResolvedValue({
+      success: false,
+      error: "upstream unavailable",
+    });
+
+    render(<CreateScenarioPage onCreated={onCreated} />);
+    await user.type(screen.getByLabelText(/Disruption description/i), "Close French airspace");
+    await user.click(screen.getByRole("button", { name: /Propose scenario/i }));
+    expect(await screen.findByDisplayValue("france-closure")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /Create scenario/i }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(/upstream unavailable/i);
+    expect(onCreated).not.toHaveBeenCalled();
+    expect(screen.getByDisplayValue("france-closure")).toBeInTheDocument();
+  });
 });

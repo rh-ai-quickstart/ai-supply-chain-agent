@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { KnowledgeBasesPage } from "./KnowledgeBasesPage";
 
-const mockedDashboardService = vi.hoisted(() => ({
+const mockedChatService = vi.hoisted(() => ({
   getVectorStores: vi.fn(),
 }));
 
@@ -12,8 +12,8 @@ const mockedApiClient = vi.hoisted(() => ({
   apiPostFormData: vi.fn(),
 }));
 
-vi.mock("../services/dashboardService", () => ({
-  getVectorStores: mockedDashboardService.getVectorStores,
+vi.mock("../services/chatService", () => ({
+  getVectorStores: mockedChatService.getVectorStores,
 }));
 
 vi.mock("../services/apiClient", () => ({
@@ -28,7 +28,7 @@ describe("KnowledgeBasesPage", () => {
 
   describe("initial load state", () => {
     it("shows loading text while fetching", async () => {
-      mockedDashboardService.getVectorStores.mockReturnValue(new Promise(() => {}));
+      mockedChatService.getVectorStores.mockReturnValue(new Promise(() => {}));
       mockedApiClient.apiGet.mockReturnValue(new Promise(() => {}));
 
       render(<KnowledgeBasesPage />);
@@ -36,7 +36,7 @@ describe("KnowledgeBasesPage", () => {
     });
 
     it("shows no-knowledge-bases when list is empty", async () => {
-      mockedDashboardService.getVectorStores.mockResolvedValue({ vector_stores: [] });
+      mockedChatService.getVectorStores.mockResolvedValue({ vector_stores: [] });
       mockedApiClient.apiGet.mockResolvedValue({ knowledge_bases: [] });
 
       render(<KnowledgeBasesPage />);
@@ -47,7 +47,7 @@ describe("KnowledgeBasesPage", () => {
     });
 
     it("shows load error when API fails", async () => {
-      mockedDashboardService.getVectorStores.mockResolvedValue({ vector_stores: [] });
+      mockedChatService.getVectorStores.mockResolvedValue({ vector_stores: [] });
       mockedApiClient.apiGet.mockRejectedValue(new Error("fail"));
 
       render(<KnowledgeBasesPage />);
@@ -60,7 +60,7 @@ describe("KnowledgeBasesPage", () => {
 
   describe("knowledge bases list", () => {
     it("renders a list of registered knowledge bases", async () => {
-      mockedDashboardService.getVectorStores.mockResolvedValue({
+      mockedChatService.getVectorStores.mockResolvedValue({
         vector_stores: [
           { id: "vs-1", name: "KB1", created_at: "2024-01-01T00:00:00.000Z" },
           { id: "vs-2", name: "KB2", created_at: "2024-06-01T00:00:00.000Z" },
@@ -95,7 +95,7 @@ describe("KnowledgeBasesPage", () => {
     });
 
     it("renders code element for vector store IDs", async () => {
-      mockedDashboardService.getVectorStores.mockResolvedValue({
+      mockedChatService.getVectorStores.mockResolvedValue({
         vector_stores: [
           { id: "vs-abc123", name: "KB1", created_at: "2024-01-01T00:00:00.000Z" },
         ],
@@ -120,7 +120,7 @@ describe("KnowledgeBasesPage", () => {
 
   describe("form submission", () => {
     it("renders form inputs", async () => {
-      mockedDashboardService.getVectorStores.mockResolvedValue({ vector_stores: [] });
+      mockedChatService.getVectorStores.mockResolvedValue({ vector_stores: [] });
       mockedApiClient.apiGet.mockResolvedValue({ knowledge_bases: [] });
 
       render(<KnowledgeBasesPage />);
@@ -138,7 +138,7 @@ describe("KnowledgeBasesPage", () => {
     });
 
     it("shows the warning display area when warnings exist", async () => {
-      mockedDashboardService.getVectorStores.mockResolvedValue({ vector_stores: [] });
+      mockedChatService.getVectorStores.mockResolvedValue({ vector_stores: [] });
       mockedApiClient.apiGet.mockResolvedValue({ knowledge_bases: [] });
 
       render(<KnowledgeBasesPage />);
@@ -156,7 +156,7 @@ describe("KnowledgeBasesPage", () => {
 
   describe("ui structure", () => {
     it("renders the create knowledge base form", async () => {
-      mockedDashboardService.getVectorStores.mockResolvedValue({ vector_stores: [] });
+      mockedChatService.getVectorStores.mockResolvedValue({ vector_stores: [] });
       mockedApiClient.apiGet.mockResolvedValue({ knowledge_bases: [] });
 
       render(<KnowledgeBasesPage />);
@@ -172,7 +172,7 @@ describe("KnowledgeBasesPage", () => {
     });
 
     it("renders the registered knowledge bases section", async () => {
-      mockedDashboardService.getVectorStores.mockResolvedValue({ vector_stores: [] });
+      mockedChatService.getVectorStores.mockResolvedValue({ vector_stores: [] });
       mockedApiClient.apiGet.mockResolvedValue({ knowledge_bases: [] });
 
       render(<KnowledgeBasesPage />);
@@ -185,7 +185,7 @@ describe("KnowledgeBasesPage", () => {
     });
 
     it("renders table header when there are rows", async () => {
-      mockedDashboardService.getVectorStores.mockResolvedValue({
+      mockedChatService.getVectorStores.mockResolvedValue({
         vector_stores: [
           { id: "vs-1", name: "KB1", created_at: "2024-01-01T00:00:00.000Z" },
         ],

@@ -16,7 +16,7 @@ const DEFAULT_CENTER = [51.5, -0.5];
 const DEFAULT_ZOOM = 5;
 
 /** Marker / route colors shared by the map and legend. */
-export const MAP_COLORS = {
+const MAP_COLORS = {
   entity: "#00E0FF",
   affected: "#FF4757",
   focused: "#FFC312",
@@ -27,7 +27,7 @@ export const MAP_COLORS = {
 const DIVERSION_COLOR = MAP_COLORS.diversion;
 const DIVERSION_SELECTED_COLOR = MAP_COLORS.diversionSelected;
 
-export const MAP_LEGEND_ITEMS = [
+const MAP_LEGEND_ITEMS = [
   { color: MAP_COLORS.entity, label: "Entity (flight, facility, or vessel)" },
   { color: MAP_COLORS.affected, label: "Affected by scenario" },
   { color: MAP_COLORS.focused, label: "Focused entity" },
@@ -36,7 +36,7 @@ export const MAP_LEGEND_ITEMS = [
 ];
 
 /** Parse ``minLon,minLat,maxLon,maxLat`` into Leaflet ``[[lat,lon],[lat,lon]]`` corners. */
-export function parseFocusBbox(bbox) {
+function parseFocusBbox(bbox) {
   if (!bbox || typeof bbox !== "string") return null;
   const parts = bbox.split(",").map((part) => Number(String(part).trim()));
   if (parts.length !== 4 || parts.some((n) => !Number.isFinite(n))) return null;

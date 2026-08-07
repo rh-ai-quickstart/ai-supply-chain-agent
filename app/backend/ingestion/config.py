@@ -14,7 +14,7 @@ class IngestionStrategy(Enum):
 class IngestConfig:
     """All tuneable parameters for the ingestion pipeline, sourced from env vars."""
 
-    strategy: IngestionStrategy = field(default=IngestionStrategy.LANGCHAIN)
+    strategy: IngestionStrategy = field(default=IngestionStrategy.LLAMASTACK)
     knowledge_base_dir: str = field(default="knowledge_base")
     glob: str = field(default="**/*.txt")
 
@@ -24,11 +24,11 @@ class IngestConfig:
 
     @classmethod
     def from_env(cls) -> "IngestConfig":
-        raw_strategy = os.getenv("INGEST_STRATEGY", "langchain").lower()
+        raw_strategy = os.getenv("INGEST_STRATEGY", "llamastack").lower()
         try:
             strategy = IngestionStrategy(raw_strategy)
         except ValueError:
-            strategy = IngestionStrategy.LANGCHAIN
+            strategy = IngestionStrategy.LLAMASTACK
 
         return cls(
             strategy=strategy,
