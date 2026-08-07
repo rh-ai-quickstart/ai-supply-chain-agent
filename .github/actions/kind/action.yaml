@@ -97,14 +97,14 @@ runs:
           --from-literal=NEO4J_AUTH="neo4j/kind-demo-password" \
           --dry-run=client -o yaml | kubectl apply -f -
 
-    # Published general-simulation still emits OpenShift Routes unconditionally
-    # (until api.route.enabled lands in a published chart). Stub the CRD so
-    # `helm install` can build the manifest on Kind.
+    # Belt-and-suspenders: values-kind disables api.route, but keep a Route CRD
+    # stub so a misconfigured overlay still renders on Kind.
     - name: Install OpenShift Route CRD stub (Kind)
       shell: bash
       run: kubectl apply -f ./scripts/ci/openshift-route-crd.yaml
 
     - name: Helm install (Kind values)
+      id: helm_install
       shell: bash
       env:
         HF_TOKEN: ${{ inputs.hf_token }}
@@ -119,6 +119,30 @@ runs:
           HELM_RELEASE=${{ inputs.helm_release }} \
           REGISTRY=${{ inputs.registry }} \
           HELM_EXTRA_ARGS="${EXTRA}"
+
+    # helm --wait only prints "context deadline exceeded"; dump cluster state
+    # so Pending PVCs / CrashLoops show up in the job log.
+    - name: Dump cluster state on Helm install failure
+      if: failure() && steps.helm_install.outcome == 'failure'
+      shell: bash
+      run: |
+        set +e
+        NS="${{ inputs.namespace }}"
+        echo "=== kubectl get all,pvc,jobs -n ${NS} ==="
+        kubectl get all,pvc,jobs -n "${NS}" -o wide
+        echo "=== kubectl get events -n ${NS} (last 50) ==="
+        kubectl get events -n "${NS}" --sort-by=.lastTimestamp | tail -50
+        echo "=== StorageClasses ==="
+        kubectl get storageclass
+        echo "=== helm status ==="
+        helm status "${{ inputs.helm_release }}" -n "${NS}" || true
+        for dep in backend frontend general-sim-api pgvector neo4j postgres; do
+          echo "=== describe candidates matching *${dep}* ==="
+          kubectl get pods -n "${NS}" -o name 2>/dev/null | grep -i "${dep}" | while read -r pod; do
+            kubectl describe -n "${NS}" "${pod}" | tail -40
+            kubectl logs -n "${NS}" "${pod}" --all-containers --tail=80 2>/dev/null || true
+          done
+        done
 
     - name: Wait for app deployments
       if: inputs.wait_for_rollout == 'true'

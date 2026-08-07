@@ -35,10 +35,30 @@ ingest:
 # render in the ephemeral Kind namespace (see helm/secrets.example.yaml for the
 # real-deployment equivalent, kept out of values.yaml on purpose). The matching
 # neo4j-auth Secret is pre-created by .github/actions/kind before `helm install`.
+#
+# Published gen-sim defaults pin Neo4j to gp3-csi + 2CPU/4Gi (OpenShift/AWS).
+# Kind has neither that StorageClass nor the headroom — without these overrides
+# helm --wait times out on a Pending Neo4j PVC.
 general-simulation:
   postgres:
     postgres:
       password: kind-demo-password
+  neo4j:
+    neo4j:
+      resources:
+        # Chart enforces memory >= 2Gi; keep CPU light for Kind runners.
+        cpu: "500m"
+        memory: 2Gi
+    volumes:
+      data:
+        mode: dynamic
+        dynamic:
+          accessModes:
+            - ReadWriteOnce
+          requests:
+            storage: 2Gi
+          # Kind local-path provisioner (default StorageClass name).
+          storageClassName: standard
   api:
     # No OpenShift router on Kind (requires gen-sim chart with route toggle).
     route:
