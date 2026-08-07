@@ -40,6 +40,9 @@ general-simulation:
     postgres:
       password: kind-demo-password
   api:
+    # No OpenShift router on Kind (requires gen-sim chart with route toggle).
+    route:
+      enabled: false
     postgres:
       password: kind-demo-password
     neo4j:

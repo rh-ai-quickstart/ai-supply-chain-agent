@@ -97,6 +97,13 @@ runs:
           --from-literal=NEO4J_AUTH="neo4j/kind-demo-password" \
           --dry-run=client -o yaml | kubectl apply -f -
 
+    # Published general-simulation still emits OpenShift Routes unconditionally
+    # (until api.route.enabled lands in a published chart). Stub the CRD so
+    # `helm install` can build the manifest on Kind.
+    - name: Install OpenShift Route CRD stub (Kind)
+      shell: bash
+      run: kubectl apply -f ./scripts/ci/openshift-route-crd.yaml
+
     - name: Helm install (Kind values)
       shell: bash
       env:
