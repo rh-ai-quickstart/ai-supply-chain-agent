@@ -13,10 +13,10 @@ tests:
       backend.pgvectorSecretName: pgvector
       backend.env.LLAMA_STACK_URL: "http://llamastack:8321"
       backend.env.EMBED_MODEL: "all-MiniLM-L6-v2"
-      backend.env.PG_HOST: pgvector
+      backend.env.PG_HOST: postgres
       backend.env.PG_PORT: "5432"
-      backend.env.PG_USER: postgres
-      backend.env.PG_DB: blueprint
+      backend.env.PG_USER: sim
+      backend.env.PG_DB: sim
     asserts:
       - isKind:
           of: Job
@@ -55,10 +55,10 @@ tests:
       ingest.strategy: llamastack
       backend.env.LLAMA_STACK_URL: "http://llamastack:8321"
       backend.env.EMBED_MODEL: "all-MiniLM-L6-v2"
-      backend.env.PG_HOST: pgvector
+      backend.env.PG_HOST: postgres
       backend.env.PG_PORT: "5432"
-      backend.env.PG_USER: postgres
-      backend.env.PG_DB: blueprint
+      backend.env.PG_USER: sim
+      backend.env.PG_DB: sim
     asserts:
       - notExists:
           path: metadata.annotations["helm.sh/hook-delete-policy"]
@@ -70,10 +70,10 @@ tests:
       ingest.hookDeletePolicy: before-hook-creation
       backend.env.LLAMA_STACK_URL: "http://llamastack:8321"
       backend.env.EMBED_MODEL: "all-MiniLM-L6-v2"
-      backend.env.PG_HOST: pgvector
+      backend.env.PG_HOST: postgres
       backend.env.PG_PORT: "5432"
-      backend.env.PG_USER: postgres
-      backend.env.PG_DB: blueprint
+      backend.env.PG_USER: sim
+      backend.env.PG_DB: sim
     asserts:
       - equal:
           path: metadata.annotations["helm.sh/hook-delete-policy"]

@@ -8,8 +8,11 @@
 #   llama-stack, llm-service, umbrella ingest Job, gen-sim OpenSky CronJob, vLLM.
 # OpenShift Routes disabled (no router on Kind).
 
+# Shared DB: bridge Secret/pgvector → Service postgres (password must match below).
 pgvector:
-  enabled: true
+  enabled: false
+  secret:
+    password: kind-demo-password
 
 llama-stack:
   enabled: false
@@ -25,6 +28,9 @@ backend:
   env:
     # Unused while llama-stack is off; backend probes /healthz (liveness-only).
     LLAMA_STACK_URL: http://llamastack:8321
+    PG_HOST: postgres
+    PG_USER: sim
+    PG_DB: sim
 
 frontend:
   route:
@@ -39,8 +45,8 @@ ingest:
 
 # Demo-only credentials so general-simulation's Postgres/Neo4j secret templates
 # render in the ephemeral Kind namespace (see helm/secrets.example.yaml for the
-# real-deployment equivalent, kept out of values.yaml on purpose). The matching
-# neo4j-auth Secret is pre-created by .github/actions/kind before `helm install`.
+# real-deployment equivalent). The matching neo4j-auth Secret is pre-created by
+# .github/actions/kind before `helm install`.
 #
 # Published gen-sim defaults pin Neo4j to gp3-csi + 2CPU/4Gi (OpenShift/AWS).
 # Kind has neither that StorageClass nor the headroom — without these overrides

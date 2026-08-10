@@ -31,7 +31,7 @@ spec:
           port: 53
         - protocol: TCP
           port: 53
-    # Same-namespace cluster services (pgvector, llamastack, general-sim).
+    # Same-namespace cluster services (postgres, llamastack, general-sim).
     - to:
         - namespaceSelector:
             matchLabels:

@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
-"""Guardrails for the pgvector Helm Secret password.
+"""Guardrails for the shared Postgres Helm Secret password (Secret/pgvector).
 
-The secrets overlay must never blank ``pgvector.secret.password``. An empty
-string replaces the chart default and produces a Secret with no password,
-which makes LlamaStack crash with::
+With ``pgvector.enabled: false`` (default), the umbrella bridge template
+creates Secret/pgvector for Llama Stack. The secrets overlay must never blank
+``pgvector.secret.password``. An empty string replaces the chart default and
+produces a Secret with no password, which makes LlamaStack crash with::
 
-    FATAL: password authentication failed for user "postgres"
+    FATAL: password authentication failed for user "sim"
 
-Postgres only applies ``POSTGRES_PASSWORD`` on first init, so changing the
-password after install also requires deleting PVC ``pg-data-pgvector-0``.
+Keep ``pgvector.secret.password`` in sync with
+``general-simulation.postgres.postgres.password``. Postgres only applies
+``POSTGRES_PASSWORD`` on first init, so changing the password after install
+also requires deleting the gen-sim Postgres PVC.
 """
 
 from __future__ import annotations
@@ -53,12 +56,10 @@ def _helm_template(*value_files: Path) -> str:
         str(HELM_CHART),
         "--namespace",
         "supply-chain-dashboard",
-        # This guardrail only cares about the pgvector Secret. general-simulation
+        # This guardrail only cares about Secret/pgvector. general-simulation
         # is an unrelated, independently-toggled subchart with its own required
-        # Postgres/Neo4j secrets (including a live-cluster `lookup` for a
-        # pre-created neo4j-auth Secret) that `helm template` can never satisfy
-        # without a real cluster — disable it so this check stays scoped to
-        # pgvector regardless of general-simulation's wiring.
+        # Neo4j lookup that `helm template` can never satisfy without a real
+        # cluster — disable it so this check stays scoped to the bridge Secret.
         "--set",
         "general-simulation.enabled=false",
     ]
@@ -127,7 +128,7 @@ def test_helm_render_keeps_non_empty_password_with_secrets_example() -> None:
     password = _rendered_pgvector_password(manifest)
     assert password, (
         "Rendered Secret/pgvector.password is empty when applying "
-        "secrets.example.yaml over values.yaml — LlamaStack cannot auth to PGVector"
+        "secrets.example.yaml over values.yaml — LlamaStack cannot auth to Postgres"
     )
 
 
@@ -137,12 +138,24 @@ def test_helm_render_values_alone_has_password() -> None:
     assert password, "Rendered Secret/pgvector.password is empty for values.yaml alone"
 
 
+def test_bridge_secret_points_at_shared_postgres() -> None:
+    """Default shared-DB mode must target Service postgres / db sim."""
+    data = _load_yaml(VALUES)
+    pg = data.get("pgvector") or {}
+    assert pg.get("enabled") is False, "default install should disable pgvector STS"
+    secret = pg.get("secret") or {}
+    assert secret.get("host") == "postgres"
+    assert secret.get("user") == "sim"
+    assert secret.get("dbname") == "sim"
+
+
 def main() -> int:
     tests = [
         test_secrets_example_does_not_blank_password,
         test_committed_values_define_non_empty_password,
         test_helm_render_values_alone_has_password,
         test_helm_render_keeps_non_empty_password_with_secrets_example,
+        test_bridge_secret_points_at_shared_postgres,
     ]
     failed = 0
     for test in tests:

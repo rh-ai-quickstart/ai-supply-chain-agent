@@ -11,10 +11,10 @@ tests:
       backend.pgvectorSecretName: pgvector
       backend.env.LLAMA_STACK_URL: "http://llamastack.example:8321"
       backend.env.EMBED_MODEL: "all-MiniLM-L6-v2"
-      backend.env.PG_HOST: pgvector
+      backend.env.PG_HOST: postgres
       backend.env.PG_PORT: "5432"
-      backend.env.PG_USER: postgres
-      backend.env.PG_DB: blueprint
+      backend.env.PG_USER: sim
+      backend.env.PG_DB: sim
       backend.env.GENERAL_SIMULATION_BASE_URL: "http://general-sim-api:8000"
       global.models.llama-3-2-3b-instruct.enabled: true
       global.models.external-model.id: "gpt-4o-mini"
@@ -53,7 +53,7 @@ tests:
           path: spec.template.spec.containers[0].env
           content:
             name: PG_HOST
-            value: pgvector
+            value: postgres
       - contains:
           path: spec.template.spec.containers[0].env
           content:
@@ -85,10 +85,10 @@ tests:
       backend.enabled: true
       backend.pgvectorSecretName: pgvector
       backend.env.LLAMA_STACK_URL: "http://llamastack.example:8321"
-      backend.env.PG_HOST: pgvector
+      backend.env.PG_HOST: postgres
       backend.env.PG_PORT: "5432"
-      backend.env.PG_USER: postgres
-      backend.env.PG_DB: blueprint
+      backend.env.PG_USER: sim
+      backend.env.PG_DB: sim
       global.models.llama-3-2-3b-instruct.enabled: false
       global.models.external-model.id: "Qwen3.6-35B-A3B"
     asserts:
