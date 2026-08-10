@@ -12,6 +12,11 @@ global:
       url: https://litemaas.rhoai.rh-aiservices-bu.com/v1
       apiToken: "" # Set in helm/secrets.yaml
 
+# OpenShift SCC: Neo4j (UID 7474) and backend (UID 1001) need anyuid on the
+# default ServiceAccount. Disable for Kind (no OpenShift SCCs).
+openshift:
+  sccAnyuid: true
+
 pgvector:
   enabled: true
   secret:
@@ -66,6 +71,8 @@ general-simulation:
   # Override subchart default (quay.io/robertsandoval/general-sim-app).
   api:
     image: quay.io/rh-ai-quickstart/general-simulation-api:latest
+    # Published chart 0.1.1 defaults to aviation-only; shipping domain needs both.
+    enabledDomains: aviation,shipping
     # Init (TCP) → lifespan (pool/driver) → startup/readiness (/health).
     waitFor:
       enabled: true
@@ -83,11 +90,13 @@ general-simulation:
   # Live OpenSky CronJob (opensky-network.org). Keep disabled on AWS/hyperscaler
   # clusters: OpenSky drops those source IPs at TCP (documented; they refuse AI
   # dashboard allowlists). Cluster NetworkPolicy / EgressFirewall cannot fix it.
-  # Seed offline demo data with general-simulation scripts/seed_demo.py instead.
-  # To use live data: egress via a non-hyperscaler proxy, or swap the adapter.
+  # Seed offline demo data with general-simulation scripts/seed_demo.py then
+  # scripts/seed_shipping.py (make seed-gen-sim). To use live OpenSky: egress
+  # via a non-hyperscaler proxy, or swap the adapter.
   ingestion:
     enabled: false
     image: quay.io/rh-ai-quickstart/general-simulation-api:latest
+    enabledDomains: aviation,shipping
     llm:
       backend: openai
       baseUrl: https://api.openai.com/v1

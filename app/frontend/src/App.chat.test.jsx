@@ -38,7 +38,7 @@ vi.mock("./services/generalSimulationService", () => ({
       success: true,
       scenarios: [
         "opensky-uk-closure-001",
-        "supply-chain-port-strike-la",
+        "shipping-la-closure-001",
         "supply-chain-suez-blockage",
       ],
     }),

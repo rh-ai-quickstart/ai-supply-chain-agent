@@ -1,0 +1,23 @@
+{{- /*
+OpenShift: Neo4j (UID 7474) and backend (UID 1001) use fixed UIDs outside the
+namespace SCC range. Bind anyuid to the default ServiceAccount (Neo4j chart
+uses default when not clustered). Disable for Kind via values-kind.yaml.
+*/ -}}
+{{- if .Values.openshift.sccAnyuid }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ .Release.Name }}-scc-anyuid
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:openshift:scc:anyuid
+subjects:
+  - kind: ServiceAccount
+    name: default
+    namespace: {{ .Release.Namespace }}
+{{- end }}

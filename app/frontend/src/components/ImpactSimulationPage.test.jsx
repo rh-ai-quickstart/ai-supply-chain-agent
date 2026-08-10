@@ -107,7 +107,7 @@ describe("ImpactSimulationPage", () => {
   it("prefers initialScenarioId when present in the loaded list", async () => {
     listImpactScenarios.mockResolvedValue({
       success: true,
-      scenarios: ["supply-chain-port-strike-la", "opensky-uk-closure-001"],
+      scenarios: ["shipping-la-closure-001", "opensky-uk-closure-001"],
     });
 
     render(<ImpactSimulationPage initialScenarioId="opensky-uk-closure-001" />);
@@ -124,7 +124,7 @@ describe("ImpactSimulationPage", () => {
   it("notifies parent when the active scenario changes", async () => {
     listImpactScenarios.mockResolvedValue({
       success: true,
-      scenarios: ["opensky-uk-closure-001", "supply-chain-port-strike-la"],
+      scenarios: ["opensky-uk-closure-001", "shipping-la-closure-001"],
     });
     const onScenarioChange = vi.fn();
     render(<ImpactSimulationPage onScenarioChange={onScenarioChange} />);
@@ -135,7 +135,7 @@ describe("ImpactSimulationPage", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Port Strike LA" }));
     await waitFor(() => {
-      expect(onScenarioChange).toHaveBeenCalledWith("supply-chain-port-strike-la");
+      expect(onScenarioChange).toHaveBeenCalledWith("shipping-la-closure-001");
     });
   });
 

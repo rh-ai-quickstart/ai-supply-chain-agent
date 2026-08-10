@@ -6,15 +6,15 @@
 /** Friendly labels shown in the Impact Simulation scenario picker. */
 export const SCENARIO_LABELS = {
   "opensky-uk-closure-001": "UK Airspace Closure",
-  "supply-chain-port-strike-la": "Port Strike LA",
+  "shipping-la-closure-001": "Port Strike LA",
   "supply-chain-suez-blockage": "Suez Blockage",
 };
 
 export const SCENARIO_QUESTIONS = {
   "opensky-uk-closure-001":
     "UK airspace is closed due to a NATS GPS failure. Which aircraft are affected, what diversions should be issued, and what is the estimated cost of impact?",
-  "supply-chain-port-strike-la":
-    "Port of Los Angeles and Long Beach are closed by a strike. Which vessels, cargo, and inland facilities are affected, and what is the estimated cost of impact?",
+  "shipping-la-closure-001":
+    "Port of Los Angeles is closed due to a strike. Which vessels and shipments are affected, what diversions should we issue, and what is the estimated cost of impact?",
   "supply-chain-suez-blockage":
     "The Suez Canal is blocked. Which vessels and cargoes are delayed, what is the impact on European ports, and what is the estimated cost of impact?",
 };
@@ -25,7 +25,7 @@ export const DEFAULT_IMPACT_QUESTION = SCENARIO_QUESTIONS["opensky-uk-closure-00
 /** Map bboxes (minLon,minLat,maxLon,maxLat) focused on each scenario. */
 export const SCENARIO_BBOXES = {
   "opensky-uk-closure-001": "-15,35,40,62",
-  "supply-chain-port-strike-la": "-130,30,-110,40",
+  "shipping-la-closure-001": "-130,30,-110,40",
   "supply-chain-suez-blockage": "0,20,50,55",
 };
 
@@ -34,7 +34,7 @@ export const SCENARIO_BBOXES = {
  */
 export const SCENARIO_VECTOR_STORE_KEYWORDS = {
   "opensky-uk-closure-001": ["uk", "nats", "gps", "air"],
-  "supply-chain-port-strike-la": ["port", "strike", "la"],
+  "shipping-la-closure-001": ["port", "strike", "la"],
   "supply-chain-suez-blockage": ["suez", "blockage"],
 };
 

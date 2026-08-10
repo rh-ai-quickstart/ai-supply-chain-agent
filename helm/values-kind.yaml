@@ -8,6 +8,10 @@
 #   llama-stack, llm-service, umbrella ingest Job, gen-sim OpenSky CronJob, vLLM.
 # OpenShift Routes disabled (no router on Kind).
 
+# Kind has no OpenShift SCCs — skip anyuid RoleBinding.
+openshift:
+  sccAnyuid: false
+
 pgvector:
   enabled: true
 

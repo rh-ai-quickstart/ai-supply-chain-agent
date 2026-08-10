@@ -12,7 +12,7 @@ def test_resolve_scenario_id_prefers_explicit():
 
 def test_resolve_scenario_id_from_clues():
     assert resolve_scenario_id("simulate the UK NATS GPS failure") == "opensky-uk-closure-001"
-    assert resolve_scenario_id("port strike in LA") == "supply-chain-port-strike-la"
+    assert resolve_scenario_id("port strike in LA") == "shipping-la-closure-001"
     assert resolve_scenario_id("suez canal block") == "supply-chain-suez-blockage"
     assert resolve_scenario_id("generic question") == ""
 

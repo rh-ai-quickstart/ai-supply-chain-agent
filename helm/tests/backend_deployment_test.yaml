@@ -73,12 +73,14 @@ tests:
       - equal:
           path: spec.template.spec.containers[0].readinessProbe.httpGet.path
           value: /healthz
-      - equal:
+      - notExists:
           path: spec.template.spec.containers[0].securityContext.runAsUser
-          value: 1001
       - equal:
           path: spec.template.spec.securityContext.runAsNonRoot
           value: true
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.allowPrivilegeEscalation
+          value: false
 
   - it: uses external-model when local llm is disabled
     set:

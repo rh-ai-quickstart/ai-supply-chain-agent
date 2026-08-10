@@ -25,6 +25,23 @@ describe("impactEntityUtils", () => {
     expect(resolveMapEntityId("cargo-opensky-407290-1", ids)).toBe("opensky-407290");
   });
 
+  it("resolves shipping cargo ids to vessel markers (cargo-{vesselId}-{n})", () => {
+    const ids = new Set(["vessel-ever-green-01", "port-us-lax"]);
+    expect(resolveMapEntityId("cargo-vessel-ever-green-01-1", ids)).toBe(
+      "vessel-ever-green-01",
+    );
+    expect(
+      cargoCostForAircraft(
+        "vessel-ever-green-01",
+        buildValueByEntity([
+          { entity_id: "cargo-vessel-ever-green-01-1", value_usd: 480000 },
+          { entity_id: "cargo-vessel-ever-green-01-2", value_usd: 680000 },
+        ]),
+        ["cargo-vessel-ever-green-01-1", "cargo-vessel-ever-green-01-2"],
+      ),
+    ).toBe(1160000);
+  });
+
   it("sums cargo cost for an aircraft from breakdown rows only", () => {
     const values = buildValueByEntity([
       { entity_id: "opensky-407290", value_usd: 620000 },

@@ -53,8 +53,8 @@ describe("ImpactQueryPanel", () => {
     const onChangeScenarioId = vi.fn();
     render(
       <ImpactQueryPanel
-        scenarios={["supply-chain-port-strike-la", "opensky-uk-closure-001"]}
-        scenarioId="supply-chain-port-strike-la"
+        scenarios={["shipping-la-closure-001", "opensky-uk-closure-001"]}
+        scenarioId="shipping-la-closure-001"
         question="q"
         onChangeScenarioId={onChangeScenarioId}
         onChangeQuestion={vi.fn()}

@@ -2,7 +2,9 @@
 # Seed general-simulation Neo4j + Postgres from your laptop via oc port-forward.
 #
 # Pulls credentials from the cluster, forwards Bolt (7687) and Postgres (local
-# 5433 → 5432), then runs general-simulation/scripts/seed_demo.py.
+# 5433 → 5432), then runs general-simulation seed scripts:
+#   scripts/seed_demo.py      — aviation + Suez
+#   scripts/seed_shipping.py  — Port Strike LA (shipping-la-closure-001)
 #
 # Usage:
 #   ./scripts/seed-gen-sim-demo.sh
@@ -93,16 +95,26 @@ postgres_dsn_from_secret() {
   echo "postgresql://${user}:${enc}@127.0.0.1:${local_port}/sim"
 }
 
-run_seed() {
+run_python() {
   local sim_dir="$1"
+  shift
   cd "${sim_dir}"
   if command -v uv >/dev/null 2>&1; then
-    uv run python scripts/seed_demo.py
+    uv run python "$@"
   elif [[ -x "${sim_dir}/.venv/bin/python" ]]; then
-    "${sim_dir}/.venv/bin/python" scripts/seed_demo.py
+    "${sim_dir}/.venv/bin/python" "$@"
   else
-    python3 scripts/seed_demo.py
+    python3 "$@"
   fi
+}
+
+run_seed() {
+  local sim_dir="$1"
+  log "Seeding aviation + Suez (seed_demo.py)…"
+  run_python "${sim_dir}" scripts/seed_demo.py
+  log "Seeding Port Strike LA shipping domain (seed_shipping.py)…"
+  ENABLED_DOMAINS="${ENABLED_DOMAINS:-aviation,shipping}" \
+    run_python "${sim_dir}" scripts/seed_shipping.py
 }
 
 need_cmd "${OC}"
@@ -111,6 +123,7 @@ need_cmd base64
 
 [[ -d "${GENERAL_SIM_DIR}" ]] || fail "general-simulation not found at ${GENERAL_SIM_DIR} (set GENERAL_SIM_DIR)"
 [[ -f "${GENERAL_SIM_DIR}/scripts/seed_demo.py" ]] || fail "Missing ${GENERAL_SIM_DIR}/scripts/seed_demo.py"
+[[ -f "${GENERAL_SIM_DIR}/scripts/seed_shipping.py" ]] || fail "Missing ${GENERAL_SIM_DIR}/scripts/seed_shipping.py"
 
 NS="$(resolve_namespace)"
 log "Using namespace: ${NS}"
@@ -153,7 +166,7 @@ export NEO4J_URI="bolt://127.0.0.1:${LOCAL_NEO4J_PORT}"
 export NEO4J_USER="${NEO4J_USER:-neo4j}"
 export NEO4J_PASSWORD
 export POSTGRES_DSN
+export ENABLED_DOMAINS="${ENABLED_DOMAINS:-aviation,shipping}"
 
-log "Seeding Neo4j + Postgres (demo aircraft, maritime, scenarios)…"
 run_seed "${GENERAL_SIM_DIR}"
 log "Done."

@@ -98,7 +98,7 @@ help:
 	@echo ""
 	@echo "  Gen-sim demo data:"
 	@echo "    seed               Demo seed then live OpenSky (seed-gen-sim + seed-opensky-live)"
-	@echo "    seed-gen-sim       Port-forward Neo4j+Postgres, pull secrets, run seed_demo.py"
+	@echo "    seed-gen-sim       Port-forward Neo4j+Postgres, run seed_demo.py + seed_shipping.py"
 	@echo "    seed-opensky-live  Pull live OpenSky on laptop → upsert into cluster PG+Neo4j"
 	@echo ""
 	@echo "  Utilities:"

@@ -13,7 +13,7 @@ _SCENARIO_CLUES: list[tuple[re.Pattern[str], str]] = [
     ),
     (
         re.compile(r"\b(port\s+strike|los\s+angeles|long\s+beach|\bla\b)\b", re.IGNORECASE),
-        "supply-chain-port-strike-la",
+        "shipping-la-closure-001",
     ),
     (
         re.compile(r"\b(suez|canal\s+block)\b", re.IGNORECASE),
