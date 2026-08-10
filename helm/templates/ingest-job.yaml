@@ -76,6 +76,7 @@ spec:
       containers:
         - name: ingest
           securityContext:
+            runAsUser: 1001
             allowPrivilegeEscalation: false
             capabilities:
               drop: [ALL]

@@ -1,7 +1,12 @@
 # Kind / plain Kubernetes CI overrides (use with: make helm-install-kind)
-# - No OpenShift Routes
-# - Lighter stack (no Llama Stack / llm-service pull in CI by default)
-# - Images pulled from the local registry (see REGISTRY=localhost:5001)
+#
+# Availability contract for helm --wait (must become Ready/Complete):
+#   backend, frontend, pgvector, gen-sim postgres, neo4j (Service name neo4j),
+#   general-sim-api, then general-sim-bootstrap post-install hook.
+#
+# Kept off so they cannot block --wait or pull heavy images:
+#   llama-stack, llm-service, umbrella ingest Job, gen-sim OpenSky CronJob, vLLM.
+# OpenShift Routes disabled (no router on Kind).
 
 pgvector:
   enabled: true
@@ -18,6 +23,7 @@ backend:
   image:
     pullPolicy: IfNotPresent
   env:
+    # Unused while llama-stack is off; backend probes /healthz (liveness-only).
     LLAMA_STACK_URL: http://llamastack:8321
 
 frontend:
@@ -39,11 +45,19 @@ ingest:
 # Published gen-sim defaults pin Neo4j to gp3-csi + 2CPU/4Gi (OpenShift/AWS).
 # Kind has neither that StorageClass nor the headroom — without these overrides
 # helm --wait times out on a Pending Neo4j PVC.
+#
+# fullnameOverride is required: the official neo4j chart names Service/STS after
+# the Helm release (e.g. supply-chain-dashboard). api/bootstrap wait for host
+# "neo4j", so without this override general-sim-api stays Init:wait-for-deps.
 general-simulation:
   postgres:
     postgres:
       password: kind-demo-password
   neo4j:
+    fullnameOverride: neo4j
+    # Kind action pre-creates neo4j-auth; skip live-cluster lookups during helm
+    # template/install so CI does not depend on lookup timing.
+    disableLookups: true
     neo4j:
       resources:
         # Chart enforces memory >= 2Gi; keep CPU light for Kind runners.
@@ -63,6 +77,9 @@ general-simulation:
     # No OpenShift router on Kind (requires gen-sim chart with route toggle).
     route:
       enabled: false
+    llm:
+      # Not required for /health Ready; keeps Secret non-empty for Kind.
+      apiKey: kind-unused
     postgres:
       password: kind-demo-password
     neo4j:
@@ -73,6 +90,7 @@ general-simulation:
     neo4j:
       password: kind-demo-password
   ingestion:
+    enabled: false
     postgres:
       password: kind-demo-password
     neo4j:

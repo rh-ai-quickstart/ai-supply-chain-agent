@@ -58,6 +58,11 @@ general-simulation:
   enabled: true
   vllm:
     enabled: false
+  # Stable Service/STS name so api/bootstrap can wait on host "neo4j" even when
+  # this chart is installed under a parent release (e.g. supply-chain-dashboard).
+  # Changing this on an existing install recreates Neo4j with a new PVC.
+  neo4j:
+    fullnameOverride: neo4j
   # Override subchart default (quay.io/robertsandoval/general-sim-app).
   api:
     image: quay.io/rh-ai-quickstart/general-simulation-api:latest

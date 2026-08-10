@@ -1,6 +1,7 @@
 FROM python:3.12-slim
 
-RUN useradd -m appuser
+# Numeric UID required: Kind/Kubernetes rejects runAsNonRoot when USER is a name.
+RUN useradd -u 1001 -m appuser
 
 WORKDIR /app
 
@@ -18,7 +19,7 @@ ENV GIT_COMMIT=$GIT_COMMIT
 ENV BUILD_TIME=$BUILD_TIME
 
 RUN chown -R appuser:0 /app && chmod -R g+rwX /app
-USER appuser
+USER 1001
 
 EXPOSE 5001
 

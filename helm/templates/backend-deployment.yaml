@@ -24,6 +24,7 @@ spec:
       containers:
         - name: backend
           securityContext:
+            runAsUser: 1001
             allowPrivilegeEscalation: false
             capabilities:
               drop: [ALL]

@@ -128,20 +128,38 @@ runs:
       run: |
         set +e
         NS="${{ inputs.namespace }}"
-        echo "=== kubectl get all,pvc,jobs -n ${NS} ==="
-        kubectl get all,pvc,jobs -n "${NS}" -o wide
+        REL="${{ inputs.helm_release }}"
+        echo "=== kubectl get deploy,sts,svc,pvc,job,pods -n ${NS} ==="
+        kubectl get deploy,sts,svc,pvc,job,pods -n "${NS}" -o wide
         echo "=== kubectl get events -n ${NS} (last 50) ==="
         kubectl get events -n "${NS}" --sort-by=.lastTimestamp | tail -50
         echo "=== StorageClasses ==="
         kubectl get storageclass
         echo "=== helm status ==="
-        helm status "${{ inputs.helm_release }}" -n "${NS}" || true
-        for dep in backend frontend general-sim-api pgvector neo4j postgres; do
-          echo "=== describe candidates matching *${dep}* ==="
+        helm status "${REL}" -n "${NS}" || true
+        echo "=== Services on 7687 (Neo4j Bolt) ==="
+        kubectl get svc -n "${NS}" -o wide | awk 'NR==1 || /7687/'
+        dump_pod() {
+          local pod="$1"
+          echo "=== describe ${pod} ==="
+          kubectl describe -n "${NS}" "${pod}" | tail -50
+          kubectl logs -n "${NS}" "${pod}" --all-containers --tail=80 2>/dev/null || true
+        }
+        for dep in backend frontend general-sim-api pgvector neo4j postgres bootstrap; do
+          echo "=== candidates matching *${dep}* ==="
           kubectl get pods -n "${NS}" -o name 2>/dev/null | grep -i "${dep}" | while read -r pod; do
-            kubectl describe -n "${NS}" "${pod}" | tail -40
-            kubectl logs -n "${NS}" "${pod}" --all-containers --tail=80 2>/dev/null || true
+            dump_pod "${pod}"
           done
+        done
+        # Official neo4j chart may name the STS after the release when
+        # fullnameOverride is missing — catch that explicitly.
+        if kubectl get pod -n "${NS}" "${REL}-0" >/dev/null 2>&1; then
+          dump_pod "pod/${REL}-0"
+        fi
+        kubectl get jobs -n "${NS}" -o name 2>/dev/null | while read -r job; do
+          echo "=== job describe ${job} ==="
+          kubectl describe -n "${NS}" "${job}" | tail -40
+          kubectl logs -n "${NS}" "job/$(basename "${job}")" --all-containers --tail=80 2>/dev/null || true
         done
 
     - name: Wait for app deployments
