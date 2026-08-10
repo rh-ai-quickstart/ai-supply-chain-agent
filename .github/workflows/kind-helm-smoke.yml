@@ -16,7 +16,7 @@ on:
       - ".github/actions/kind/**"
       - ".github/workflows/kind-helm-smoke.yml"
   push:
-    branches: [main, master, development]
+    branches: [main, master, development, chore/*, feat/*]
     paths:
       - "app/backend/**"
       - "app/frontend/**"
