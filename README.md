@@ -1,30 +1,45 @@
 # AI Supply Chain Agent
 
-An AI-powered supply chain intelligence dashboard that combines real-time logistics simulation with a Retrieval-Augmented Generation (RAG) chatbot to help operators monitor, analyze, and respond to global supply chain disruptions.
+AI-powered supply chain impact simulation with a RAG chatbot to help operators monitor, analyze, and respond to global disruptions.
 
-## Table of contents
+## Table of Contents
 
+- [Overview](#overview)
 - [Detailed description](#detailed-description)
-- [Architecture diagrams](#architecture-diagrams)
+  - [Architecture diagrams](#architecture-diagrams)
 - [Requirements](#requirements)
+  - [Minimum hardware requirements](#minimum-hardware-requirements)
+  - [Minimum software requirements](#minimum-software-requirements)
+  - [Required user permissions](#required-user-permissions)
 - [Deploy](#deploy)
-  - [Option A: MaaS / external model (default)](#option-a-maas--external-model-default)
-  - [Option B: Local CPU/GPU](#option-b-local-cpugpu)
+  - [Prerequisites](#prerequisites)
+  - [Installation](#installation)
+  - [Validating the deployment](#validating-the-deployment)
+  - [Delete](#delete)
+- [Repository structure](#repository-structure)
 - [References](#references)
 - [Technical details](#technical-details)
-- [Contributing](#contributing)
 - [Tags](#tags)
+
+## Overview
+
+Global supply chains are complex and exposed to frequent disruptions — port strikes, airspace closures, blocked shipping lanes, and more. When something goes wrong, operators must quickly understand which entities are affected, how much value is at risk, and where to divert shipments.
+
+This quickstart deploys an interactive supply chain impact workspace on OpenShift AI. Operators run natural-language what-if impact scenarios, inspect affected entities and recommended diversions on a map, and ask questions to a RAG chatbot grounded in curated risk documents. After deployment, operators can monitor, analyze, and respond to disruptions from a single dashboard.
 
 ## Detailed description
 
-This quickstart deploys an interactive supply chain impact workspace backed by a Llama Stack LLM, a PGVector knowledge base, and a general-simulation impact engine. Operators run what-if scenarios (port strikes, airspace closures, Suez blockage), inspect affected entities and diversions on a map, and ask natural-language questions via a RAG chatbot grounded in curated risk documents.
+Global supply chains are increasingly exposed to cascading disruption. Port strikes, airspace closures, and blocked shipping lanes can spread quickly: when one link breaks, operators must determine which shipments, suppliers, and routes are affected, quantify the impact, and decide where to divert traffic — often within minutes. Doing this across spreadsheets, emails, and scattered news feeds is slow and error-prone.
 
-For a longer product narrative (audience, problem statement, and demo scenario catalog), see [DETAILED_DESCRIPTION.md](DETAILED_DESCRIPTION.md).
+This quickstart addresses that problem by pairing a logistics simulation engine with a Retrieval-Augmented Generation (RAG) chatbot. Operators run natural-language what-if impact queries against seeded scenarios, review the impact score, value at risk, affected entities, and recommended diversions on an interactive Leaflet map, and ask follow-up questions in a chat session grounded in curated risk documents. The same workspace supports uploading additional knowledge bases at runtime.
 
 Key capabilities:
-- **Impact simulation**: Pick a seeded scenario, run a natural-language impact query, and review score, value at risk, affected entities, and recommended diversions on a Leaflet map.
+
+- **Impact simulation**: Run a natural-language impact query against a seeded scenario (port strike, airspace closure, Suez blockage) and review score, value at risk, affected entities, and recommended diversions on a map.
 - **RAG chatbot**: Streaming chat with per-scenario history; the UI auto-matches a Llama Stack vector store by scenario keywords.
 - **Knowledge bases**: Upload `.txt`/`.md`/`.pdf` documents at runtime; a Helm post-install job also loads bundled risk analyses into Llama Stack vector stores (`ingest.strategy: llamastack`) or optionally PGVector (`langchain`).
+
+For a longer product narrative (audience, problem statement, and demo scenario catalog), see [DETAILED_DESCRIPTION.md](DETAILED_DESCRIPTION.md).
 
 ### Architecture diagrams
 
@@ -136,36 +151,47 @@ sequenceDiagram
 
 ### Minimum hardware requirements
 
-| Resource | Minimum (MaaS default) | With local `llm-service` |
-|----------|------------------------|---------------------------|
-| GPU | Not required | 1× NVIDIA A10G (24 GB VRAM) or equivalent, or larger CPU nodes |
+| Resource | Default (MaaS) | With local `llm-service` |
+|----------|----------------|--------------------------|
 | CPU | 4 vCPU | 8+ vCPU |
-| RAM | 16 GB | 32+ GB (CPU vLLM needs more) |
+| Memory | 16 GB | 32+ GB (CPU vLLM needs more) |
+| GPU | Not required | 1× NVIDIA A10G (24 GB VRAM) or equivalent, or larger CPU nodes |
 | Storage | 20 GB (PGVector + app) | 50 GB (model weights + PGVector) |
 
-**Default:** `helm/values.yaml` uses LiteMaaS (`global.models.external-model`) and leaves `llm-service.enabled: false`, so no in-cluster model or GPU is required.
+> **Note**: If using MaaS (external model endpoint), GPU is not required. `helm/values.yaml` uses LiteMaaS (`global.models.external-model`) and leaves `llm-service.enabled: false`, so no in-cluster model or GPU is deployed.
 
-**Optional local model:** re-enable `llm-service` and a gated Hugging Face model (CPU or GPU). On AWS CPU mode, instances must support AVX-512 (tested on m6i). For GPU infrastructure in AWS see [AWS Setup](./infra/prereqs/ocp-gpu-setup/README.md).
+**Optional local model:** re-enable `llm-service` and a gated Hugging Face model (CPU or GPU). On AWS CPU mode, instances must support AVX-512 (tested on m6i).
 
 ### Minimum software requirements
 
-| Component | Tested version |
-|-----------|---------------|
+| Component | Version |
+|-----------|---------|
 | OpenShift | 4.21+ |
 | OpenShift AI | 3.4+ |
 | Helm | 3.14+ |
-| Llama Stack | compatible with `llama-stack` subchart in `helm/` (from [ai-architecture-charts](https://github.com/rh-ai-quickstart/ai-architecture-charts)) |
+| Llama Stack | compatible with the `llama-stack` subchart in `helm/` (from [ai-architecture-charts](https://github.com/rh-ai-quickstart/ai-architecture-charts)) |
 | Python | 3.12 |
 | Node.js | 22 (frontend builds) |
 | `oc` CLI | Recommended for deploy status and troubleshooting |
 
 ### Required user permissions
 
-**Application (backend, frontend, PGVector, Llama Stack)**
-
-- Namespace **admin** role is sufficient to deploy the main Helm chart (it creates Routes, Deployments, Services, and a Job).
+This quickstart can be deployed by any user with **namespace admin** in the target project. Deploying the main Helm chart creates Routes, Deployments, Services, and a Job — no cluster admin access is required.
 
 ## Deploy
+
+### Prerequisites
+
+Before deploying, ensure you have:
+
+- Access to a Red Hat OpenShift cluster with OpenShift AI 3.4+ installed
+- `oc` CLI (OpenShift 4.21+) installed and authenticated
+- `helm` CLI (3.14+) installed
+- API token for your MaaS / LiteMaaS model endpoint (default Option A)
+- Hugging Face token for gated models (Option B / local model only)
+- Sibling checkout of [general-simulation](https://github.com/robertsandoval/general-simulation) at `../general-simulation` for `make seed-gen-sim` (recommended for map data)
+
+### Installation
 
 Defaults used below (overridable on `make`, e.g. `make helm-install NAMESPACE=my-ns`):
 
@@ -179,36 +205,26 @@ Defaults used below (overridable on `make`, e.g. `make helm-install NAMESPACE=my
 
 Run `make help` for the full target list.
 
-For step 4, choose one of two deployment options:
-
-- **[Option A](#option-a-maas--external-model-default)** — default. Llama Stack calls LiteMaaS (or another OpenAI-compatible endpoint). No local model pod. Requires an API token.
-- **[Option B](#option-b-local-cpugpu)** — deploy an in-cluster LLM via `llm-service` (CPU or GPU). Requires a Hugging Face token for gated models.
-
-General Simulation (optional subchart) uses its **own** OpenAI credentials (`api.llm` / `ingestion.llm` in secrets) — not LiteMaaS.
-
-### 1. Clone the repository
+1. Clone the repository:
 
 ```bash
 git clone https://github.com/rh-ai-quickstart/ai-supply-chain-agent.git
 cd ai-supply-chain-agent
 ```
 
-### 2. Deploy secrets and values
+2. Create a new OpenShift project:
 
-**Required (Option A / default):** set your MaaS / LiteMaaS API token so Llama Stack can call `global.models.external-model`.
+```bash
+oc new-project supply-chain-dashboard
+```
 
-**Option A secrets — use `helm/secrets.yaml`** (recommended for local development):
+3. Set your model API token.
+
+**Option A secrets (default) — use `helm/secrets.yaml`** (recommended for local development):
 
 ```bash
 cp helm/secrets.example.yaml helm/secrets.yaml
 # Edit helm/secrets.yaml and set global.models.external-model.apiToken
-```
-
-Then deploy as usual — the Makefile automatically applies `helm/secrets.yaml` if it exists:
-
-```bash
-make helm-deps
-make helm-install
 ```
 
 **Option A secrets — pre-create / override at install** (token never needs to sit in a file):
@@ -225,24 +241,9 @@ helm upgrade --install supply-chain-dashboard ./helm \
 
 **Only when using Option B (local model):** also set a Hugging Face token so `llm-service` can pull gated weights (`llm-service.secret.hf_token` in `secrets.yaml`, or pre-create Secret `huggingface-secret` with key `HF_TOKEN`).
 
-Everything else in `helm/values.yaml` works with the chart defaults (images, PGVector demo credentials, in-cluster API proxy, Llama Stack URLs). Override those only when you use a custom registry, namespace layout, or a local GPU model.
+Everything else in `helm/values.yaml` works with the chart defaults (images, PGVector demo credentials, in-cluster API proxy, Llama Stack URLs).
 
-| Optional override | When you need it |
-|-------------------|------------------|
-| `backend.image.repository` / `tag`, `frontend.image.*`, `ingest.image.*` | Images built and pushed to your own registry (defaults: `quay.io/rh-ai-quickstart/...`) |
-| `frontend.apiProxyUpstream` | Backend Service is not `http://<release>-backend:<port>` in the release namespace |
-| `global.models.external-model.id` / `url` | Different MaaS model or endpoint (also drives `LLAMA_STACK_MODEL` / `LLAMA_STACK_OPENAI_MODEL` in the backend Deployment) |
-| `backend.env.EMBED_MODEL` | Different embedding model ID |
-| `backend.env.LLAMA_STACK_URL` | Release installed outside `supply-chain-dashboard` namespace (default URL is namespace-scoped) |
-| `pgvector.secret.*` | Shared Postgres credentials for Llama Stack / backend (must match gen-sim Postgres password when `pgvector.enabled: false`) |
-| `llm-service.enabled` + `device` / per-model `device` | Local inference instead of MaaS |
-| `ingest.strategy` | `langchain` for PGVector ingest instead of default `llamastack` |
-| `general-simulation.api.llm.*` | Gen-sim OpenAI endpoint / model overrides (`apiKey` in secrets) |
-| `general-simulation.ingestion.enabled` | Keep `false` on AWS/hyperscaler clusters (OpenSky IP block); seed from laptop instead |
-| `networkPolicy.egress.*` | Egress NetworkPolicy for default-deny namespaces (`enabled`/`allowAll`; does not fix OpenSky) |
-
-
-### 3. Install Helm dependencies
+4. Install Helm dependencies:
 
 ```bash
 helm dependency update ./helm
@@ -254,13 +255,11 @@ helm dependency update ./helm
 make helm-deps
 ```
 
-### 4. Deploy the application
+5. Deploy the application.
 
 #### Option A: MaaS / external model (default)
 
-`helm/values.yaml` already enables `global.models.external-model` (LiteMaaS) and disables `llm-service`. After setting `global.models.external-model.apiToken` (step 2):
-
-**Helm (install or upgrade):**
+`helm/values.yaml` already enables `global.models.external-model` (LiteMaaS) and disables `llm-service`. After setting `global.models.external-model.apiToken` (step 3):
 
 ```bash
 helm upgrade --install supply-chain-dashboard ./helm \
@@ -287,30 +286,7 @@ make helm-render VALUES_FILE=helm/values.yaml
 make helm-status
 ```
 
-The umbrella chart in `helm/` deploys:
-- **Backend** — Flask API (port 5001), Route `supply-chain-dashboard-backend`
-- **Frontend** — React SPA served by nginx (port 8080), Route `supply-chain-dashboard-frontend`
-- **Shared Postgres** — gen-sim Postgres (AGE + pgvector + PostGIS); optional standalone `pgvector` subchart for agent-only installs
-- **Llama Stack** — inference API (subchart); default provider is MaaS / external-model
-- **General Simulation** — subchart enabled by default (Postgres + Neo4j + API; OpenAI LLM via secrets; not wired to MaaS). Live OpenSky CronJob is **off** by default.
-- **Ingest Job** — optional post-install job (`ingest.enabled`) that loads the knowledge base
-- **Egress NetworkPolicy** — optional (`networkPolicy.egress.enabled`) for namespaces that default-deny outbound traffic
-
-To point at a non-default OpenAI-compatible endpoint (same pattern as `helm/gpu-values.yaml`):
-
-```bash
-helm upgrade --install supply-chain-dashboard ./helm \
-  -f helm/values.yaml \
-  --set global.models.external-model.id=<your-model-id> \
-  --set global.models.external-model.url=https://<your-endpoint>/v1 \
-  --set global.models.external-model.apiToken=<your-token> \
-  --namespace supply-chain-dashboard \
-  --create-namespace \
-  --wait \
-  --timeout 10m
-```
-
-Once deployed, continue from [step 5](#5-access-the-dashboard).
+The Makefile automatically applies `helm/secrets.yaml` if it exists.
 
 #### Option B: Local CPU/GPU
 
@@ -335,12 +311,31 @@ llm-service:
 
 Set `llm-service.secret.hf_token` (or Secret `huggingface-secret`), then install with the same `helm upgrade --install` / `make helm-install` commands as Option A. Use `llm-service.device: gpu` (and matching per-model `device`) when GPUs are available.
 
-Once deployed, continue from [step 5](#5-access-the-dashboard).
-### 5. Access the dashboard
+#### Custom OpenAI-compatible endpoint
 
-**See detailed walkthrough [here](/docs/WHAT_TO_EXPECT.md)**
+To point at a non-default OpenAI-compatible endpoint:
 
-After pods are ready:
+```bash
+helm upgrade --install supply-chain-dashboard ./helm \
+  -f helm/values.yaml \
+  --set global.models.external-model.id=<your-model-id> \
+  --set global.models.external-model.url=https://<your-endpoint>/v1 \
+  --set global.models.external-model.apiToken=<your-token> \
+  --namespace supply-chain-dashboard \
+  --create-namespace \
+  --wait \
+  --timeout 10m
+```
+
+### Validating the deployment
+
+1. Check all pods are running:
+
+```bash
+oc get pods -n supply-chain-dashboard
+```
+
+2. Get the application URL:
 
 ```bash
 oc get route supply-chain-dashboard-frontend -n supply-chain-dashboard -o jsonpath='https://{.spec.host}{"\n"}'
@@ -352,9 +347,9 @@ oc get route supply-chain-dashboard-frontend -n supply-chain-dashboard -o jsonpa
 make oc-status
 ```
 
-Open the frontend Route URL in your browser. See [What to expect after deployment](./docs/WHAT_TO_EXPECT.md) for the Simulation / Knowledge bases / Create scenario walkthrough.
+3. Open the frontend Route URL in your browser. See [What to expect after deployment](./docs/WHAT_TO_EXPECT.md) for the Simulation / Knowledge bases / Create scenario walkthrough.
 
-**Seed general-simulation map data** (required for scenarios and markers). Gen-sim’s in-cluster OpenSky job is disabled by default — OpenSky often blocks hyperscaler IPs. From a laptop with `oc` login and a sibling [general-simulation](https://github.com/robertsandoval/general-simulation) checkout:
+4. Seed general-simulation map data (required for scenarios and markers). Gen-sim's in-cluster OpenSky job is disabled by default — OpenSky often blocks hyperscaler IPs. From a laptop with `oc` login and a sibling general-simulation checkout:
 
 ```bash
 make seed-gen-sim
@@ -363,7 +358,7 @@ make seed-opensky-live GEN_SIM_NAMESPACE=supply-chain-dashboard
 # or: make seed
 ```
 
-**Optional — re-run knowledge-base ingestion without a full Helm upgrade:**
+5. (Optional) Re-run knowledge-base ingestion without a full Helm upgrade:
 
 ```bash
 make ingest
@@ -371,92 +366,86 @@ make ingest-status
 make ingest-logs
 ```
 
-### 6. (Optional) Build and push images
-
-Build all application images:
-
-```bash
-make build
-```
-
-Or build and push in one step (after `make login` to your registry):
-
-```bash
-make release REGISTRY=quay.io/<your-org>
-```
-
-Individual images:
-
-```bash
-make build-backend build-ingest build-frontend
-make push-backend push-ingest push-frontend
-```
-
-Override tags or registry as needed, e.g. `make build-backend BACKEND_TAG=v1 REGISTRY=quay.io/myorg`.
-
 ### Delete
 
-**Application — Helm:**
+To completely remove the deployment:
+
+1. Uninstall the Helm release:
 
 ```bash
 helm uninstall supply-chain-dashboard --namespace supply-chain-dashboard
-oc delete project supply-chain-dashboard
 ```
 
 **Makefile alternative:**
 
 ```bash
 make helm-uninstall
+```
+
+2. Delete the project:
+
+```bash
 oc delete project supply-chain-dashboard
+```
+
+## Repository structure
+
+```
+.
+├── app/                            # Application source code
+│   ├── backend/                    # Flask API (runtime image)
+│   │   ├── api/
+│   │   │   ├── main.py             # App entry point
+│   │   │   ├── app_factory.py      # Flask app + blueprint registration
+│   │   │   ├── requirements.txt
+│   │   │   ├── Containerfile
+│   │   │   ├── clients/            # Llama Stack, PGVector, gen-sim, OpenSky, news
+│   │   │   ├── routes/             # HTTP blueprints (chat, gen-sim, KB, …)
+│   │   │   ├── services/           # Chat, impact proxy, scenario create, RAG
+│   │   │   └── repositories/       # JSON file stores for KB / simulations catalog
+│   │   └── ingestion/              # Knowledge-base ingestion CLI (ingest image)
+│   │       ├── main.py
+│   │       ├── config.py
+│   │       ├── loaders/document_loader.py
+│   │       ├── services/
+│   │       │   ├── ingestion_service.py
+│   │       │   └── llamastack_ingestion_service.py
+│   │       └── knowledge_base/     # Bundled .txt risk documents
+│   └── frontend/                   # React + Vite SPA
+│       ├── index.html
+│       ├── package.json
+│       ├── vite.config.js
+│       ├── Containerfile
+│       └── src/
+│           ├── App.jsx
+│           ├── components/         # ImpactSimulationPage, ImpactMapPanel,
+│           │                       # ImpactQueryPanel, ImpactResultsPanel, ChatBar,
+│           │                       # KnowledgeBasesPage, CreateScenarioPage, NewsTicker
+│           ├── hooks/              # useImpactSimulation, useChatSession, useHashRoute, …
+│           └── services/           # apiClient, generalSimulationService, …
+├── helm/                           # Helm umbrella chart
+│   ├── Chart.yaml                  # Chart metadata
+│   ├── values.yaml                 # Default configuration values
+│   └── templates/                  # Kubernetes resource templates
+├── scripts/
+│   ├── seed-gen-sim-demo.sh        # Laptop → cluster Neo4j+Postgres demo seed
+│   └── seed-opensky-live.sh        # Laptop OpenSky pull → cluster DBs
+├── docs/
+│   └── WHAT_TO_EXPECT.md           # Post-deployment walkthrough
+└── README.md
 ```
 
 ## References
 
 - [What to expect after deployment?](./docs/WHAT_TO_EXPECT.md)
+- [Detailed description](./DETAILED_DESCRIPTION.md)
+- [Contributing](./CONTRIBUTING.md)
 - [Llama Stack documentation](https://llama-stack.readthedocs.io)
 - [LangChain PGVector integration](https://python.langchain.com/docs/integrations/vectorstores/pgvector/)
 - [React Leaflet](https://react-leaflet.js.org/)
 - [OpenShift AI documentation](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed)
 
 ## Technical details
-
-### Repository layout
-
-```
-app/
-├── backend/
-│   ├── api/                        # Python Flask API (runtime image)
-│   │   ├── main.py                 # App entry point
-│   │   ├── app_factory.py          # Flask app + blueprint registration
-│   │   ├── requirements.txt
-│   │   ├── Containerfile
-│   │   ├── clients/                # Llama Stack, PGVector, gen-sim, OpenSky, news
-│   │   ├── routes/                 # HTTP blueprints (chat, gen-sim, KB, …)
-│   │   ├── services/               # Chat, impact proxy, scenario create, RAG
-│   │   └── repositories/           # JSON file stores for KB / simulations catalog
-│   └── ingestion/                  # Knowledge-base ingestion CLI (ingest image)
-│       ├── main.py
-│       ├── config.py
-│       ├── loaders/document_loader.py
-│       ├── services/ingestion_service.py
-│       ├── services/llamastack_ingestion_service.py
-│       └── knowledge_base/         # Bundled .txt risk documents
-└── frontend/              # React + Vite SPA
-    ├── index.html
-    ├── package.json
-    ├── vite.config.js
-    ├── Containerfile
-    └── src/
-        ├── App.jsx
-        ├── components/    # ImpactSimulationPage, ImpactMapPanel,
-        │                  # ImpactQueryPanel, ImpactResultsPanel, ChatBar,
-        │                  # KnowledgeBasesPage, CreateScenarioPage, NewsTicker
-        ├── hooks/         # useImpactSimulation, useChatSession, useHashRoute, …
-        └── services/      # apiClient, generalSimulationService, …
-scripts/
-├── seed-gen-sim-demo.sh   # Laptop → cluster Neo4j+Postgres demo seed
-└── seed-opensky-live.sh   # Laptop OpenSky pull → cluster DBs
-```
 
 ### Backend API
 
@@ -477,7 +466,7 @@ scripts/
 
 ### Environment variables
 
-**Helm (`helm/secrets.yaml`)** — for the default MaaS path, set `global.models.external-model.apiToken` to a literal token (copy from `secrets.example.yaml`). Do not use `${env.VAR}` — the llama-stack init script will hit bash `bad substitution`. A Hugging Face token (`llm-service.secret.hf_token` or Secret `huggingface-secret` / `HF_TOKEN`) is only required when you re-enable local `llm-service`. Other keys below are set by the chart or optional overrides.
+**Helm (`helm/secrets.yaml`)** — for the default MaaS path, set `global.models.external-model.apiToken` to a literal token (copy from `secrets.example.yaml`). Do not use `${env.VAR}` — the llama-stack init script will hit bash `bad substitution`. A Hugging Face token (`llm-service.secret.hf_token` or Secret `huggingface-secret` / `HF_TOKEN`) is only required when you re-enable local `llm-service`.
 
 **Backend**
 
@@ -512,28 +501,56 @@ scripts/
 | `BACKEND_UPSTREAM` | nginx `/api` proxy target (set on the frontend pod at runtime) | `http://<release>-backend:5001` |
 | `VITE_DEV_API_PROXY_TARGET` | Local `pnpm dev` proxy target for `/api` | `http://127.0.0.1:5001` |
 
-### Frontend dependencies
+### Helm chart overrides
 
-- **React 19** + **Vite 7** + **pnpm**
-- **Leaflet 1.9** + `react-leaflet 5` — impact map
-- **react-markdown** — streaming chat / impact answers
+| Optional override | When you need it |
+|-------------------|------------------|
+| `backend.image.repository` / `tag`, `frontend.image.*`, `ingest.image.*` | Images built and pushed to your own registry (defaults: `quay.io/rh-ai-quickstart/...`) |
+| `frontend.apiProxyUpstream` | Backend Service is not `http://<release>-backend:<port>` in the release namespace |
+| `global.models.external-model.id` / `url` | Different MaaS model or endpoint (also drives `LLAMA_STACK_MODEL` / `LLAMA_STACK_OPENAI_MODEL` in the backend Deployment) |
+| `backend.env.EMBED_MODEL` | Different embedding model ID |
+| `backend.env.LLAMA_STACK_URL` | Release installed outside `supply-chain-dashboard` namespace (default URL is namespace-scoped) |
+| `pgvector.secret.*` | Shared Postgres credentials for Llama Stack / backend (must match gen-sim Postgres password when `pgvector.enabled: false`) |
+| `llm-service.enabled` + `device` / per-model `device` | Local inference instead of MaaS |
+| `ingest.strategy` | `langchain` for PGVector ingest instead of default `llamastack` |
+| `general-simulation.api.llm.*` | Gen-sim OpenAI endpoint / model overrides (`apiKey` in secrets) |
+| `general-simulation.ingestion.enabled` | Keep `false` on AWS/hyperscaler clusters (OpenSky IP block); seed from laptop instead |
 
-### Backend dependencies
+### Building your own images
 
-- **Flask** + `flask-cors`
-- **openai** — Llama Stack OpenAI-compatible client
-- **LangChain** (`langchain`, `langchain-community`, `langchain-text-splitters`, `langchain-openai`, `langchain-postgres`) — document loading, splitting, embedding, PGVector integration
-- **psycopg[binary]** — PostgreSQL driver
+Build all application images:
 
-## Contributing
+```bash
+make build
+```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for prerequisites, local setup, and the quality gate (`make lint`, `make test`, `make pre-commit`, `make helm-test`). Remaining optional polish lives in [suggestions.md](suggestions.md); completed cleanup is summarized in [tech_debt.md](tech_debt.md).
+Or build and push in one step (after `make login` to your registry):
+
+```bash
+make release REGISTRY=quay.io/<your-org>
+```
+
+Individual images:
+
+```bash
+make build-backend build-ingest build-frontend
+make push-backend push-ingest push-frontend
+```
+
+Override tags or registry as needed, e.g. `make build-backend BACKEND_TAG=v1 REGISTRY=quay.io/myorg`.
+
+### Dependencies
+
+**Frontend:** React 19 + Vite 7 + pnpm; Leaflet 1.9 + `react-leaflet` 5 (impact map); react-markdown (streaming chat / impact answers).
+
+**Backend:** Flask + `flask-cors`; `openai` (Llama Stack OpenAI-compatible client); LangChain (`langchain`, `langchain-community`, `langchain-text-splitters`, `langchain-openai`, `langchain-postgres`) for document loading, splitting, embedding, and PGVector integration; `psycopg[binary]` (PostgreSQL driver).
 
 ## Tags
 
 - **Title**: AI Supply Chain Agent
-- **Description**: AI-powered supply chain impact simulation with RAG chatbot and knowledge-base management on OpenShift AI.
-- **Industry**: Manufacturing / Logistics
-- **Product**: OpenShift AI, OpenShift
+- **Description**: AI-powered supply chain impact simulation with a RAG chatbot to help operators monitor, analyze, and respond to global disruptions.
+- **Industry**: Manufacturing
+- **Product**: OpenShift AI
 - **Use case**: AI agents, RAG, supply chain intelligence
+- **Partner**: N/A
 - **Contributor org**: Red Hat

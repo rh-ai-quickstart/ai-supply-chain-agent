@@ -55,7 +55,3 @@ class VectorStoreClient:
     def similarity_search(self, query: str, k: int = 3) -> list:
         """Return the top-k most similar documents for *query*."""
         return self.vector_store.similarity_search(query, k=k)
-
-    def as_retriever(self, **kwargs):
-        """Return a LangChain-compatible retriever."""
-        return self.vector_store.as_retriever(**kwargs)

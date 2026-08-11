@@ -117,19 +117,6 @@ general-simulation:
 
 imagePullSecrets: []
 
-# Egress NetworkPolicy for clusters that default-deny outbound traffic via
-# Kubernetes NetworkPolicy (common on managed/shared OpenShift). Unblocks
-# OpenAI, LiteMaaS, RSS, etc. Does NOT fix OpenSky: that service blocks AWS
-# and other hyperscaler source IPs itself (TCP never completes to
-# 194.209.200.34). Set egress.enabled to false when the namespace already
-# allows egress by default.
-networkPolicy:
-  egress:
-    enabled: true
-    # true  = allow all egress (simplest for NetworkPolicy default-deny).
-    # false = scope egress to DNS, same-namespace services, and 80/443 only.
-    allowAll: true
-
 backend:
   enabled: true
   replicaCount: 1
@@ -207,6 +194,9 @@ frontend:
     connectTimeout: 60s
     sendTimeout: 300s
     readTimeout: 300s
+  # Optional override for the nginx BACKEND_UPSTREAM (default: http://<release>-backend:<port>).
+  # Set only when the frontend must proxy to a backend outside the release (e.g. a shared API).
+  apiProxyUpstream: ""
   route:
     enabled: true
     host: "" # Set the host for the frontend route, this is done dynamically in the frontend deployment template.

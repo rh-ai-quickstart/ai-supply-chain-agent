@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock
 
-from services.agent_service import AgentService, ToolResult
+from services.agent_service import AgentService
 
 
 def _make_mock_llama_stack() -> MagicMock:

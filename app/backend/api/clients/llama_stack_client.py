@@ -31,7 +31,6 @@ from typing import Any
 from clients.chat_completion_client import (
     DEFAULT_TIMEOUT_SECONDS,
     LlamaStackChatClient,
-    _StreamAccumulator,  # noqa: F401
 )
 from clients.llama_vector_store_admin import LlamaStackVectorStoreAdmin
 from clients.tool_loop_orchestrator import ToolLoopOrchestrator
@@ -107,9 +106,6 @@ class LlamaStackClient:
     @property
     def _client(self):
         return self._chat.client
-
-    def _build_messages(self, *args: Any, **kwargs: Any) -> list[dict]:
-        return self._chat.build_messages(*args, **kwargs)
 
     def _completion_kwargs(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
         return self._chat.completion_kwargs(*args, **kwargs)

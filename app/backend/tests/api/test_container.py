@@ -1,6 +1,6 @@
 """Composition-root wiring for ``Container`` and ``Settings.from_env``."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from container import Container, _build_primary_llama_client, _resolve_openai_model
 from settings import Settings
