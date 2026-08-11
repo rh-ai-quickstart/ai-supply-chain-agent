@@ -4,13 +4,13 @@
  */
 
 /** Friendly labels shown in the Impact Simulation scenario picker. */
-export const SCENARIO_LABELS = {
+const SCENARIO_LABELS = {
   "opensky-uk-closure-001": "UK Airspace Closure",
   "supply-chain-port-strike-la": "Port Strike LA",
   "supply-chain-suez-blockage": "Suez Blockage",
 };
 
-export const SCENARIO_QUESTIONS = {
+const SCENARIO_QUESTIONS = {
   "opensky-uk-closure-001":
     "UK airspace is closed due to a NATS GPS failure. Which aircraft are affected, what diversions should be issued, and what is the estimated cost of impact?",
   "supply-chain-port-strike-la":
@@ -23,7 +23,7 @@ export const SCENARIO_QUESTIONS = {
 export const DEFAULT_IMPACT_QUESTION = SCENARIO_QUESTIONS["opensky-uk-closure-001"];
 
 /** Map bboxes (minLon,minLat,maxLon,maxLat) focused on each scenario. */
-export const SCENARIO_BBOXES = {
+const SCENARIO_BBOXES = {
   "opensky-uk-closure-001": "-15,35,40,62",
   "supply-chain-port-strike-la": "-130,30,-110,40",
   "supply-chain-suez-blockage": "0,20,50,55",
@@ -32,7 +32,7 @@ export const SCENARIO_BBOXES = {
 /**
  * Keywords matched against Llama Stack vector-store names when a scenario is selected.
  */
-export const SCENARIO_VECTOR_STORE_KEYWORDS = {
+const SCENARIO_VECTOR_STORE_KEYWORDS = {
   "opensky-uk-closure-001": ["uk", "nats", "gps", "air"],
   "supply-chain-port-strike-la": ["port", "strike", "la"],
   "supply-chain-suez-blockage": ["suez", "blockage"],
@@ -73,12 +73,12 @@ export function bboxForScenario(scenarioId) {
   return SCENARIO_BBOXES[scenarioId] || GLOBAL_DEMO_BBOX;
 }
 
-export function vectorStoreKeywordsForScenario(scenarioId) {
+function vectorStoreKeywordsForScenario(scenarioId) {
   return SCENARIO_VECTOR_STORE_KEYWORDS[scenarioId] || [];
 }
 
 /** First vector store whose name contains any of the given keywords (case-insensitive). */
-export function findVectorStoreId(stores, keywords) {
+function findVectorStoreId(stores, keywords) {
   if (!Array.isArray(stores) || !Array.isArray(keywords) || keywords.length === 0) {
     return "";
   }

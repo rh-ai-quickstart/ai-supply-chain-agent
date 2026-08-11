@@ -207,6 +207,9 @@ frontend:
     connectTimeout: 60s
     sendTimeout: 300s
     readTimeout: 300s
+  # Optional override for the nginx BACKEND_UPSTREAM (default: http://<release>-backend:<port>).
+  # Set only when the frontend must proxy to a backend outside the release (e.g. a shared API).
+  apiProxyUpstream: ""
   route:
     enabled: true
     host: "" # Set the host for the frontend route, this is done dynamically in the frontend deployment template.

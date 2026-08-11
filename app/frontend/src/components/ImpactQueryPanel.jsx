@@ -1,5 +1,5 @@
 import PropTypes from "prop-types";
-import { DEFAULT_IMPACT_QUESTION, labelForScenario } from "../services/presetScenarioIds";
+import { labelForScenario } from "../services/presetScenarioIds";
 
 export function ImpactQueryPanel({
   scenarios = [],
