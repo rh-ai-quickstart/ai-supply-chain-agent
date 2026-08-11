@@ -9,7 +9,7 @@ name: Publish images to quay.io
 
 on:
   push:
-    branches: [main, development, chore/gha-build-and-push]
+    branches: [main, development]
     tags: ["v*"]
   workflow_dispatch:
 
