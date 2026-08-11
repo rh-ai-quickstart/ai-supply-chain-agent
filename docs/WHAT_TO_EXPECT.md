@@ -19,7 +19,6 @@ A Helm install (`supply-chain-dashboard` in `./helm`) brings up the application 
 | **Llama Stack** (subchart) | LLM and vector-store APIs for chat and ingestion (default inference: MaaS / `external-model`) |
 | **LLM service** (subchart, **disabled** by default) | Optional in-cluster model serving; enable only for Option B (local CPU/GPU) |
 | **Ingest Job** (optional, `ingest.enabled`) | Post-install job that loads bundled risk documents (`ingest.strategy`: **`llamastack`** by default → Llama Stack vector stores; set `langchain` for PGVector) |
-| **Egress NetworkPolicy** (`networkPolicy.egress`, enabled by default) | Allows outbound HTTPS from the namespace on clusters that default-deny egress (LiteMaaS, OpenAI, RSS). Does **not** fix OpenSky IP blocks |
 
 OpenShift **Routes** (main Helm release `supply-chain-dashboard`):
 

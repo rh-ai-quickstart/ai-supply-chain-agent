@@ -11,7 +11,6 @@ Umbrella chart for the AI Supply Chain Agent quickstart. It deploys the applicat
 - **backend** — Flask API
 - **frontend** — React dashboard (nginx)
 - **ingest** — Optional post-install Job (`ingest.enabled`)
-- **networkPolicy.egress** — Optional egress NetworkPolicy for default-deny namespaces
 
 ## Prerequisites
 
@@ -153,6 +152,5 @@ curl -s http://general-sim-api:8000/health   # from a pod in the namespace
 - **GPU** — `llm-service.device` and per-model `device` when local serving is on
 - **Ingest** — `ingest.strategy` (`llamastack` | `langchain`), `ingest.enabled`, `ingest.hookDeletePolicy`, chunking under `ingest.*` for LangChain only
 - **General simulation** — `general-simulation.enabled`, nested passwords / OpenAI `llm.apiKey` (not MaaS), `ingestion.enabled` (keep false on hyperscalers)
-- **Egress** — `networkPolicy.egress.enabled` / `allowAll` (unblocks LiteMaaS/OpenAI/RSS on default-deny namespaces; does not restore OpenSky)
 
 Full operator documentation: [README.md](../README.md) and [docs/WHAT_TO_EXPECT.md](../docs/WHAT_TO_EXPECT.md).
