@@ -137,7 +137,7 @@ Or use `make helm-deps` and `make helm-install` (see root `Makefile`).
 
 Do **not** commit `helm/charts/*.tgz` — they are a local Helm cache. Kind CI clones the sibling `general-simulation` repo next to this workspace before `helm dependency update`.
 
-**GPU / local models:** use `helm/gpu-values.yaml` (or the Option B snippet in the root README) when enabling in-cluster `llm-service`.
+**GPU / local models:** use the Option B snippet in the root README when enabling in-cluster `llm-service`.
 
 ## Verify
 

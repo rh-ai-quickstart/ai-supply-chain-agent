@@ -70,5 +70,5 @@ Everything else was confirmed as actively referenced:
 
 - Backend: all `api/clients/*`, `api/services/*`, `api/repositories/*`, all settings fields (incl. `git_commit`/`build_time` served by `/api/v1/version`), `errors.py`/`register_error_handlers`, `run_backend_tests.py`, `ingestion/knowledge_base/*.txt`
 - Frontend: all 11 components, 7 hooks, 7 services, 6 utils, `version.js`, `index.css`, `public/vite.svg`, `nginx/default.conf.template`, `Containerfile`, all test files
-- Helm: all 9 templates (all unit-tested), all `values.yaml` keys (umbrella templates + subcharts), `values-kind.yaml`, `gpu-values.yaml`, `secrets.example.yaml`, `Chart.lock` + `charts/*.tgz`
+- Helm: all 9 templates (all unit-tested), all `values.yaml` keys (umbrella templates + subcharts), `values-kind.yaml`, `secrets.example.yaml`, `Chart.lock` + `charts/*.tgz`
 - Scripts / CI / docs / infra: `scripts/ci/*`, `scripts/seed-*.sh`, all 4 workflows, `docs/WHAT_TO_EXPECT.md`, root docs, `infra/prereqs/ocp-gpu-setup/`, `tests/e2e_ui/`

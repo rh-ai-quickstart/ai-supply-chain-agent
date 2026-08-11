@@ -296,7 +296,7 @@ The umbrella chart in `helm/` deploys:
 - **Ingest Job** — optional post-install job (`ingest.enabled`) that loads the knowledge base
 - **Egress NetworkPolicy** — optional (`networkPolicy.egress.enabled`) for namespaces that default-deny outbound traffic
 
-To point at a non-default OpenAI-compatible endpoint (same pattern as `helm/gpu-values.yaml`):
+To point at a non-default OpenAI-compatible endpoint:
 
 ```bash
 helm upgrade --install supply-chain-dashboard ./helm \

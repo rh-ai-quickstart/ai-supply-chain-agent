@@ -12,7 +12,7 @@ Inventory of unused / leftover items from the Live Dashboard → Impact Simulati
 4. Orphan CSS, `react.svg`, empty `agents/`, local `tools/`.
 5. Dead `pull_request_check.yaml`; duplicate `helm-tests.yml`.
 6. Dead symbols (`is_simulation_intent`, Protocols, AgentService `unknown`); chat clients injected; `route_service` / `routeData` removed.
-7. Helm chart packaging: stop tracking `helm/charts/*.tgz` (gitignored cache); document `file://` sibling for general-simulation + keep `gpu-values.yaml` for Option B.
+7. Helm chart packaging: stop tracking `helm/charts/*.tgz` (gitignored cache); document `file://` sibling for general-simulation.
 8. Unexport noise: map constants / `DEFAULT_GEOJSON_LIMIT` page re-export; `DEFAULT_IMPACT_QUESTION` imported from `presetScenarioIds`.
 9. Ingest defaults aligned to `llamastack` (Makefile + `IngestConfig`).
 10. [CONTRIBUTING.md](CONTRIBUTING.md) + README contributing / quality pointer.
@@ -28,7 +28,7 @@ Inventory of unused / leftover items from the Live Dashboard → Impact Simulati
 | Bundled `ingestion/knowledge_base/*.txt` | Ingest Job sources |
 | `seed-gen-sim-demo.sh` / `seed-opensky-live.sh` | Map data when in-cluster OpenSky is off |
 | `/api/v1/version`, `/healthz`, `/readyz` | Ops / probes |
-| `infra/prereqs/ocp-gpu-setup/`, `helm/gpu-values.yaml` | Optional GPU / local-model path |
+| `infra/prereqs/ocp-gpu-setup/` | Optional GPU / local-model path |
 | NetworkPolicy egress (`allowAll: true` default) | Required for demos on default-deny clusters; further scoping is [suggestions.md](suggestions.md) M4 |
 | PGVector / Llama Stack / llm-service subcharts | Deploy path |
 
