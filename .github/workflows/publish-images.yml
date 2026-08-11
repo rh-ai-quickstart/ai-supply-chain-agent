@@ -1,0 +1,63 @@
+name: Publish images to quay.io
+
+# Builds and pushes the backend, ingestion, and frontend images to
+# quay.io/rh-ai-quickstart. On main/development pushes the `dev` tag is
+# updated (matches the Helm chart defaults); on version tags the version is
+# pushed (e.g. v1.2.3 -> 1.2.3).
+#
+# Requires repo secrets: QUAY_USERNAME, QUAY_TOKEN (quay.io robot account).
+
+on:
+  push:
+    branches: [main, development]
+    tags: ["v*"]
+  workflow_dispatch:
+
+concurrency:
+  group: publish-images-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  REGISTRY: quay.io/rh-ai-quickstart
+
+jobs:
+  publish:
+    name: Build and push images
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve image tag
+        id: tag
+        run: |
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            echo "tag=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=dev" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install Podman
+        run: |
+          if ! command -v podman >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo apt-get install -y podman
+          fi
+          podman version
+
+      - name: Log in to quay.io
+        run: |
+          podman login quay.io \
+            --username "${{ secrets.QUAY_USERNAME }}" \
+            --password "${{ secrets.QUAY_TOKEN }}"
+
+      - name: Build and push backend image
+        run: make release-backend BACKEND_TAG=${{ steps.tag.outputs.tag }}
+
+      - name: Build and push ingestion image
+        run: make release-ingest INGEST_TAG=${{ steps.tag.outputs.tag }}
+
+      - name: Build and push frontend image
+        run: make release-frontend FRONTEND_TAG=${{ steps.tag.outputs.tag }}
