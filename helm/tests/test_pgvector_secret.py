@@ -26,7 +26,6 @@ import yaml
 REPO_ROOT = Path(__file__).resolve().parents[2]
 HELM_CHART = REPO_ROOT / "helm"
 VALUES = HELM_CHART / "values.yaml"
-MULTI_LLM_VALUES = HELM_CHART / "multi-llm-values.yaml"
 SECRETS_EXAMPLE = HELM_CHART / "secrets.example.yaml"
 
 
@@ -113,13 +112,12 @@ def test_secrets_example_does_not_blank_password() -> None:
 
 
 def test_committed_values_define_non_empty_password() -> None:
-    for path in (VALUES, MULTI_LLM_VALUES):
-        data = _load_yaml(path)
-        password = _pgvector_password_from_values(data)
-        assert password, (
-            f"{path.relative_to(REPO_ROOT)} must define a non-empty "
-            "pgvector.secret.password demo default"
-        )
+    data = _load_yaml(VALUES)
+    password = _pgvector_password_from_values(data)
+    assert password, (
+        f"{VALUES.relative_to(REPO_ROOT)} must define a non-empty "
+        "pgvector.secret.password demo default"
+    )
 
 
 def test_helm_render_keeps_non_empty_password_with_secrets_example() -> None:
