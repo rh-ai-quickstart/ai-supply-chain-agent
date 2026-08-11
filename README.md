@@ -234,7 +234,7 @@ Everything else in `helm/values.yaml` works with the chart defaults (images, PGV
 | `global.models.external-model.id` / `url` | Different MaaS model or endpoint (also drives `LLAMA_STACK_MODEL` / `LLAMA_STACK_OPENAI_MODEL` in the backend Deployment) |
 | `backend.env.EMBED_MODEL` | Different embedding model ID |
 | `backend.env.LLAMA_STACK_URL` | Release installed outside `supply-chain-dashboard` namespace (default URL is namespace-scoped) |
-| `pgvector.secret.*` | Non-demo database credentials |
+| `pgvector.secret.*` | Shared Postgres credentials for Llama Stack / backend (must match gen-sim Postgres password when `pgvector.enabled: false`) |
 | `llm-service.enabled` + `device` / per-model `device` | Local inference instead of MaaS |
 | `ingest.strategy` | `langchain` for PGVector ingest instead of default `llamastack` |
 | `general-simulation.api.llm.*` | Gen-sim OpenAI endpoint / model overrides (`apiKey` in secrets) |
@@ -290,9 +290,9 @@ make helm-status
 The umbrella chart in `helm/` deploys:
 - **Backend** — Flask API (port 5001), Route `supply-chain-dashboard-backend`
 - **Frontend** — React SPA served by nginx (port 8080), Route `supply-chain-dashboard-frontend`
-- **PGVector** — PostgreSQL + pgvector (subchart)
+- **Shared Postgres** — gen-sim Postgres (AGE + pgvector + PostGIS); optional standalone `pgvector` subchart for agent-only installs
 - **Llama Stack** — inference API (subchart); default provider is MaaS / external-model
-- **General Simulation** — subchart enabled by default (own Postgres + Neo4j + API; OpenAI LLM via secrets; not wired to MaaS). Live OpenSky CronJob is **off** by default.
+- **General Simulation** — subchart enabled by default (Postgres + Neo4j + API; OpenAI LLM via secrets; not wired to MaaS). Live OpenSky CronJob is **off** by default.
 - **Ingest Job** — optional post-install job (`ingest.enabled`) that loads the knowledge base
 - **Egress NetworkPolicy** — optional (`networkPolicy.egress.enabled`) for namespaces that default-deny outbound traffic
 

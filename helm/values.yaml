@@ -12,19 +12,26 @@ global:
       url: https://litemaas.rhoai.rh-aiservices-bu.com/v1
       apiToken: "" # Set in helm/secrets.yaml
 
+# Shared Postgres: when general-simulation is enabled (default), disable the
+# standalone pgvector StatefulSet and reuse gen-sim's Postgres (AGE + vector +
+# PostGIS). The umbrella template creates Secret/pgvector for Llama Stack.
+# For agent-only installs (general-simulation.enabled: false), set
+# pgvector.enabled: true so the subchart deploys its own DB.
 pgvector:
-  enabled: true
+  enabled: false
   secret:
     create: true
-    user: postgres
+    # Must match general-simulation.postgres.postgres.username / database /
+    # password (Service hostname is "postgres").
+    user: sim
     # ⚠️ Demo default only. Override via helm/secrets.yaml if needed.
     # Do NOT set password to "" — an empty overlay blanks the Secret and
-    # breaks LlamaStack auth to PGVector.
-    # Changing the password after first install requires deleting PVC
-    # pg-data-pgvector-0 (Postgres applies POSTGRES_PASSWORD only on init).
+    # breaks LlamaStack auth to Postgres.
+    # Changing the password after first install requires deleting the gen-sim
+    # Postgres PVC (POSTGRES_PASSWORD applies only on init).
     password: password
-    dbname: blueprint
-    host: pgvector
+    dbname: sim
+    host: postgres
     port: "5432"
 
 llama-stack:
@@ -75,11 +82,21 @@ general-simulation:
       backend: openai
       baseUrl: https://api.openai.com/v1
       # apiKey via helm/secrets.yaml
+    postgres:
+      user: sim
+      password: password
+      database: sim
+      host: postgres
   bootstrap:
     image: quay.io/rh-ai-quickstart/general-simulation-api:latest
     waitFor:
       enabled: true
       timeoutSeconds: 300
+    postgres:
+      user: sim
+      password: password
+      database: sim
+      host: postgres
   # Live OpenSky CronJob (opensky-network.org). Keep disabled on AWS/hyperscaler
   # clusters: OpenSky drops those source IPs at TCP (documented; they refuse AI
   # dashboard allowlists). Cluster NetworkPolicy / EgressFirewall cannot fix it.
@@ -92,9 +109,11 @@ general-simulation:
       backend: openai
       baseUrl: https://api.openai.com/v1
       # apiKey via helm/secrets.yaml
-  # Passwords via helm/secrets.yaml (see secrets.example.yaml) — do not commit.
-  # postgres.postgres.password, api/bootstrap/ingestion postgres+neo4j passwords,
-  # and Neo4j Secret neo4j-auth must be provided before install.
+    postgres:
+      user: sim
+      password: password
+      database: sim
+      host: postgres
 
 imagePullSecrets: []
 
@@ -124,8 +143,7 @@ backend:
     enabled: true
     host: ""
     timeout: 5m
-  # Name of the Secret created by the pgvector sub-chart that holds the
-  # database password under the key "password".
+  # Secret/pgvector (bridge template or pgvector subchart) — key "password".
   pgvectorSecretName: pgvector
   env:
     LLAMA_STACK_URL: http://llamastack.supply-chain-dashboard.svc.cluster.local:8321
@@ -134,15 +152,15 @@ backend:
     # OpenAI client timeout (seconds) for chat and vector-store API calls.
     LLAMA_STACK_TIMEOUT_SECONDS: "300"
     EMBED_MODEL: all-MiniLM-L6-v2
-    # PG_ prefix avoids collision with the Kubernetes service-discovery
-    # variable PGVECTOR_PORT=tcp://ip:port that is auto-injected for the
-    # pgvector Service, which would corrupt SQLAlchemy URL parsing.
+    # PG_ prefix avoids collision with a Kubernetes service-discovery
+    # PGVECTOR_PORT=tcp://… var if a Service named pgvector exists.
     # Same-namespace short name when general-simulation is a subchart.
     GENERAL_SIMULATION_BASE_URL: "http://general-sim-api:8000"
-    PG_HOST: pgvector
+    # Shared gen-sim Postgres (when pgvector.enabled is false).
+    PG_HOST: postgres
     PG_PORT: "5432"
-    PG_USER: postgres
-    PG_DB: blueprint
+    PG_USER: sim
+    PG_DB: sim
     # News ticker RSS feeds (HTTPS egress required to reach defaults).
     # Leave empty for BBC World/Business + Guardian World.
     # Override for air-gapped clusters: "Internal|https://intranet.example/rss"

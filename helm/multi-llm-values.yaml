@@ -8,16 +8,16 @@ global:
       id: gpt-4o-mini
 
 pgvector:
-  enabled: true
+  enabled: false
   secret:
     create: true
-    user: postgres
+    user: sim
     # Demo default — override via helm/secrets.yaml if needed.
     # Do not set password to "" (blank overlay wipes the Secret).
-    # Changing after first install requires deleting PVC pg-data-pgvector-0.
+    # Must match general-simulation.postgres.postgres.password.
     password: password
-    dbname: blueprint
-    host: pgvector
+    dbname: sim
+    host: postgres
     port: "5432"
 
 llama-stack:
@@ -70,8 +70,7 @@ backend:
     enabled: true
     host: ""
     timeout: 5m
-  # Name of the Secret created by the pgvector sub-chart that holds the
-  # database password under the key "password".
+  # Secret/pgvector (bridge or subchart) — key "password".
   pgvectorSecretName: pgvector
   env:
     LLAMA_STACK_URL: http://llamastack.supply-chain-dashboard.svc.cluster.local:8321
@@ -79,13 +78,12 @@ backend:
     # OpenAI client timeout (seconds) for chat and vector-store API calls.
     LLAMA_STACK_TIMEOUT_SECONDS: "300"
     EMBED_MODEL: all-MiniLM-L6-v2
-    # PG_ prefix avoids collision with the Kubernetes service-discovery
-    # variable PGVECTOR_PORT=tcp://ip:port that is auto-injected for the
-    # pgvector Service, which would corrupt SQLAlchemy URL parsing.
-    PG_HOST: pgvector
+    # PG_ prefix avoids collision with a Kubernetes service-discovery
+    # PGVECTOR_PORT=tcp://… var if a Service named pgvector exists.
+    PG_HOST: postgres
     PG_PORT: "5432"
-    PG_USER: postgres
-    PG_DB: blueprint
+    PG_USER: sim
+    PG_DB: sim
 
 ingest:
   # Set to true to run the knowledge-base ingestion Job on every

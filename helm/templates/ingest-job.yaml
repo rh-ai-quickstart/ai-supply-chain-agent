@@ -16,7 +16,7 @@ metadata:
     helm.sh/hook-weight: "10"
 spec:
   backoffLimit: 2
-  # 10-minute hard deadline — covers slow cold-starts of pgvector / llamastack.
+  # 10-minute hard deadline — covers slow cold-starts of Postgres / llamastack.
   activeDeadlineSeconds: 600
   template:
     metadata:
@@ -36,8 +36,8 @@ spec:
       # ── Init containers: block until dependencies are accepting traffic ──
       initContainers:
 
-        # 1. Wait for PGVector to accept TCP connections on port 5432.
-        - name: wait-for-pgvector
+        # 1. Wait for shared Postgres to accept TCP connections on port 5432.
+        - name: wait-for-postgres
           image: busybox:1.36
           securityContext:
             allowPrivilegeEscalation: false
@@ -47,12 +47,12 @@ spec:
             - sh
             - -c
             - |
-              echo "Waiting for pgvector at {{ .Values.backend.env.PG_HOST }}:{{ .Values.backend.env.PG_PORT }} ..."
+              echo "Waiting for Postgres at {{ .Values.backend.env.PG_HOST }}:{{ .Values.backend.env.PG_PORT }} ..."
               until nc -z {{ .Values.backend.env.PG_HOST }} {{ .Values.backend.env.PG_PORT }}; do
-                echo "  pgvector not ready — retrying in 5s"
+                echo "  Postgres not ready — retrying in 5s"
                 sleep 5
               done
-              echo "pgvector is up."
+              echo "Postgres is up."
 
         # 2. Wait for Llama Stack to return HTTP 200 on /v1/models.
         - name: wait-for-llamastack

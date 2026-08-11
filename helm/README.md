@@ -4,10 +4,10 @@ Umbrella chart for the AI Supply Chain Agent quickstart. It deploys the applicat
 
 ## What it deploys
 
-- **pgvector** — PostgreSQL with the pgvector extension (agent RAG; kept even when gen-sim is enabled)
+- **Shared Postgres** — gen-sim’s Postgres (AGE + pgvector + PostGIS) stores agent RAG and gen-sim data; optional standalone `pgvector` subchart only for agent-only installs
 - **llama-stack** — Llama Stack API (chat, vector stores); default inference via MaaS / `external-model`
 - **llm-service** — Optional in-cluster model serving (disabled by default)
-- **general-simulation** — Optional subchart (own Postgres + Neo4j + API + ingestion); see below
+- **general-simulation** — Optional subchart (Postgres + Neo4j + API + ingestion); see below
 - **backend** — Flask API
 - **frontend** — React dashboard (nginx)
 - **ingest** — Optional post-install Job (`ingest.enabled`)
@@ -62,7 +62,7 @@ oc create secret generic huggingface-secret \
 
 ## General Simulation subchart
 
-Enabled by default via `general-simulation.enabled`. Gen-sim brings its **own** Postgres and Neo4j into the **same** namespace as this release. The agent keeps `pgvector` for its own RAG.
+Enabled by default via `general-simulation.enabled`. Gen-sim brings Postgres and Neo4j into the **same** namespace. With `pgvector.enabled: false` (default), the agent and Llama Stack reuse that Postgres via an umbrella `Secret/pgvector` bridge (`host: postgres`, db/user `sim`). Set `pgvector.enabled: true` only for agent-only installs without gen-sim.
 
 **Gen-sim does not use MaaS.** It calls OpenAI (`api.llm.backend: openai`) with `apiKey` from `helm/secrets.yaml`. Override `baseUrl` if you want a different OpenAI-compatible endpoint.
 
@@ -92,14 +92,24 @@ make seed-opensky-live GEN_SIM_NAMESPACE=supply-chain-dashboard
 
 Requires a local [general-simulation](https://github.com/robertsandoval/general-simulation) checkout (default `../general-simulation`) and `oc` login.
 
-To use a **standalone** gen-sim install in another project instead:
+To use a **standalone** gen-sim install in another project instead (and restore the standalone pgvector chart for agent RAG):
 
 ```yaml
 general-simulation:
   enabled: false
+pgvector:
+  enabled: true
+  secret:
+    user: postgres
+    password: password
+    dbname: blueprint
+    host: pgvector
 backend:
   env:
     GENERAL_SIMULATION_BASE_URL: "http://general-sim-api.general-simulation.svc:8000"
+    PG_HOST: pgvector
+    PG_USER: postgres
+    PG_DB: blueprint
 ```
 
 ## Install
