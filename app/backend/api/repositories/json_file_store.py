@@ -20,10 +20,6 @@ class JsonFileStore:
         self._path = path
         self._lock = threading.Lock()
 
-    @property
-    def path(self) -> str:
-        return self._path
-
     def load_all(self) -> list[dict[str, Any]]:
         with self._lock:
             return self._load_unlocked()

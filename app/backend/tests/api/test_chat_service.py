@@ -5,7 +5,8 @@ from unittest.mock import MagicMock
 import pytest
 
 from services.agent_service import ToolResult
-from services.chat_service import ChatService, _GUARDRAIL_RESPONSE
+from services.chat_service import ChatService
+from services.guardrail_policy import GUARDRAIL_RESPONSE
 
 
 @pytest.fixture
@@ -15,7 +16,7 @@ def chat_service(mock_llama_stack_client):
 
 def test_guardrail_blocks_off_topic(chat_service):
     out = chat_service.reply("Do you know a good pizza place?", chat_history=[])
-    assert out["answer"] == _GUARDRAIL_RESPONSE
+    assert out["answer"] == GUARDRAIL_RESPONSE
     mock_llama = chat_service.llama_stack_client
     mock_llama.ask_with_tools.assert_not_called()
 
@@ -96,7 +97,7 @@ def test_retrieve_context_via_pgvector_client_fallback():
 def test_reply_stream_guardrail(chat_service):
     events = list(chat_service.reply_stream("best pizza in town", chat_history=[]))
     assert events == [
-        {"type": "done", "answer": _GUARDRAIL_RESPONSE, "completion": None},
+        {"type": "done", "answer": GUARDRAIL_RESPONSE, "completion": None},
     ]
     chat_service.llama_stack_client.ask_stream_with_tools.assert_not_called()
 

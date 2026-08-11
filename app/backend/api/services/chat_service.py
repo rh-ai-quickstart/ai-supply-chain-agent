@@ -6,14 +6,11 @@ from typing import Any, Optional
 from clients.llama_stack_client import LlamaStackClient
 from clients.vector_store_client import VectorStoreClient
 from services.agent_service import AgentService, ToolResult
-from services.guardrail_policy import GUARDRAIL_RESPONSE, GuardrailPolicy
+from services.guardrail_policy import GuardrailPolicy
 from services.rag_context_provider import RagContextProvider
 from services.simulation_intent import normalize_scenario_id
 
 logger = logging.getLogger(__name__)
-
-# Backward-compatible re-export (historical private name imported by tests).
-_GUARDRAIL_RESPONSE = GUARDRAIL_RESPONSE
 
 _TOOL_PRIORITY = ("general_simulation", "fetch_news", "knowledge_base")
 
@@ -23,7 +20,6 @@ class _PreparedChatTurn:
     """Normalized inputs shared by sync and streaming reply paths."""
 
     latest: str
-    history: list[dict[str, Any]]
     client: LlamaStackClient
     context: str
     conversation: list[dict[str, str]]
@@ -240,7 +236,6 @@ class ChatService:
         conversation = self._map_chat_history(history)
         return _PreparedChatTurn(
             latest=latest,
-            history=history,
             client=client,
             context=context,
             conversation=conversation,

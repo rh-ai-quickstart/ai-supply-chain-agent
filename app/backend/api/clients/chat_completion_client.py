@@ -122,13 +122,6 @@ class LlamaStackChatClient:
             self._timeout,
         )
 
-    # Kept for callers that reach into the raw OpenAI SDK client for
-    # capabilities this class doesn't wrap directly (e.g. ScenarioCreateService's
-    # single-shot "propose" completion).
-    @property
-    def _client(self) -> OpenAI:
-        return self.client
-
     def build_messages(
         self,
         user_input: str,
@@ -179,11 +172,6 @@ class LlamaStackChatClient:
             logger.warning("LlamaStackChatClient: could not model_dump completion: %s", exc)
             return {"serialization_error": str(exc)}
 
-    # Alias kept because ScenarioCreateService (and prior tests) call this by
-    # its historical private name when reaching past the tool-loop layer for
-    # a plain, single-shot completion.
-    _completion_to_json = completion_to_json
-
     def log_chat_request(self, *, streaming: bool, message_count: int) -> None:
         mode = "streaming" if streaming else "sending"
         logger.info(
@@ -217,10 +205,6 @@ class LlamaStackChatClient:
             if tool_choice is not None:
                 kwargs["tool_choice"] = tool_choice
         return kwargs
-
-    # Alias kept because ScenarioCreateService calls this by its historical
-    # private name (see note on ``_completion_to_json`` above).
-    _completion_kwargs = completion_kwargs
 
     @retry(
         reraise=True,
