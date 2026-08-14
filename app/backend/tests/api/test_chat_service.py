@@ -3,7 +3,6 @@
 from unittest.mock import MagicMock
 
 import pytest
-
 from services.agent_service import ToolResult
 from services.chat_service import ChatService
 from services.guardrail_policy import GUARDRAIL_RESPONSE
@@ -252,3 +251,95 @@ def test_llm_tool_calling_fetch_news(mock_llama_stack_client):
     out = svc.reply("Any supply chain news?", chat_history=[])
     assert out["tool"] == "fetch_news"
     assert out["news"][0]["title"] == "Port strike"
+
+
+def test_news_knowledge_base_tool_is_always_available():
+    """Asking about news must surface the news_knowledge_base tool on every run."""
+    from services.agent_service import AgentService
+
+    agent = AgentService(MagicMock())
+    tool_names = {t["function"]["name"] for t in agent.openai_tools()}
+    assert "news_knowledge_base" in tool_names
+
+
+def test_llm_tool_calling_news_knowledge_base(mock_llama_stack_client):
+    agent = MagicMock()
+    agent.openai_tools.return_value = []
+    agent.run_tool.return_value = ToolResult(
+        success=True,
+        output="Article: Port of Rotterdam tightens due to port congestion.",
+        data="Article: Port of Rotterdam tightens due to port congestion.",
+    )
+
+    def _ask_with_tools(*_args, execute_tool=None, **_kwargs):
+        msg = execute_tool("news_knowledge_base", {"query": "latest port congestion news"})
+        assert "Port of Rotterdam" in msg
+        return {
+            "answer": "Here is the latest port news.",
+            "completion": None,
+            "tool_calls_made": [],
+        }
+
+    mock_llama_stack_client.ask_with_tools.side_effect = _ask_with_tools
+    svc = ChatService(
+        mock_llama_stack_client,
+        agent_service=agent,
+    )
+    out = svc.reply("What is the latest news about port congestion?", chat_history=[])
+    assert out["tool"] == "news_knowledge_base"
+    agent.run_tool.assert_called_once_with(
+        "news_knowledge_base",
+        query="latest port congestion news",
+    )
+
+
+def test_news_knowledge_base_tool_runs_when_user_asks_about_news(mock_llama_stack_client):
+    """End-to-end: LLM selects news_knowledge_base; search hits the news vector store."""
+    from services.agent_service import AgentService
+
+    news_store = MagicMock()
+    news_store.search.return_value = "Article: Supply chain disruptions in Southeast Asia."
+    news_store.vector_store_id = "vs_news"
+
+    client = mock_llama_stack_client
+    client.ask_with_tools.side_effect = []
+    agent = AgentService(
+        client,
+        news_vector_store=news_store,
+    )
+
+    def _ask_with_tools(*_args, execute_tool=None, **_kwargs):
+        result = execute_tool("news_knowledge_base", {"query": "supply chain disruption news"})
+        assert "Supply chain disruptions" in result
+        return {
+            "answer": "Recent article: supply chain disruptions in Southeast Asia.",
+            "completion": None,
+            "tool_calls_made": [{"name": "news_knowledge_base"}],
+        }
+
+    client.ask_with_tools.side_effect = _ask_with_tools
+    svc = ChatService(client, agent_service=agent)
+    out = svc.reply("Any news on supply chain disruptions?", chat_history=[])
+    assert out["tool"] == "news_knowledge_base"
+    news_store.search.assert_called_once_with(
+        "supply chain disruption news",
+        max_results=5,
+    )
+
+
+def test_retrieve_context_merges_news_vector_store(mock_llama_stack_client):
+    """News vector store hits are merged into LLM context alongside KB context."""
+    news_store = MagicMock()
+    news_store.search.return_value = "News: Suez canal traffic delayed by storm."
+    svc = ChatService(
+        mock_llama_stack_client,
+        vector_store_client=None,
+        news_vector_store=news_store,
+    )
+    ctx = svc._retrieve_context("what is happening at the suez canal?")
+    assert "News: Suez canal traffic delayed by storm." in ctx
+
+    news_store.search.assert_called_once_with(
+        "what is happening at the suez canal?",
+        max_results=3,
+    )
