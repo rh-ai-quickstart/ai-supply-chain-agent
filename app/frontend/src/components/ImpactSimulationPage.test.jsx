@@ -28,8 +28,18 @@ vi.mock("../services/generalSimulationService", () => ({
   runImpactQuery: (...args) => runImpactQuery(...args),
 }));
 
-async function expandResultsSection(label) {
-  await userEvent.click(screen.getByRole("button", { name: new RegExp(label, "i") }));
+async function expandResultsSection(labelPattern) {
+  const trigger = screen
+    .getAllByRole("button")
+    .find(
+      (button) =>
+        button.classList.contains("collapsible-section__trigger") &&
+        new RegExp(labelPattern, "i").test(button.textContent || ""),
+    );
+  if (!trigger) {
+    throw new Error(`Collapsible section not found: ${labelPattern}`);
+  }
+  await userEvent.click(trigger);
 }
 
 describe("ImpactSimulationPage", () => {

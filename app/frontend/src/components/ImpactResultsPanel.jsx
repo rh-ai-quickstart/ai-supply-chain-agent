@@ -139,13 +139,20 @@ export function ImpactResultsPanel({
 
       <div className="impact-results-sections">
         {answer ? (
-          <CollapsibleSection title="Answer">
+          <CollapsibleSection
+            title="Answer"
+            tooltip="Natural-language summary from the impact analysis agent for this scenario."
+          >
             <ChatMarkdownBody content={answer} compact />
           </CollapsibleSection>
         ) : null}
 
         {options.length > 0 ? (
-          <CollapsibleSection title={`Response options (${options.length})`}>
+          <CollapsibleSection
+            title={`Response options (${options.length})`}
+            tooltipLabel="About response options"
+            tooltip="Ranked mitigation strategies with estimated impact reduction for each option."
+          >
             <ul className="impact-list">
               {options.map((opt) => (
                 <li key={`${opt.rank}-${opt.label}`} className="alert info">
@@ -166,7 +173,11 @@ export function ImpactResultsPanel({
         ) : null}
 
         {reroutes.length > 0 ? (
-          <CollapsibleSection title={`Recommended diversions (${reroutes.length})`}>
+          <CollapsibleSection
+            title={`Recommended diversions (${reroutes.length})`}
+            tooltipLabel="About recommended diversions"
+            tooltip="Suggested alternate routes for affected entities. Click a diversion to highlight it on the map."
+          >
             <p className="muted impact-breakdown-hint">Select a diversion to show its route on the map.</p>
             <ul className="impact-list impact-diversion-list">
               {reroutes.map((route) => (
@@ -182,7 +193,11 @@ export function ImpactResultsPanel({
         ) : null}
 
         {breakdown.length > 0 ? (
-          <CollapsibleSection title={`Value breakdown (${breakdown.length})`}>
+          <CollapsibleSection
+            title={`Value breakdown (${breakdown.length})`}
+            tooltipLabel="About value breakdown"
+            tooltip="Per-entity financial exposure. Aircraft rows are flight revenue; cargo rows are shipment value on board."
+          >
             <p className="muted impact-breakdown-hint">
               Aircraft rows are flight revenue; cargo-* rows are shipment value on board.
             </p>
@@ -204,7 +219,11 @@ export function ImpactResultsPanel({
         ) : null}
 
         {affected.length > 0 ? (
-          <CollapsibleSection title={`Affected entities (${affected.length})`}>
+          <CollapsibleSection
+            title={`Affected entities (${affected.length})`}
+            tooltipLabel="About affected entities"
+            tooltip="Flights, vessels, and facilities impacted by the disruption. Click an entity to focus it on the map."
+          >
             <ul className="impact-entity-link-list">
               {affected.map((entityId) => (
                 <li key={entityId}>
@@ -216,7 +235,12 @@ export function ImpactResultsPanel({
         ) : null}
 
         {trace.length > 0 ? (
-          <CollapsibleSection title={`Tool call trace (${trace.length})`} className="impact-trace">
+          <CollapsibleSection
+            title={`Tool call trace (${trace.length})`}
+            className="impact-trace"
+            tooltipLabel="About tool call trace"
+            tooltip="Debug log of tools the agent called while building this result, including inputs and outputs."
+          >
             <ul className="impact-list">
               {trace.map((step, index) => (
                 <li key={`${step.tool_name}-${index}`}>

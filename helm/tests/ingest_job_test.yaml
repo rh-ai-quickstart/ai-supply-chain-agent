@@ -43,8 +43,8 @@ tests:
                 name: pgvector
                 key: password
       - equal:
-          path: spec.template.spec.containers[0].securityContext.runAsUser
-          value: 1001
+          path: spec.template.spec.containers[0].securityContext.allowPrivilegeEscalation
+          value: false
       - equal:
           path: spec.template.spec.securityContext.runAsNonRoot
           value: true

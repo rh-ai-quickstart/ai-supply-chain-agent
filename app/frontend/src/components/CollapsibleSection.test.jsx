@@ -34,4 +34,18 @@ describe("CollapsibleSection", () => {
     );
     expect(screen.getByText("Summary text")).toBeInTheDocument();
   });
+
+  it("renders a section tooltip without toggling the section", async () => {
+    const user = userEvent.setup();
+    render(
+      <CollapsibleSection title="Answer" tooltip="Summary from the impact agent.">
+        <p>Summary text</p>
+      </CollapsibleSection>,
+    );
+
+    expect(screen.getByRole("button", { name: "About Answer" })).toBeInTheDocument();
+    await user.hover(screen.getByRole("button", { name: "About Answer" }));
+    expect(screen.getByRole("tooltip")).toHaveTextContent("Summary from the impact agent.");
+    expect(screen.getByRole("button", { name: /^Answer$/i })).toHaveAttribute("aria-expanded", "false");
+  });
 });

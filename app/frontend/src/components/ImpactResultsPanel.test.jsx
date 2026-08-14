@@ -8,8 +8,22 @@ vi.mock("./ChatMarkdownBody.jsx", () => ({
   ChatMarkdownBody: ({ content }) => <div data-testid="markdown">{content}</div>,
 }));
 
-async function expandSection(label) {
-  await userEvent.click(screen.getByRole("button", { name: new RegExp(label, "i") }));
+async function expandSection(labelPattern) {
+  const trigger = sectionTrigger(labelPattern);
+  if (!trigger) {
+    throw new Error(`Collapsible section not found: ${labelPattern}`);
+  }
+  await userEvent.click(trigger);
+}
+
+function sectionTrigger(labelPattern) {
+  return screen
+    .getAllByRole("button")
+    .find(
+      (button) =>
+        button.classList.contains("collapsible-section__trigger") &&
+        new RegExp(labelPattern, "i").test(button.textContent || ""),
+    );
 }
 
 describe("ImpactResultsPanel", () => {
@@ -32,11 +46,14 @@ describe("ImpactResultsPanel", () => {
     expect(screen.getByText(/1,234,567|\$1,234,567/)).toBeInTheDocument();
     expect(screen.getByText("3")).toBeInTheDocument();
     expect(screen.getByText("2")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Answer/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Response options/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Recommended diversions/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Affected entities/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Tool call trace/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /About response options/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /About recommended diversions/i })).toBeInTheDocument();
+
+    expect(sectionTrigger("^Answer$")).toBeTruthy();
+    expect(sectionTrigger("Response options")).toBeTruthy();
+    expect(sectionTrigger("Recommended diversions")).toBeTruthy();
+    expect(sectionTrigger("Affected entities")).toBeTruthy();
+    expect(sectionTrigger("Tool call trace")).toBeTruthy();
 
     await expandSection("Answer");
     expect(screen.getByTestId("markdown")).toHaveTextContent(
@@ -111,11 +128,8 @@ describe("ImpactResultsPanel", () => {
   it("keeps result sections collapsed by default for quick scanning", () => {
     render(<ImpactResultsPanel result={QUERY_RESPONSE_FIXTURE} />);
 
-    expect(screen.getByRole("button", { name: /Answer/i })).toHaveAttribute("aria-expanded", "false");
-    expect(screen.getByRole("button", { name: /Response options/i })).toHaveAttribute(
-      "aria-expanded",
-      "false",
-    );
+    expect(sectionTrigger("^Answer$")).toHaveAttribute("aria-expanded", "false");
+    expect(sectionTrigger("Response options")).toHaveAttribute("aria-expanded", "false");
     expect(screen.queryByTestId("markdown")).not.toBeInTheDocument();
   });
 });
