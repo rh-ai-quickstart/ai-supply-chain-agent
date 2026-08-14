@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { humanizeScenarioId, labelForScenario } from "./presetScenarioIds";
+import {
+  humanizeScenarioId,
+  labelForScenario,
+  suggestedPromptsForScenario,
+} from "./presetScenarioIds";
 
 describe("labelForScenario", () => {
   it("uses preset labels when known", () => {
@@ -9,5 +13,15 @@ describe("labelForScenario", () => {
   it("humanizes unknown scenario ids", () => {
     expect(labelForScenario("france-airspace-closure")).toBe("France Airspace Closure");
     expect(humanizeScenarioId("port_strike_marseille")).toBe("Port Strike Marseille");
+  });
+});
+
+describe("suggestedPromptsForScenario", () => {
+  it("returns suggested prompts for preset scenarios", () => {
+    expect(suggestedPromptsForScenario("opensky-uk-closure-001").length).toBeGreaterThan(0);
+  });
+
+  it("returns an empty list for unknown scenarios", () => {
+    expect(suggestedPromptsForScenario("custom-001")).toEqual([]);
   });
 });

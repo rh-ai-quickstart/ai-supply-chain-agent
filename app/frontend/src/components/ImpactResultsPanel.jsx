@@ -69,9 +69,12 @@ export function ImpactResultsPanel({
 }) {
   if (loading) {
     return (
-      <section className="panel impact-results-panel">
+      <section className="panel impact-results-panel" role="status" aria-live="polite">
         <h3>Impact Results</h3>
-        <p className="muted">Waiting for solver response…</p>
+        <div className="loading-spinner-container">
+          <div className="loading-spinner" aria-hidden="true"></div>
+          <p className="muted loading-spinner-label">Analyzing impact…</p>
+        </div>
       </section>
     );
   }

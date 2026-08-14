@@ -16,7 +16,9 @@ describe("ImpactResultsPanel", () => {
 
   it("shows loading state", () => {
     render(<ImpactResultsPanel loading />);
-    expect(screen.getByText(/Waiting for solver response/i)).toBeInTheDocument();
+    expect(screen.getByRole("status")).toBeInTheDocument();
+    expect(document.querySelector(".loading-spinner")).toBeInTheDocument();
+    expect(screen.getByText(/Analyzing impact/i)).toBeInTheDocument();
   });
 
   it("renders KPIs, answer, options, breakdown, and trace from QueryResponse", () => {

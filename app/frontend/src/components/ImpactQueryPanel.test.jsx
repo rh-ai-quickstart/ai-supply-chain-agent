@@ -112,4 +112,40 @@ describe("ImpactQueryPanel", () => {
     expect(screen.getByText("Upstream failed")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Run impact query/i })).toBeDisabled();
   });
+
+  it("renders suggested prompts for the selected scenario and runs one on click", async () => {
+    const onRunSuggestedPrompt = vi.fn();
+    render(
+      <ImpactQueryPanel
+        scenarios={["opensky-uk-closure-001"]}
+        scenarioId="opensky-uk-closure-001"
+        question="q"
+        onChangeScenarioId={vi.fn()}
+        onChangeQuestion={vi.fn()}
+        onRunQuery={vi.fn()}
+        onRunSuggestedPrompt={onRunSuggestedPrompt}
+      />,
+    );
+    expect(screen.getByText(/Suggested prompts/i)).toBeInTheDocument();
+    await userEvent.click(
+      screen.getByRole("button", { name: /Show affected aircraft/i }),
+    );
+    expect(onRunSuggestedPrompt).toHaveBeenCalledWith(
+      "Show affected aircraft and recommend diversions.",
+    );
+  });
+
+  it("does not render suggested prompts for an unknown scenario", () => {
+    render(
+      <ImpactQueryPanel
+        scenarios={["custom-001"]}
+        scenarioId="custom-001"
+        question="q"
+        onChangeScenarioId={vi.fn()}
+        onChangeQuestion={vi.fn()}
+        onRunQuery={vi.fn()}
+      />,
+    );
+    expect(screen.queryByText(/Suggested prompts/i)).not.toBeInTheDocument();
+  });
 });

@@ -192,4 +192,48 @@ describe("ImpactSimulationPage", () => {
       expect(screen.getByText("solver unavailable")).toBeInTheDocument();
     });
   });
+
+  it("runs the impact query and highlights the button when a scenario is selected", async () => {
+    listImpactScenarios.mockResolvedValue({
+      success: true,
+      scenarios: ["opensky-uk-closure-001", "supply-chain-port-strike-la"],
+    });
+    render(<ImpactSimulationPage />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Port Strike LA" })).toBeInTheDocument();
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: "Port Strike LA" }));
+
+    await waitFor(() => {
+      expect(runImpactQuery).toHaveBeenCalledWith({
+        scenarioId: "supply-chain-port-strike-la",
+        question: expect.stringContaining("Port of Los Angeles"),
+      });
+    });
+    expect(screen.getByRole("button", { name: "Port Strike LA" })).toHaveClass("btn--active");
+    expect(screen.getByRole("button", { name: "UK Airspace Closure" })).not.toHaveClass(
+      "btn--active",
+    );
+  });
+
+  it("runs the impact query from a suggested prompt chip", async () => {
+    render(<ImpactSimulationPage />);
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: /Show affected aircraft/i }),
+      ).toBeInTheDocument();
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: /Show affected aircraft/i }));
+
+    await waitFor(() => {
+      expect(runImpactQuery).toHaveBeenCalledWith({
+        scenarioId: "opensky-uk-closure-001",
+        question: "Show affected aircraft and recommend diversions.",
+      });
+    });
+  });
 });

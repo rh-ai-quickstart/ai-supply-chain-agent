@@ -30,6 +30,7 @@ export function ImpactSimulationPage({
         question={sim.question}
         onChangeQuestion={sim.setQuestion}
         onRunQuery={sim.handleRunQuery}
+        onRunSuggestedPrompt={sim.handleRunSuggestedPrompt}
         queryLoading={sim.queryLoading}
         chatBusy={chatLoading}
         queryError={sim.queryError}
