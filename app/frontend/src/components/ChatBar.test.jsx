@@ -16,6 +16,23 @@ describe("ChatBar", () => {
     );
     expect(screen.getByLabelText("Chat input")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Send chat message" })).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("Knowledge base: None");
+  });
+
+  it("shows the active knowledge-base name above the chat input", () => {
+    render(
+      <ChatBar
+        chatInput=""
+        onChangeChatInput={vi.fn()}
+        onSubmitChat={vi.fn()}
+        chatLoading={false}
+        chatMessages={[]}
+        knowledgeBaseName="air_risk_uk_nats_gps_closure-abc12345"
+      />
+    );
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Knowledge base: air_risk_uk_nats_gps_closure-abc12345",
+    );
   });
 
   it("renders user input value", () => {

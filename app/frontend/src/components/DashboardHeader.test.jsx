@@ -20,8 +20,7 @@ describe("DashboardHeader", () => {
     expect(onNavigate).toHaveBeenCalledWith("knowledge-bases");
     await user.click(screen.getByRole("button", { name: /^simulation$/i }));
     expect(onNavigate).toHaveBeenCalledWith("simulation");
-    await user.click(screen.getByRole("button", { name: /create scenario/i }));
-    expect(onNavigate).toHaveBeenCalledWith("create-scenario");
+    expect(screen.queryByRole("button", { name: /create scenario/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /live flights/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^dashboard$/i })).not.toBeInTheDocument();
   });
@@ -31,11 +30,11 @@ describe("DashboardHeader", () => {
       <DashboardHeader
         isLightTheme={false}
         onToggleTheme={vi.fn()}
-        activeView="create-scenario"
+        activeView="knowledge-bases"
         onNavigate={vi.fn()}
       />,
     );
-    expect(screen.getByRole("button", { name: /create scenario/i })).toHaveClass(
+    expect(screen.getByRole("button", { name: /knowledge bases/i })).toHaveClass(
       "dashboard-nav-btn--active",
     );
     expect(screen.getByRole("button", { name: /^simulation$/i })).not.toHaveClass(
@@ -55,5 +54,38 @@ describe("DashboardHeader", () => {
     render(<DashboardHeader isLightTheme={false} onToggleTheme={vi.fn()} />);
     // Local/test runs have no VITE_GIT_COMMIT baked in, so this falls back to "dev".
     expect(screen.getByText(/dev/i)).toBeInTheDocument();
+  });
+
+  it("shows the news ticker on the simulation view", () => {
+    const item = {
+      title: "Port strike disrupts shipping",
+      link: "https://example.com/1",
+      source: "BBC",
+    };
+    render(
+      <DashboardHeader
+        isLightTheme={false}
+        onToggleTheme={vi.fn()}
+        activeView="simulation"
+        onNavigate={vi.fn()}
+        newsItems={[item]}
+        onCreateScenarioFromNews={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("region", { name: /supply chain news ticker/i })).toBeInTheDocument();
+    expect(screen.getByText("News")).toBeInTheDocument();
+  });
+
+  it("hides the news ticker on the knowledge bases view", () => {
+    render(
+      <DashboardHeader
+        isLightTheme={false}
+        onToggleTheme={vi.fn()}
+        activeView="knowledge-bases"
+        onNavigate={vi.fn()}
+        newsItems={[{ title: "Headline", link: "https://example.com" }]}
+      />,
+    );
+    expect(screen.queryByRole("region", { name: /supply chain news ticker/i })).not.toBeInTheDocument();
   });
 });

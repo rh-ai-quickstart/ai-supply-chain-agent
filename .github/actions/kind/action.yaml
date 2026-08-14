@@ -97,6 +97,18 @@ runs:
           --from-literal=NEO4J_AUTH="neo4j/kind-demo-password" \
           --dry-run=client -o yaml | kubectl apply -f -
 
+    # Published gen-sim charts pin neo4j.podSpec.serviceAccountName=neo4j-sa
+    # (OpenShift anyuid SCC). The official neo4j chart uses that name on the
+    # StatefulSet but does not create the ServiceAccount. Kind has no SCC;
+    # values-kind.yaml clears the pin, and this SA is belt-and-suspenders so a
+    # missed overlay cannot leave neo4j-0 Forbidden for 15m.
+    - name: Create neo4j-sa ServiceAccount
+      shell: bash
+      run: |
+        kubectl create serviceaccount neo4j-sa \
+          --namespace ${{ inputs.namespace }} \
+          --dry-run=client -o yaml | kubectl apply -f -
+
     # Belt-and-suspenders: values-kind disables api.route, but keep a Route CRD
     # stub so a misconfigured overlay still renders on Kind.
     - name: Install OpenShift Route CRD stub (Kind)
@@ -129,8 +141,8 @@ runs:
         set +e
         NS="${{ inputs.namespace }}"
         REL="${{ inputs.helm_release }}"
-        echo "=== kubectl get deploy,sts,svc,pvc,job,pods -n ${NS} ==="
-        kubectl get deploy,sts,svc,pvc,job,pods -n "${NS}" -o wide
+        echo "=== kubectl get deploy,sts,svc,pvc,job,sa,pods -n ${NS} ==="
+        kubectl get deploy,sts,svc,pvc,job,sa,pods -n "${NS}" -o wide
         echo "=== kubectl get events -n ${NS} (last 50) ==="
         kubectl get events -n "${NS}" --sort-by=.lastTimestamp | tail -50
         echo "=== StorageClasses ==="

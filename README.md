@@ -347,7 +347,8 @@ oc get route supply-chain-dashboard-frontend -n supply-chain-dashboard -o jsonpa
 make oc-status
 ```
 
-3. Open the frontend Route URL in your browser. See [What to expect after deployment](./docs/WHAT_TO_EXPECT.md) for the Simulation / Knowledge bases / Create scenario walkthrough.
+
+3. Open the frontend Route URL in your browser. See [What to expect after deployment](./docs/WHAT_TO_EXPECT.md) for the Simulation / Knowledge bases walkthrough.
 
 4. Seed general-simulation map data (required for scenarios and markers). Gen-sim's in-cluster OpenSky job is disabled by default — OpenSky often blocks hyperscaler IPs. From a laptop with `oc` login and a sibling general-simulation checkout:
 
@@ -420,7 +421,7 @@ oc delete project supply-chain-dashboard
 │           ├── App.jsx
 │           ├── components/         # ImpactSimulationPage, ImpactMapPanel,
 │           │                       # ImpactQueryPanel, ImpactResultsPanel, ChatBar,
-│           │                       # KnowledgeBasesPage, CreateScenarioPage, NewsTicker
+│           │                       # KnowledgeBasesPage, CreateScenarioModal, NewsTicker
 │           ├── hooks/              # useImpactSimulation, useChatSession, useHashRoute, …
 │           └── services/           # apiClient, generalSimulationService, …
 ├── helm/                           # Helm umbrella chart

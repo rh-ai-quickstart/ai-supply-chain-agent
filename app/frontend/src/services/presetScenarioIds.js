@@ -22,6 +22,30 @@ const SCENARIO_QUESTIONS = {
 /** Default Impact Query question shown before any scenario is selected. */
 export const DEFAULT_IMPACT_QUESTION = SCENARIO_QUESTIONS["opensky-uk-closure-001"];
 
+/** Short, clickable prompts a user can run for each scenario. */
+export const SCENARIO_SUGGESTED_PROMPTS = {
+  "opensky-uk-closure-001": [
+    "Show affected aircraft and recommend diversions.",
+    "Which airports and fleets are impacted by the closure?",
+    "Estimate the cost and value at risk of the disruption.",
+  ],
+  "supply-chain-port-strike-la": [
+    "Show affected vessels, cargo, and inland facilities.",
+    "Recommend alternative ports and mitigation routes.",
+    "Estimate the cost and value at risk of the strike.",
+  ],
+  "supply-chain-suez-blockage": [
+    "Show vessels and cargo delayed by the blockage.",
+    "What is the impact on European ports and schedules?",
+    "Estimate the cost and value at risk of the blockage.",
+  ],
+};
+
+/** Suggested prompt chips for a scenario; empty when the scenario is not preset. */
+export function suggestedPromptsForScenario(scenarioId) {
+  return SCENARIO_SUGGESTED_PROMPTS[scenarioId] || [];
+}
+
 /** Map bboxes (minLon,minLat,maxLon,maxLat) focused on each scenario. */
 const SCENARIO_BBOXES = {
   "opensky-uk-closure-001": "-15,35,40,62",
@@ -110,4 +134,14 @@ function escapeRegExp(value) {
 
 export function findVectorStoreIdForScenario(stores, scenarioId) {
   return findVectorStoreId(stores, vectorStoreKeywordsForScenario(scenarioId));
+}
+
+/** Display name of the vector store matched to a scenario, or empty when none. */
+export function findVectorStoreNameForScenario(stores, scenarioId) {
+  const id = findVectorStoreIdForScenario(stores, scenarioId);
+  if (!id || !Array.isArray(stores)) {
+    return "";
+  }
+  const store = stores.find((row) => (row.id || row.vector_store_id) === id);
+  return (store?.name || "").trim();
 }

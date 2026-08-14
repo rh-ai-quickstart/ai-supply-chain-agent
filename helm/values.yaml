@@ -63,6 +63,14 @@ llm-service:
 # LiteMaaS. Set api/ingestion.llm.apiKey in helm/secrets.yaml.
 general-simulation:
   enabled: true
+  # The umbrella chart deploys its own llama-stack; disable the subchart's
+  # bundled one so it does not also render a duplicate "pgvector" Secret
+  # (llamastack-pg-secret.yaml), which breaks `helm install` with
+  # "secrets pgvector already exists".
+  llama-stack:
+    enabled: false
+    pgvector:
+      enabled: false
   vllm:
     enabled: false
   # Stable Service/STS name so api/bootstrap can wait on host "neo4j" even when
@@ -70,6 +78,9 @@ general-simulation:
   # Changing this on an existing install recreates Neo4j with a new PVC.
   neo4j:
     fullnameOverride: neo4j
+    # gen-sim pins Neo4j to ServiceAccount neo4j-sa (anyuid on OpenShift). The
+    # umbrella chart creates the SA; cluster admins must grant SCC before install:
+    #   oc adm policy add-scc-to-user anyuid system:serviceaccount:<ns>:neo4j-sa
   # Override subchart default (quay.io/robertsandoval/general-sim-app).
   api:
     image: quay.io/rh-ai-quickstart/general-simulation-api:latest

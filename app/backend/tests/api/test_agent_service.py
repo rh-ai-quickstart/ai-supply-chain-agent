@@ -31,16 +31,67 @@ def _make_mock_sim_client() -> MagicMock:
 class TestAgentService:
     def test_tools_are_registered(self):
         service = AgentService(_make_mock_llama_stack())
-        assert len(service.tools) == 3
+        assert len(service.tools) == 4
         names = {t.name for t in service.tools}
-        assert names == {"knowledge_base", "general_simulation", "fetch_news"}
+        assert names == {
+            "news_knowledge_base",
+            "knowledge_base",
+            "general_simulation",
+            "fetch_news",
+        }
 
     def test_openai_tools_matches_registered(self):
         service = AgentService(_make_mock_llama_stack())
         schemas = service.openai_tools()
         names = {s["function"]["name"] for s in schemas}
-        assert names == {"knowledge_base", "general_simulation", "fetch_news"}
+        assert names == {
+            "news_knowledge_base",
+            "knowledge_base",
+            "general_simulation",
+            "fetch_news",
+        }
         assert all(s["type"] == "function" for s in schemas)
+
+    def test_news_knowledge_base_tool_success(self):
+        news_store = MagicMock()
+        news_store.search.return_value = "Recent article about port congestion."
+        service = AgentService(
+            _make_mock_llama_stack(),
+            news_vector_store=news_store,
+        )
+        result = service.run_tool(
+            "news_knowledge_base",
+            query="port congestion",
+        )
+        assert result.success is True
+        assert result.output == "Recent article about port congestion."
+        news_store.search.assert_called_once_with("port congestion", max_results=5)
+
+    def test_news_knowledge_base_tool_empty_query(self):
+        service = AgentService(_make_mock_llama_stack())
+        result = service.run_tool("news_knowledge_base", query="   ")
+        assert result.success is False
+        assert "query" in result.error
+
+    def test_news_knowledge_base_tool_no_results(self):
+        news_store = MagicMock()
+        news_store.search.return_value = ""
+        service = AgentService(
+            _make_mock_llama_stack(),
+            news_vector_store=news_store,
+        )
+        result = service.run_tool(
+            "news_knowledge_base",
+            query="nothing relevant",
+        )
+        assert result.success is True
+        assert "No recent news articles" in result.output
+
+    def test_news_knowledge_base_tool_unavailable(self):
+        service = AgentService(_make_mock_llama_stack())
+        result = service.run_tool("news_knowledge_base", query="port congestion")
+        assert result.success is False
+        assert "News knowledge base is not available" in result.error
 
     def test_get_tool_returns_spec(self):
         service = AgentService(_make_mock_llama_stack())

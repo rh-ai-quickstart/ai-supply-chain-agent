@@ -19,9 +19,6 @@ function viewFromHash() {
   if (path === "knowledge-bases") {
     return "knowledge-bases";
   }
-  if (path === "create-scenario") {
-    return "create-scenario";
-  }
   return "simulation";
 }
 
@@ -47,7 +44,7 @@ export function useHashRoute() {
 
   useEffect(() => {
     const { path } = hashPathAndQuery();
-    if (path === "" || path === "dashboard" || path === "live") {
+    if (path === "" || path === "dashboard" || path === "live" || path === "create-scenario") {
       const scenario = scenarioIdFromHash();
       const qs = scenario ? `?scenario=${encodeURIComponent(scenario)}` : "";
       window.location.hash = `#/simulation${qs}`;
@@ -59,11 +56,7 @@ export function useHashRoute() {
       window.location.hash = "#/knowledge-bases";
       return;
     }
-    if (view === "create-scenario") {
-      window.location.hash = "#/create-scenario";
-      return;
-    }
-    // Legacy ``live`` tab is folded into Simulation (map mode toggle).
+    // Legacy ``live`` / ``create-scenario`` routes are folded into Simulation.
     const qs = scenarioId ? `?scenario=${encodeURIComponent(scenarioId)}` : "";
     window.location.hash = `#/simulation${qs}`;
   }, []);

@@ -45,7 +45,7 @@ ingest:
 
 # Demo-only credentials so general-simulation's Postgres/Neo4j secret templates
 # render in the ephemeral Kind namespace (see helm/secrets.example.yaml for the
-# real-deployment equivalent). The matching neo4j-auth Secret is pre-created by
+# real-deployment equivalent). neo4j-auth and neo4j-sa are pre-created by
 # .github/actions/kind before `helm install`.
 #
 # Published gen-sim defaults pin Neo4j to gp3-csi + 2CPU/4Gi (OpenShift/AWS).
@@ -55,7 +55,18 @@ ingest:
 # fullnameOverride is required: the official neo4j chart names Service/STS after
 # the Helm release (e.g. supply-chain-dashboard). api/bootstrap wait for host
 # "neo4j", so without this override general-sim-api stays Init:wait-for-deps.
+#
+# Published gen-sim also pins podSpec.serviceAccountName=neo4j-sa (OpenShift
+# anyuid). Clear it here so the official chart uses the default SA on Kind;
+# the Kind action still creates neo4j-sa if the overlay is missed.
 general-simulation:
+  # The umbrella chart deploys its own llama-stack; disable the subchart's
+  # bundled one to avoid a duplicate "pgvector" Secret (llamastack-pg-secret.yaml),
+  # which fails helm install with "secrets pgvector already exists".
+  llama-stack:
+    enabled: false
+    pgvector:
+      enabled: false
   postgres:
     postgres:
       password: kind-demo-password
@@ -64,6 +75,9 @@ general-simulation:
     # Kind action pre-creates neo4j-auth; skip live-cluster lookups during helm
     # template/install so CI does not depend on lookup timing.
     disableLookups: true
+    # Empty string overrides the published chart's neo4j-sa pin (OpenShift).
+    podSpec:
+      serviceAccountName: ""
     neo4j:
       resources:
         # Chart enforces memory >= 2Gi; keep CPU light for Kind runners.

@@ -6,15 +6,16 @@ import { diversionKey } from "../utils/impactEntityUtils";
 vi.mock("react-leaflet", () => ({
   MapContainer: ({ children }) => <div data-testid="map">{children}</div>,
   TileLayer: () => null,
-  CircleMarker: ({ children, pathOptions }) => (
+  Marker: ({ children, icon }) => (
     <div
       data-testid="marker"
-      data-color={pathOptions?.color}
-      data-radius={pathOptions?.radius}
+      data-icon-html={icon?.options?.html}
+      data-icon-shape={icon?.options?.iconSize?.[0]}
     >
       {children}
     </div>
   ),
+  CircleMarker: ({ children }) => <div>{children}</div>,
   Popup: ({ children }) => <div data-testid="popup">{children}</div>,
   Polyline: ({ pathOptions }) => (
     <div data-testid="diversion-route" data-color={pathOptions?.color} />
@@ -76,8 +77,9 @@ describe("ImpactMapPanel", () => {
       />,
     );
     const marker = screen.getByTestId("marker");
-    // Highlighted markers use the red accent color.
-    expect(marker).toHaveAttribute("data-color", "#FF4757");
+    // Highlighted markers are larger and tinted with the red accent color.
+    expect(marker).toHaveAttribute("data-icon-shape", "34");
+    expect(marker.getAttribute("data-icon-html")).toContain("#FF4757");
   });
 
   it("renders a diversion polyline when a reroute is selected", () => {
@@ -111,7 +113,8 @@ describe("ImpactMapPanel", () => {
     render(<ImpactMapPanel features={[aircraftFeature]} />);
     const legend = screen.getByRole("list", { name: /map legend/i });
     expect(legend).toBeInTheDocument();
-    expect(screen.getByText(/Entity \(flight, facility, or vessel\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/Flight \(moving entity\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/Facility \(port, warehouse, airport\)/i)).toBeInTheDocument();
     expect(screen.getByText(/Affected by scenario/i)).toBeInTheDocument();
     expect(screen.getByText(/Focused entity/i)).toBeInTheDocument();
     expect(screen.getByText(/Diversion destination/i)).toBeInTheDocument();

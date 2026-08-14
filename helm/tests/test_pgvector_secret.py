@@ -147,6 +147,58 @@ def test_bridge_secret_points_at_shared_postgres() -> None:
     assert secret.get("dbname") == "sim"
 
 
+def test_rendered_secret_pgvector_is_not_duplicated_with_gen_sim_enabled() -> None:
+    """general-simulation 0.2.0 bundles its own llama-stack + pgvector Secret.
+
+    If the subchart's bundled llama-stack is left enabled it renders a second
+    Secret/pgvector (llamastack-pg-secret.yaml), and `helm install` fails with
+    ``secrets "pgvector" already exists``. values.yaml must disable it so the
+    umbrella bridge Secret is the only Secret/pgvector.
+    """
+    cmd = [
+        "helm",
+        "template",
+        "duplicate-pgvector-check",
+        str(HELM_CHART),
+        "--namespace",
+        "supply-chain-dashboard",
+        # Disable lookups/required secrets that need a live cluster or the
+        # secrets overlay; the pgvector Secret collision is independent of them.
+        "--set",
+        "general-simulation.neo4j.disableLookups=true",
+        "--set",
+        "llm-service.secret.hf_token=unused",
+        "--set",
+        "general-simulation.api.llm.apiKey=unused",
+        "--set",
+        "general-simulation.api.postgres.password=demo",
+        "--set",
+        "general-simulation.api.neo4j.password=demo",
+        "--set",
+        "general-simulation.bootstrap.postgres.password=demo",
+        "--set",
+        "general-simulation.bootstrap.neo4j.password=demo",
+        "--set",
+        "general-simulation.postgres.postgres.password=demo",
+        "-f",
+        str(VALUES),
+    ]
+    result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+    secrets = []
+    for doc in yaml.safe_load_all(result.stdout):
+        if not isinstance(doc, dict):
+            continue
+        if doc.get("kind") != "Secret":
+            continue
+        if (doc.get("metadata") or {}).get("name") == "pgvector":
+            secrets.append((doc.get("metadata") or {}).get("name"))
+    assert len(secrets) == 1, (
+        "Expected exactly one Secret/pgvector with the subchart enabled, "
+        f"got {len(secrets)}. Disable general-simulation.llama-stack (and its "
+        "pgvector) in values.yaml so the umbrella bridge Secret is the only one."
+    )
+
+
 def main() -> int:
     tests = [
         test_secrets_example_does_not_blank_password,
@@ -154,6 +206,7 @@ def main() -> int:
         test_helm_render_values_alone_has_password,
         test_helm_render_keeps_non_empty_password_with_secrets_example,
         test_bridge_secret_points_at_shared_postgres,
+        test_rendered_secret_pgvector_is_not_duplicated_with_gen_sim_enabled,
     ]
     failed = 0
     for test in tests:

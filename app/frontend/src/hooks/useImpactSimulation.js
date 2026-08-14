@@ -65,6 +65,7 @@ export function useImpactSimulation({
   const [queryLoading, setQueryLoading] = useState(false);
   const [queryError, setQueryError] = useState("");
   const [result, setResult] = useState(null);
+  const [resultScenarioId, setResultScenarioId] = useState("");
   const [focusedEntityId, setFocusedEntityId] = useState("");
   const [focusNonce, setFocusNonce] = useState(0);
   const [selectedDiversionKey, setSelectedDiversionKey] = useState("");
@@ -147,10 +148,6 @@ export function useImpactSimulation({
         }
         setCollection(geoRes.geojson || { type: "FeatureCollection", features: [] });
         setMapScenarioId(scenarioId);
-        setResult(null);
-        setFocusedEntityId("");
-        setSelectedDiversionKey("");
-        setDiversionFocusNonce(0);
       } catch (err) {
         if (err?.name === "AbortError") return;
         setMapError(messageFromError(err, "Unable to load map entities."));
@@ -163,13 +160,96 @@ export function useImpactSimulation({
     return () => controller.abort();
   }, [scenarioId, chatLoading, mapScenarioId]);
 
-  const handleChangeScenarioId = useCallback((nextId) => {
-    setScenarioId(nextId);
-    setMapScenarioId("");
-    setQuestion(questionForScenario(nextId));
-    setQueryError("");
-    setMapMode("scenario");
-  }, []);
+  const applySimulationResult = useCallback(
+    async (res, scenario) => {
+      if (!res || res.success === false) return;
+      setResult(res);
+      setResultScenarioId(scenario || "");
+      setQueryError("");
+      setFocusedEntityId("");
+      setFocusNonce(0);
+      setSelectedDiversionKey("");
+      setDiversionFocusNonce(0);
+      if (res.question) {
+        setQuestion(res.question);
+      }
+
+      const affected = Array.isArray(res.affected_entities) ? res.affected_entities : [];
+      if (affected.length === 0) return;
+
+      try {
+        const overlay = await getImpactEntitiesGeoJson({
+          ids: affected,
+          limit: affected.length,
+        });
+        if (overlay.success === false) {
+          setMapWarning(overlay.error || "Some affected entities could not be loaded onto the map.");
+        } else if (overlay.geojson) {
+          setCollection((prev) => mergeFeatureCollections(prev, overlay.geojson));
+          setMapWarning("");
+        }
+      } catch (err) {
+        setMapWarning(messageFromError(err, "Some affected entities could not be loaded onto the map."));
+      }
+    },
+    [],
+  );
+
+  const runQuery = useCallback(
+    async (scenario, prompt) => {
+      if (chatLoading) return;
+      if (!scenario || !prompt) return;
+      setQueryError("");
+      setMapWarning("");
+      setQueryLoading(true);
+      try {
+        const res = await runImpactQuery({ question: prompt, scenarioId: scenario });
+        if (res.success === false) {
+          setQueryError(res.error || "Impact query failed.");
+          return;
+        }
+        await applySimulationResult(res, scenario);
+      } catch (err) {
+        setQueryError(messageFromError(err, "Impact query failed."));
+      } finally {
+        setQueryLoading(false);
+      }
+    },
+    [applySimulationResult, chatLoading],
+  );
+
+  const handleRunQuery = useCallback(() => {
+    return runQuery(scenarioId, question);
+  }, [runQuery, scenarioId, question]);
+
+  const handleRunSuggestedPrompt = useCallback(
+    (prompt) => {
+      setQuestion(prompt);
+      return runQuery(scenarioId, prompt);
+    },
+    [runQuery, scenarioId],
+  );
+
+  const handleChangeScenarioId = useCallback(
+    (nextId) => {
+      const nextQuestion = questionForScenario(nextId);
+      if (nextId !== scenarioId) {
+        setMapScenarioId("");
+        setResult(null);
+        setResultScenarioId("");
+        setFocusedEntityId("");
+        setSelectedDiversionKey("");
+        setDiversionFocusNonce(0);
+        onScenarioChange?.(nextId);
+      }
+      setScenarioId(nextId);
+      setQuestion(nextQuestion);
+      setQueryError("");
+      setMapMode("scenario");
+      void runQuery(nextId, nextQuestion);
+    },
+    [onScenarioChange, runQuery, scenarioId],
+  );
 
   const handleMapModeChange = useCallback((mode) => {
     if (mode === "live" || mode === "scenario") {
@@ -182,60 +262,10 @@ export function useImpactSimulation({
     onScenarioChange?.(scenarioId);
   }, [scenarioId, onScenarioChange]);
 
-  const applySimulationResult = useCallback(async (res) => {
-    if (!res || res.success === false) return;
-    setResult(res);
-    setQueryError("");
-    setFocusedEntityId("");
-    setFocusNonce(0);
-    setSelectedDiversionKey("");
-    setDiversionFocusNonce(0);
-    if (res.question) {
-      setQuestion(res.question);
-    }
-
-    const affected = Array.isArray(res.affected_entities) ? res.affected_entities : [];
-    if (affected.length === 0) return;
-
-    try {
-      const overlay = await getImpactEntitiesGeoJson({
-        ids: affected,
-        limit: affected.length,
-      });
-      if (overlay.success === false) {
-        setMapWarning(overlay.error || "Some affected entities could not be loaded onto the map.");
-      } else if (overlay.geojson) {
-        setCollection((prev) => mergeFeatureCollections(prev, overlay.geojson));
-        setMapWarning("");
-      }
-    } catch (err) {
-      setMapWarning(messageFromError(err, "Some affected entities could not be loaded onto the map."));
-    }
-  }, []);
-
   useEffect(() => {
     if (!chatSimulation) return;
-    void applySimulationResult(chatSimulation);
-  }, [chatSimulation, applySimulationResult]);
-
-  const handleRunQuery = useCallback(async () => {
-    if (chatLoading) return;
-    setQueryError("");
-    setMapWarning("");
-    setQueryLoading(true);
-    try {
-      const res = await runImpactQuery({ question, scenarioId });
-      if (res.success === false) {
-        setQueryError(res.error || "Impact query failed.");
-        return;
-      }
-      await applySimulationResult(res);
-    } catch (err) {
-      setQueryError(messageFromError(err, "Impact query failed."));
-    } finally {
-      setQueryLoading(false);
-    }
-  }, [question, scenarioId, applySimulationResult, chatLoading]);
+    void applySimulationResult(chatSimulation, scenarioId);
+  }, [chatSimulation, scenarioId, applySimulationResult]);
 
   const highlightedIds = useMemo(
     () => (Array.isArray(result?.affected_entities) ? result.affected_entities : []),
@@ -300,6 +330,7 @@ export function useImpactSimulation({
     queryError,
     result,
     handleRunQuery,
+    handleRunSuggestedPrompt,
 
     highlightedIds,
     reroutes,

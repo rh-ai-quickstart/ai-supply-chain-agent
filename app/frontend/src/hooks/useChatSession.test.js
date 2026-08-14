@@ -23,7 +23,40 @@ describe("useChatSession", () => {
         activeScenarioId: "supply-chain-suez-blockage",
       }),
     );
-    expect(result.current.chatRagHint).toMatch(/No knowledge base matched/);
+    expect(result.current.knowledgeBaseName).toBe("");
+    expect(result.current.chatRagHint).toBe("");
+  });
+
+  it("exposes the matched knowledge-base name for the active scenario", () => {
+    const { result } = renderHook(() =>
+      useChatSession({
+        vectorStores: VECTOR_STORES,
+        vectorStoresError: "",
+        activeScenarioId: "opensky-uk-closure-001",
+      }),
+    );
+    expect(result.current.knowledgeBaseName).toBe("air_risk_uk_nats_gps_closure-abc12345");
+  });
+
+  it("updates the knowledge-base name when the active scenario changes", () => {
+    const stores = [
+      { id: "vs-air", name: "air_risk_uk_nats_gps_closure-abc12345" },
+      { id: "vs-port", name: "land_risk_port_strike_la-def67890" },
+    ];
+    const { result, rerender } = renderHook(
+      ({ activeScenarioId }) =>
+        useChatSession({
+          vectorStores: stores,
+          vectorStoresError: "",
+          activeScenarioId,
+        }),
+      { initialProps: { activeScenarioId: "opensky-uk-closure-001" } },
+    );
+
+    expect(result.current.knowledgeBaseName).toBe("air_risk_uk_nats_gps_closure-abc12345");
+
+    rerender({ activeScenarioId: "supply-chain-port-strike-la" });
+    expect(result.current.knowledgeBaseName).toBe("land_risk_port_strike_la-def67890");
   });
 
   it("surfaces the vector-store loading error as the RAG hint", () => {
@@ -102,6 +135,54 @@ describe("useChatSession", () => {
       answer: "ok",
       success: true,
     });
+  });
+
+  it("sendPrompt adds the prompt to the chat as a human message and streams a reply", async () => {
+    sendChatMessageStream.mockImplementation(async (_input, history, _vs, _vllm, onEvent) => {
+      onEvent({ type: "delta", content: "Aircraft BAW442 " });
+      onEvent({
+        type: "done",
+        answer: "Aircraft BAW442 should divert to EIDW",
+        completion: { model: "test" },
+      });
+      expect(history.at(-1)).toMatchObject({ role: "human", content: "Show affected aircraft." });
+    });
+
+    const { result } = renderHook(() =>
+      useChatSession({ vectorStores: [], vectorStoresError: "", activeScenarioId: "scenario-x" }),
+    );
+
+    await act(async () => {
+      await result.current.sendPrompt("Show affected aircraft.");
+    });
+
+    expect(result.current.chatMessages[0]).toMatchObject({
+      role: "human",
+      content: "Show affected aircraft.",
+    });
+    expect(result.current.chatMessages.at(-1)).toMatchObject({
+      role: "ai",
+      content: "Aircraft BAW442 should divert to EIDW",
+    });
+    expect(result.current.chatLoading).toBe(false);
+    expect(sendChatMessageStream).toHaveBeenCalledWith(
+      "Show affected aircraft.",
+      expect.any(Array),
+      undefined,
+      true,
+      expect.any(Function),
+      expect.objectContaining({ scenarioId: "scenario-x" }),
+    );
+  });
+
+  it("sendPrompt does nothing when the prompt is empty", async () => {
+    const { result } = renderHook(() =>
+      useChatSession({ vectorStores: [], vectorStoresError: "", activeScenarioId: "x" }),
+    );
+    await act(async () => {
+      await result.current.sendPrompt("   ");
+    });
+    expect(sendChatMessageStream).not.toHaveBeenCalled();
   });
 
   it("records an error message and restores history when the request fails", async () => {

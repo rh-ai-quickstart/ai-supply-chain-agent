@@ -1,5 +1,6 @@
 import PropTypes from "prop-types";
 import { useEffect, useRef, useState } from "react";
+import { InfoTooltip } from "./InfoTooltip";
 import { formatCompletionSummary } from "../utils/chatCompletionMeta.js";
 import { safeJsonStringify } from "../utils/safeJsonStringify.js";
 import { ChatMarkdownBody } from "./ChatMarkdownBody.jsx";
@@ -7,6 +8,11 @@ import { ChatMarkdownBody } from "./ChatMarkdownBody.jsx";
 function messageBubbleClassName(role, compact) {
   const compactClass = compact ? " chat-message--compact" : "";
   return `chat-message ${role}${compactClass}`;
+}
+
+function knowledgeBaseStatusText(knowledgeBaseName) {
+  const name = (knowledgeBaseName || "").trim();
+  return name ? `Knowledge base: ${name}` : "Knowledge base: None";
 }
 
 export function ChatBar({
@@ -17,6 +23,7 @@ export function ChatBar({
   chatError = "",
   chatMessages = [],
   chatRagHint = "",
+  knowledgeBaseName = "",
 }) {
   const [isChatModalOpen, setIsChatModalOpen] = useState(false);
   const logEndRef = useRef(null);
@@ -139,9 +146,19 @@ export function ChatBar({
     </>
   );
 
+  const knowledgeBaseStatus = knowledgeBaseStatusText(knowledgeBaseName);
+
   return (
     <>
       <div className="chat-bar-container">
+        <p className="chat-kb-status" role="status" aria-label="Knowledge base status">
+          <span className="chat-kb-status__text">{knowledgeBaseStatus}</span>
+          <InfoTooltip
+            label="About knowledge base"
+            content="Documents used for chat retrieval (RAG) for the active scenario. Changes when you select a different scenario."
+            className="chat-kb-status__hint"
+          />
+        </p>
         {!isChatModalOpen && chatMessages.length > 0 ? (
           <div className="chat-bar-preview" data-test="chat-collapsed-preview">
             {renderMessageLog(true)}
@@ -156,17 +173,24 @@ export function ChatBar({
             onKeyDown={handleKeyDown}
             disabled={chatLoading}
             aria-label="Chat input"
+            title="Ask the AI assistant about the active scenario"
           />
           <button
             type="button"
             onClick={handleSend}
             disabled={chatLoading || !chatInput.trim()}
             aria-label={chatLoading ? "Sending" : "Send chat message"}
+            title="Send your message to the AI assistant"
           >
             {chatLoading ? "…" : "➤"}
           </button>
           {chatMessages.length > 0 ? (
-            <button type="button" className="chat-history-btn" onClick={openModal}>
+            <button
+              type="button"
+              className="chat-history-btn"
+              onClick={openModal}
+              title="Open the full conversation history"
+            >
               View conversation
             </button>
           ) : null}
@@ -192,6 +216,14 @@ export function ChatBar({
                 ×
               </button>
             </div>
+            <p className="chat-kb-status" role="status" aria-label="Knowledge base status">
+              <span className="chat-kb-status__text">{knowledgeBaseStatus}</span>
+              <InfoTooltip
+                label="About knowledge base"
+                content="Documents used for chat retrieval (RAG) for the active scenario. Changes when you select a different scenario."
+                className="chat-kb-status__hint"
+              />
+            </p>
             <div className="chat-log-display">{renderMessageLog(false)}</div>
             <div className="chat-modal-composer">
               <input
@@ -223,4 +255,5 @@ ChatBar.propTypes = {
   chatError: PropTypes.string,
   chatMessages: PropTypes.array,
   chatRagHint: PropTypes.string,
+  knowledgeBaseName: PropTypes.string,
 };

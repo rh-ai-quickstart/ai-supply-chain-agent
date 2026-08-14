@@ -143,15 +143,15 @@ Open the **https** URL in a browser. Use **Simulation** (`#/simulation`) for the
 **Header**
 
 - Toggle light/dark theme
-- Navigate between **Simulation**, **Knowledge bases**, and **Create scenario** (`#/simulation`, `#/knowledge-bases`, `#/create-scenario`)
+- Navigate between **Simulation** and **Knowledge bases** (`#/simulation`, `#/knowledge-bases`)
 
 **Simulation view** (main grid)
 
-1. **News ticker** (top) — RSS headlines from `/api/v1/news`
-2. **Impact query** (left) — **Map view** toggle (**Live Flights** default = world fit, or **Scenario focus** = camera framed to the selected scenario bbox); pick a scenario (UK Airspace Closure, Port Strike LA, Suez Blockage, …); run an impact question against general-simulation
+1. **News ticker** (header, right side) — RSS headlines from `/api/v1/news`; click a headline to read the article or create a scenario from that story
+2. **Impact query** (left) — **Map view** toggle (**Live Flights** default = world fit, or **Scenario focus** = camera framed to the selected scenario bbox); pick a scenario (UK Airspace Closure, Port Strike LA, Suez Blockage, …) to run it; **Create scenario** opens a modal to describe a disruption in natural language; suggested prompts send follow-up questions through chat
 3. **Map** (center) — Leaflet markers for seeded demo / live-seeded OpenSky entities; entity count and color legend in the panel
 4. **Impact results** (right) — answer, score / value at risk, affected entities, diversions
-5. **Chat bar** (bottom) — streaming RAG chat; vector store auto-matched to the active scenario when possible
+5. **Chat bar** (bottom) — streaming RAG chat; the active knowledge-base name is shown above the input; vector store auto-matched to the active scenario when possible
 
 **Knowledge bases view**
 
@@ -159,10 +159,10 @@ Open the **https** URL in a browser. Use **Simulation** (`#/simulation`) for the
 - Backend ingests into Llama Stack and registers the catalog
 - After a successful upload, return to Simulation and pick the new store in chat if listed
 
-**Create scenario view**
+**Create scenario modal**
 
-- Describe a disruption in natural language → propose draft → create in general-simulation
-- On success, navigates to Simulation with the new scenario selected
+- From Simulation, **Create scenario** opens a dialog: describe a disruption in natural language → propose draft → create in general-simulation
+- On success, the new scenario is selected on the Simulation view
 
 ### What to expect behaviorally
 
@@ -177,7 +177,7 @@ Open the **https** URL in a browser. Use **Simulation** (`#/simulation`) for the
 
 1. Open the **frontend Route** and confirm the Simulation view loads (backend healthy).
 2. Seed demo data: `make seed-gen-sim` (add `make seed-opensky-live` if you want denser live aircraft).
-3. Select **Port Strike LA** (or UK Airspace Closure / Suez Blockage), keep or edit the impact question, and run the query — review entities and diversions on the map and in Impact results.
+3. Select **Port Strike LA** (or UK Airspace Closure / Suez Blockage) to run the scenario — review entities and diversions on the map and in Impact results.
 4. Ask the chat: *“Summarize current critical alerts.”* (vector store may auto-select after ingest).
 5. Open **Knowledge bases**, upload a short `.txt`, then ask a question grounded in that content.
 6. Optionally use **Create scenario** to propose and add a custom disruption.

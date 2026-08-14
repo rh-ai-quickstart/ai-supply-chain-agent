@@ -1,4 +1,5 @@
 import PropTypes from "prop-types";
+import { useCallback } from "react";
 import { ImpactMapPanel } from "./ImpactMapPanel";
 import { ImpactQueryPanel } from "./ImpactQueryPanel";
 import { ImpactResultsPanel } from "./ImpactResultsPanel";
@@ -7,8 +8,10 @@ import { useImpactSimulation } from "../hooks/useImpactSimulation";
 export function ImpactSimulationPage({
   initialScenarioId = "",
   onScenarioChange,
+  onOpenCreateScenario,
   chatSimulation = null,
   chatLoading = false,
+  onSendPrompt,
 }) {
   const sim = useImpactSimulation({
     initialScenarioId,
@@ -16,6 +19,22 @@ export function ImpactSimulationPage({
     chatSimulation,
     chatLoading,
   });
+
+  const handleRunSuggestedPrompt = useCallback(
+    (prompt) => {
+      sim.setQuestion(prompt);
+      if (onSendPrompt) {
+        onSendPrompt(prompt);
+      } else {
+        sim.handleRunSuggestedPrompt(prompt);
+      }
+    },
+    [onSendPrompt, sim],
+  );
+
+  const handleOpenCreateScenario = useCallback(() => {
+    onOpenCreateScenario?.();
+  }, [onOpenCreateScenario]);
 
   return (
     <main className="dashboard-grid impact-simulation-grid">
@@ -27,9 +46,8 @@ export function ImpactSimulationPage({
         onChangeScenarioId={sim.handleChangeScenarioId}
         mapMode={sim.mapMode}
         onChangeMapMode={sim.handleMapModeChange}
-        question={sim.question}
-        onChangeQuestion={sim.setQuestion}
-        onRunQuery={sim.handleRunQuery}
+        onRunSuggestedPrompt={handleRunSuggestedPrompt}
+        onCreateScenario={handleOpenCreateScenario}
         queryLoading={sim.queryLoading}
         chatBusy={chatLoading}
         queryError={sim.queryError}
@@ -68,6 +86,8 @@ export function ImpactSimulationPage({
 ImpactSimulationPage.propTypes = {
   initialScenarioId: PropTypes.string,
   onScenarioChange: PropTypes.func,
+  onOpenCreateScenario: PropTypes.func,
   chatSimulation: PropTypes.object,
   chatLoading: PropTypes.bool,
+  onSendPrompt: PropTypes.func,
 };

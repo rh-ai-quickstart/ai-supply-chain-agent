@@ -10,6 +10,6 @@ dependencies:
   version: 0.5.9
 - name: general-simulation
   repository: https://robertsandoval.github.io/general-simulation
-  version: 0.1.1
-digest: sha256:72be25a676c9ca576c5972572eef98e44e86aab7ee453e5336884caff40add8b
-generated: "2026-08-07T14:41:19.65199-04:00"
+  version: 0.2.0
+digest: sha256:f5be854e668735b9bf4dee831091a2f7edee94a3a0bf988bcb1d85e564614347
+generated: "2026-08-14T10:49:56.3639-04:00"
