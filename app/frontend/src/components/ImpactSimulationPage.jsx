@@ -1,4 +1,5 @@
 import PropTypes from "prop-types";
+import { useCallback } from "react";
 import { ImpactMapPanel } from "./ImpactMapPanel";
 import { ImpactQueryPanel } from "./ImpactQueryPanel";
 import { ImpactResultsPanel } from "./ImpactResultsPanel";
@@ -9,6 +10,7 @@ export function ImpactSimulationPage({
   onScenarioChange,
   chatSimulation = null,
   chatLoading = false,
+  onSendPrompt,
 }) {
   const sim = useImpactSimulation({
     initialScenarioId,
@@ -16,6 +18,18 @@ export function ImpactSimulationPage({
     chatSimulation,
     chatLoading,
   });
+
+  const handleRunSuggestedPrompt = useCallback(
+    (prompt) => {
+      sim.setQuestion(prompt);
+      if (onSendPrompt) {
+        onSendPrompt(prompt);
+      } else {
+        sim.handleRunSuggestedPrompt(prompt);
+      }
+    },
+    [onSendPrompt, sim],
+  );
 
   return (
     <main className="dashboard-grid impact-simulation-grid">
@@ -30,7 +44,7 @@ export function ImpactSimulationPage({
         question={sim.question}
         onChangeQuestion={sim.setQuestion}
         onRunQuery={sim.handleRunQuery}
-        onRunSuggestedPrompt={sim.handleRunSuggestedPrompt}
+        onRunSuggestedPrompt={handleRunSuggestedPrompt}
         queryLoading={sim.queryLoading}
         chatBusy={chatLoading}
         queryError={sim.queryError}
@@ -71,4 +85,5 @@ ImpactSimulationPage.propTypes = {
   onScenarioChange: PropTypes.func,
   chatSimulation: PropTypes.object,
   chatLoading: PropTypes.bool,
+  onSendPrompt: PropTypes.func,
 };

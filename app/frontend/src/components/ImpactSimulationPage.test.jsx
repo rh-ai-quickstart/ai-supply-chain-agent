@@ -7,6 +7,7 @@ import { ImpactSimulationPage } from "./ImpactSimulationPage";
 vi.mock("react-leaflet", () => ({
   MapContainer: ({ children }) => <div data-testid="map">{children}</div>,
   TileLayer: () => null,
+  Marker: ({ children }) => <div>{children}</div>,
   CircleMarker: ({ children }) => <div>{children}</div>,
   Popup: ({ children }) => <div>{children}</div>,
   Polyline: () => <div data-testid="diversion-route" />,
@@ -63,7 +64,7 @@ describe("ImpactSimulationPage", () => {
       );
     });
 
-    await userEvent.click(screen.getByRole("button", { name: /Run impact query/i }));
+    await userEvent.click(screen.getByRole("button", { name: /Run Scenario/i }));
 
     await waitFor(() => {
       expect(runImpactQuery).toHaveBeenCalledWith({
@@ -84,10 +85,10 @@ describe("ImpactSimulationPage", () => {
     render(<ImpactSimulationPage />);
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: /Run impact query/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Run Scenario/i })).toBeInTheDocument();
     });
 
-    await userEvent.click(screen.getByRole("button", { name: /Run impact query/i }));
+    await userEvent.click(screen.getByRole("button", { name: /Run Scenario/i }));
 
     await waitFor(() => {
       expect(screen.getByRole("button", { name: /opensky-407290.*Dublin/i })).toBeInTheDocument();
@@ -164,7 +165,7 @@ describe("ImpactSimulationPage", () => {
     });
     expect(getImpactEntitiesGeoJson).not.toHaveBeenCalled();
     expect(
-      screen.getByText(/Chat in progress — map refresh and impact query paused/i),
+      screen.getByText(/Chat in progress — map refresh and Scenario paused/i),
     ).toBeInTheDocument();
 
     rerender(<ImpactSimulationPage chatLoading={false} />);
@@ -184,9 +185,9 @@ describe("ImpactSimulationPage", () => {
     render(<ImpactSimulationPage />);
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: /Run impact query/i })).toBeEnabled();
+      expect(screen.getByRole("button", { name: /Run Scenario/i })).toBeEnabled();
     });
-    await userEvent.click(screen.getByRole("button", { name: /Run impact query/i }));
+    await userEvent.click(screen.getByRole("button", { name: /Run Scenario/i }));
 
     await waitFor(() => {
       expect(screen.getByText("solver unavailable")).toBeInTheDocument();
@@ -235,5 +236,25 @@ describe("ImpactSimulationPage", () => {
         question: "Show affected aircraft and recommend diversions.",
       });
     });
+  });
+
+  it("sends a suggested prompt through the chat agent and saves it as a chat message", async () => {
+    const onSendPrompt = vi.fn();
+    render(<ImpactSimulationPage onSendPrompt={onSendPrompt} />);
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: /Show affected aircraft/i }),
+      ).toBeInTheDocument();
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: /Show affected aircraft/i }));
+
+    expect(onSendPrompt).toHaveBeenCalledWith(
+      "Show affected aircraft and recommend diversions.",
+    );
+    expect(runImpactQuery).not.toHaveBeenCalled();
+    const question = screen.getByLabelText(/Question/i);
+    expect(question).toHaveValue("Show affected aircraft and recommend diversions.");
   });
 });

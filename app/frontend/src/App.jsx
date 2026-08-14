@@ -70,6 +70,7 @@ function App() {
                 onScenarioChange={handleActiveScenarioChange}
                 chatSimulation={chat.chatSimulation}
                 chatLoading={chat.chatLoading}
+                onSendPrompt={chat.sendPrompt}
               />
               <ChatBar
                 chatInput={chat.chatInput}

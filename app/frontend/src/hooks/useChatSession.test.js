@@ -104,6 +104,54 @@ describe("useChatSession", () => {
     });
   });
 
+  it("sendPrompt adds the prompt to the chat as a human message and streams a reply", async () => {
+    sendChatMessageStream.mockImplementation(async (_input, history, _vs, _vllm, onEvent) => {
+      onEvent({ type: "delta", content: "Aircraft BAW442 " });
+      onEvent({
+        type: "done",
+        answer: "Aircraft BAW442 should divert to EIDW",
+        completion: { model: "test" },
+      });
+      expect(history.at(-1)).toMatchObject({ role: "human", content: "Show affected aircraft." });
+    });
+
+    const { result } = renderHook(() =>
+      useChatSession({ vectorStores: [], vectorStoresError: "", activeScenarioId: "scenario-x" }),
+    );
+
+    await act(async () => {
+      await result.current.sendPrompt("Show affected aircraft.");
+    });
+
+    expect(result.current.chatMessages[0]).toMatchObject({
+      role: "human",
+      content: "Show affected aircraft.",
+    });
+    expect(result.current.chatMessages.at(-1)).toMatchObject({
+      role: "ai",
+      content: "Aircraft BAW442 should divert to EIDW",
+    });
+    expect(result.current.chatLoading).toBe(false);
+    expect(sendChatMessageStream).toHaveBeenCalledWith(
+      "Show affected aircraft.",
+      expect.any(Array),
+      undefined,
+      true,
+      expect.any(Function),
+      expect.objectContaining({ scenarioId: "scenario-x" }),
+    );
+  });
+
+  it("sendPrompt does nothing when the prompt is empty", async () => {
+    const { result } = renderHook(() =>
+      useChatSession({ vectorStores: [], vectorStoresError: "", activeScenarioId: "x" }),
+    );
+    await act(async () => {
+      await result.current.sendPrompt("   ");
+    });
+    expect(sendChatMessageStream).not.toHaveBeenCalled();
+  });
+
   it("records an error message and restores history when the request fails", async () => {
     sendChatMessageStream.mockRejectedValue(new Error("network down"));
     const { result } = renderHook(() =>
