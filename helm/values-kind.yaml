@@ -56,6 +56,13 @@ ingest:
 # the Helm release (e.g. supply-chain-dashboard). api/bootstrap wait for host
 # "neo4j", so without this override general-sim-api stays Init:wait-for-deps.
 general-simulation:
+  # The umbrella chart deploys its own llama-stack; disable the subchart's
+  # bundled one to avoid a duplicate "pgvector" Secret (llamastack-pg-secret.yaml),
+  # which fails helm install with "secrets pgvector already exists".
+  llama-stack:
+    enabled: false
+    pgvector:
+      enabled: false
   postgres:
     postgres:
       password: kind-demo-password

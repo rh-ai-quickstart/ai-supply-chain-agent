@@ -63,6 +63,14 @@ llm-service:
 # LiteMaaS. Set api/ingestion.llm.apiKey in helm/secrets.yaml.
 general-simulation:
   enabled: true
+  # The umbrella chart deploys its own llama-stack; disable the subchart's
+  # bundled one so it does not also render a duplicate "pgvector" Secret
+  # (llamastack-pg-secret.yaml), which breaks `helm install` with
+  # "secrets pgvector already exists".
+  llama-stack:
+    enabled: false
+    pgvector:
+      enabled: false
   vllm:
     enabled: false
   # Stable Service/STS name so api/bootstrap can wait on host "neo4j" even when
