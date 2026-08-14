@@ -1,5 +1,7 @@
 import PropTypes from "prop-types";
 import { ChatMarkdownBody } from "./ChatMarkdownBody.jsx";
+import { CollapsibleSection } from "./CollapsibleSection.jsx";
+import { SectionHeading } from "./SectionHeading.jsx";
 import { dedupeImpactAnswer, diversionKey, formatCurrency } from "../utils/impactEntityUtils";
 
 function formatScore(score) {
@@ -60,6 +62,14 @@ DiversionRow.propTypes = {
   onFocusDiversion: PropTypes.func,
 };
 
+function ImpactResultsHeading() {
+  return (
+    <SectionHeading tooltip="Impact score, affected entities, and recommended actions for the selected scenario.">
+      Impact Results
+    </SectionHeading>
+  );
+}
+
 export function ImpactResultsPanel({
   result = null,
   loading = false,
@@ -70,7 +80,7 @@ export function ImpactResultsPanel({
   if (loading) {
     return (
       <section className="panel impact-results-panel" role="status" aria-live="polite">
-        <h3>Impact Results</h3>
+        <ImpactResultsHeading />
         <div className="loading-spinner-container">
           <div className="loading-spinner" aria-hidden="true"></div>
           <p className="muted loading-spinner-label">Analyzing impact…</p>
@@ -82,8 +92,8 @@ export function ImpactResultsPanel({
   if (!result) {
     return (
       <section className="panel impact-results-panel">
-        <h3>Impact Results</h3>
-        <p className="muted">Run a query to see impact score, value at risk, and response options.</p>
+        <ImpactResultsHeading />
+        <p className="muted">Select a scenario to see impact score, value at risk, and response options.</p>
       </section>
     );
   }
@@ -104,7 +114,7 @@ export function ImpactResultsPanel({
 
   return (
     <section className="panel impact-results-panel insights-panel">
-      <h3>Impact Results</h3>
+      <ImpactResultsHeading />
 
       <div className="impact-kpi-strip">
         <div className="kpi-card">
@@ -127,107 +137,103 @@ export function ImpactResultsPanel({
         </div>
       </div>
 
-      {answer ? (
-        <div className="impact-answer">
-          <h4 className="impact-section-title">Answer</h4>
-          <ChatMarkdownBody content={answer} compact />
-        </div>
-      ) : null}
+      <div className="impact-results-sections">
+        {answer ? (
+          <CollapsibleSection title="Answer">
+            <ChatMarkdownBody content={answer} compact />
+          </CollapsibleSection>
+        ) : null}
 
-      {options.length > 0 ? (
-        <div className="impact-section">
-          <h4 className="impact-section-title">Response options</h4>
-          <ul className="impact-list">
-            {options.map((opt) => (
-              <li key={`${opt.rank}-${opt.label}`} className="alert info">
-                <strong>
-                  #{opt.rank} {opt.label}
-                </strong>
-                {opt.description ? ` — ${opt.description}` : ""}
-                {opt.estimated_impact_reduction != null ? (
-                  <em className="muted">
-                    {" "}
-                    (Δ impact ≈ {Number(opt.estimated_impact_reduction).toFixed(3)})
-                  </em>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
-
-      {reroutes.length > 0 ? (
-        <div className="impact-section">
-          <h4 className="impact-section-title">Recommended Diversions</h4>
-          <p className="muted impact-breakdown-hint">Select a diversion to show its route on the map.</p>
-          <ul className="impact-list impact-diversion-list">
-            {reroutes.map((route) => (
-              <DiversionRow
-                key={diversionKey(route)}
-                route={route}
-                isSelected={focusedDiversionKey === diversionKey(route)}
-                onFocusDiversion={onFocusDiversion}
-              />
-            ))}
-          </ul>
-        </div>
-      ) : null}
-
-      {breakdown.length > 0 ? (
-        <div className="impact-section">
-          <h4 className="impact-section-title">Value breakdown</h4>
-          <p className="muted impact-breakdown-hint">
-            Aircraft rows are flight revenue; cargo-* rows are shipment value on board.
-          </p>
-          <ul className="impact-list">
-            {breakdown.map((row) => {
-              const isCargo = String(row.entity_id || "").startsWith("cargo-");
-              return (
-                <li key={row.entity_id}>
-                  <EntityLink entityId={row.entity_id} onFocusEntity={onFocusEntity} />
-                  <span className="muted">
-                    {" "}
-                    ({isCargo ? "cargo" : "flight"}) — {formatCurrency(row.value_usd, currency)}
-                  </span>
+        {options.length > 0 ? (
+          <CollapsibleSection title={`Response options (${options.length})`}>
+            <ul className="impact-list">
+              {options.map((opt) => (
+                <li key={`${opt.rank}-${opt.label}`} className="alert info">
+                  <strong>
+                    #{opt.rank} {opt.label}
+                  </strong>
+                  {opt.description ? ` — ${opt.description}` : ""}
+                  {opt.estimated_impact_reduction != null ? (
+                    <em className="muted">
+                      {" "}
+                      (Δ impact ≈ {Number(opt.estimated_impact_reduction).toFixed(3)})
+                    </em>
+                  ) : null}
                 </li>
-              );
-            })}
-          </ul>
-        </div>
-      ) : null}
+              ))}
+            </ul>
+          </CollapsibleSection>
+        ) : null}
 
-      {affected.length > 0 ? (
-        <div className="impact-section">
-          <h4 className="impact-section-title">Affected entities ({affected.length})</h4>
-          <ul className="impact-entity-link-list">
-            {affected.map((entityId) => (
-              <li key={entityId}>
-                <EntityLink entityId={entityId} onFocusEntity={onFocusEntity} />
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
+        {reroutes.length > 0 ? (
+          <CollapsibleSection title={`Recommended diversions (${reroutes.length})`}>
+            <p className="muted impact-breakdown-hint">Select a diversion to show its route on the map.</p>
+            <ul className="impact-list impact-diversion-list">
+              {reroutes.map((route) => (
+                <DiversionRow
+                  key={diversionKey(route)}
+                  route={route}
+                  isSelected={focusedDiversionKey === diversionKey(route)}
+                  onFocusDiversion={onFocusDiversion}
+                />
+              ))}
+            </ul>
+          </CollapsibleSection>
+        ) : null}
 
-      {trace.length > 0 ? (
-        <details className="impact-trace">
-          <summary>Tool call trace ({trace.length})</summary>
-          <ul className="impact-list">
-            {trace.map((step, index) => (
-              <li key={`${step.tool_name}-${index}`}>
-                <strong>{step.tool_name}</strong>
-                <pre className="impact-trace-pre">
-                  {JSON.stringify(
-                    { arguments: step.arguments, output: step.output },
-                    null,
-                    2,
-                  )}
-                </pre>
-              </li>
-            ))}
-          </ul>
-        </details>
-      ) : null}
+        {breakdown.length > 0 ? (
+          <CollapsibleSection title={`Value breakdown (${breakdown.length})`}>
+            <p className="muted impact-breakdown-hint">
+              Aircraft rows are flight revenue; cargo-* rows are shipment value on board.
+            </p>
+            <ul className="impact-list">
+              {breakdown.map((row) => {
+                const isCargo = String(row.entity_id || "").startsWith("cargo-");
+                return (
+                  <li key={row.entity_id}>
+                    <EntityLink entityId={row.entity_id} onFocusEntity={onFocusEntity} />
+                    <span className="muted">
+                      {" "}
+                      ({isCargo ? "cargo" : "flight"}) — {formatCurrency(row.value_usd, currency)}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          </CollapsibleSection>
+        ) : null}
+
+        {affected.length > 0 ? (
+          <CollapsibleSection title={`Affected entities (${affected.length})`}>
+            <ul className="impact-entity-link-list">
+              {affected.map((entityId) => (
+                <li key={entityId}>
+                  <EntityLink entityId={entityId} onFocusEntity={onFocusEntity} />
+                </li>
+              ))}
+            </ul>
+          </CollapsibleSection>
+        ) : null}
+
+        {trace.length > 0 ? (
+          <CollapsibleSection title={`Tool call trace (${trace.length})`} className="impact-trace">
+            <ul className="impact-list">
+              {trace.map((step, index) => (
+                <li key={`${step.tool_name}-${index}`}>
+                  <strong>{step.tool_name}</strong>
+                  <pre className="impact-trace-pre">
+                    {JSON.stringify(
+                      { arguments: step.arguments, output: step.output },
+                      null,
+                      2,
+                    )}
+                  </pre>
+                </li>
+              ))}
+            </ul>
+          </CollapsibleSection>
+        ) : null}
+      </div>
     </section>
   );
 }

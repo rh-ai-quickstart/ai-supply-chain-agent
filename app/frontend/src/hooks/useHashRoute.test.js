@@ -22,22 +22,26 @@ describe("useHashRoute", () => {
     expect(result.current.activeScenarioId).toBe("opensky-uk-closure-001");
   });
 
-  it("recognizes the knowledge-bases and create-scenario views", () => {
+  it("recognizes the knowledge-bases view and treats create-scenario as simulation", () => {
     setHash("#/knowledge-bases");
     const { result: kb } = renderHook(() => useHashRoute());
     expect(kb.current.activeView).toBe("knowledge-bases");
 
     setHash("#/create-scenario");
     const { result: create } = renderHook(() => useHashRoute());
-    expect(create.current.activeView).toBe("create-scenario");
+    expect(create.current.activeView).toBe("simulation");
   });
 
-  it("redirects legacy #/live (and empty/dashboard) hash to #/simulation", () => {
+  it("redirects legacy #/live, #/create-scenario (and empty/dashboard) hash to #/simulation", () => {
     setHash("#/dashboard?scenario=abc");
     renderHook(() => useHashRoute());
     expect(window.location.hash).toBe("#/simulation?scenario=abc");
 
     setHash("#/live");
+    renderHook(() => useHashRoute());
+    expect(window.location.hash).toBe("#/simulation");
+
+    setHash("#/create-scenario");
     renderHook(() => useHashRoute());
     expect(window.location.hash).toBe("#/simulation");
   });
@@ -58,7 +62,7 @@ describe("useHashRoute", () => {
     expect(window.location.hash).toBe("#/knowledge-bases");
 
     act(() => result.current.navigate("create-scenario"));
-    expect(window.location.hash).toBe("#/create-scenario");
+    expect(window.location.hash).toBe("#/simulation");
 
     act(() => result.current.navigate("live"));
     expect(window.location.hash).toBe("#/simulation");

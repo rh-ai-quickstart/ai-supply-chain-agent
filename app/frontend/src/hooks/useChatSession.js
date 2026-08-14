@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { sendChatMessageStream } from "../services/chatService";
-import { findVectorStoreIdForScenario } from "../services/presetScenarioIds";
+import {
+  findVectorStoreIdForScenario,
+  findVectorStoreNameForScenario,
+} from "../services/presetScenarioIds";
 import { applyChatStreamEvent } from "../utils/chatStream.js";
 
 function chatKeyForScenario(scenarioId) {
@@ -28,18 +31,8 @@ export function useChatSession({ vectorStores, vectorStoresError, activeScenario
   const chatError = chatErrorByScenario[chatKey] || "";
   const chatLoading = Boolean(chatLoadingByScenario[chatKey]);
   const matchedVectorStoreId = findVectorStoreIdForScenario(vectorStores, activeScenarioId);
-  const chatRagHint = (() => {
-    if (vectorStoresError) {
-      return vectorStoresError;
-    }
-    if (!activeScenarioId || vectorStores.length === 0) {
-      return "";
-    }
-    if (!matchedVectorStoreId) {
-      return "No knowledge base matched this scenario; chat will run without document retrieval.";
-    }
-    return "";
-  })();
+  const knowledgeBaseName = findVectorStoreNameForScenario(vectorStores, activeScenarioId);
+  const chatRagHint = vectorStoresError || "";
 
   useEffect(() => {
     return () => {
@@ -146,6 +139,7 @@ export function useChatSession({ vectorStores, vectorStoresError, activeScenario
     chatError,
     chatLoading,
     chatRagHint,
+    knowledgeBaseName,
     chatSimulation,
     handleChangeChatInput,
     handleSubmitChat,

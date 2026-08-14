@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { CreateScenarioPage } from "./CreateScenarioPage";
+import { CreateScenarioModal } from "./CreateScenarioModal";
 
 vi.mock("../services/scenarioCreateService", () => ({
   proposeScenario: vi.fn(),
@@ -10,7 +10,7 @@ vi.mock("../services/scenarioCreateService", () => ({
 
 import { createScenario, proposeScenario } from "../services/scenarioCreateService";
 
-describe("CreateScenarioPage", () => {
+describe("CreateScenarioModal", () => {
   beforeEach(() => {
     vi.mocked(proposeScenario).mockReset();
     vi.mocked(createScenario).mockReset();
@@ -35,7 +35,7 @@ describe("CreateScenarioPage", () => {
       scenario_id: "france-closure",
     });
 
-    render(<CreateScenarioPage onCreated={onCreated} />);
+    render(<CreateScenarioModal onCreated={onCreated} onClose={vi.fn()} />);
 
     await user.type(
       screen.getByLabelText(/Disruption description/i),
@@ -46,12 +46,12 @@ describe("CreateScenarioPage", () => {
     expect(await screen.findByDisplayValue("france-closure")).toBeInTheDocument();
     expect(screen.getByText(/Covers FIR/)).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: /Create scenario/i }));
+    await user.click(screen.getByRole("button", { name: /^Create scenario$/i }));
     expect(onCreated).toHaveBeenCalledWith("france-closure");
   });
 
   it("disables propose when the prompt is empty", () => {
-    render(<CreateScenarioPage />);
+    render(<CreateScenarioModal onClose={vi.fn()} />);
     expect(screen.getByRole("button", { name: /Propose scenario/i })).toBeDisabled();
   });
 
@@ -62,7 +62,7 @@ describe("CreateScenarioPage", () => {
       error: "prompt is required",
     });
 
-    render(<CreateScenarioPage onCreated={vi.fn()} />);
+    render(<CreateScenarioModal onCreated={vi.fn()} onClose={vi.fn()} />);
     await user.type(screen.getByLabelText(/Disruption description/i), "something");
     await user.click(screen.getByRole("button", { name: /Propose scenario/i }));
 
@@ -87,14 +87,39 @@ describe("CreateScenarioPage", () => {
       error: "upstream unavailable",
     });
 
-    render(<CreateScenarioPage onCreated={onCreated} />);
+    render(<CreateScenarioModal onCreated={onCreated} onClose={vi.fn()} />);
     await user.type(screen.getByLabelText(/Disruption description/i), "Close French airspace");
     await user.click(screen.getByRole("button", { name: /Propose scenario/i }));
     expect(await screen.findByDisplayValue("france-closure")).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: /Create scenario/i }));
+    await user.click(screen.getByRole("button", { name: /^Create scenario$/i }));
     expect(await screen.findByRole("alert")).toHaveTextContent(/upstream unavailable/i);
     expect(onCreated).not.toHaveBeenCalled();
     expect(screen.getByDisplayValue("france-closure")).toBeInTheDocument();
+  });
+
+  it("prefills the prompt when initialPrompt is provided", () => {
+    render(
+      <CreateScenarioModal
+        onClose={vi.fn()}
+        initialPrompt="Headline: Port strike disrupts shipping"
+      />,
+    );
+    expect(screen.getByLabelText(/Disruption description/i)).toHaveValue(
+      "Headline: Port strike disrupts shipping",
+    );
+  });
+
+  it("closes on Escape and the dismiss button", async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    render(<CreateScenarioModal onClose={onClose} />);
+
+    expect(screen.getByRole("dialog", { name: /Create scenario/i })).toBeInTheDocument();
+    await user.keyboard("{Escape}");
+    expect(onClose).toHaveBeenCalledTimes(1);
+
+    await user.click(screen.getByLabelText("Close dialog"));
+    expect(onClose).toHaveBeenCalledTimes(2);
   });
 });

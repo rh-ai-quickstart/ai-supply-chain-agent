@@ -1,4 +1,7 @@
 import PropTypes from "prop-types";
+import { Plus } from "lucide-react";
+import { InfoTooltip } from "./InfoTooltip";
+import { SectionHeading } from "./SectionHeading";
 import { labelForScenario, suggestedPromptsForScenario } from "../services/presetScenarioIds";
 
 export function ImpactQueryPanel({
@@ -9,23 +12,25 @@ export function ImpactQueryPanel({
   onChangeScenarioId,
   mapMode = "live",
   onChangeMapMode,
-  question = "",
-  onChangeQuestion,
-  onRunQuery,
   onRunSuggestedPrompt,
+  onCreateScenario,
   queryLoading = false,
   chatBusy = false,
   queryError = "",
 }) {
   const locked = queryLoading || chatBusy;
-  const canRun = Boolean(scenarioId.trim()) && Boolean(question.trim()) && !locked;
   const suggestedPrompts = suggestedPromptsForScenario(scenarioId);
+  const showStatus = queryLoading || (chatBusy && !queryLoading) || Boolean(queryError);
 
   return (
     <section className="panel impact-query-panel">
       <div className="impact-query-panel__scroll">
-        <span className="field-label" id="impact-map-mode-label">
+        <span className="field-label field-label--with-hint" id="impact-map-mode-label">
           Map view
+          <InfoTooltip
+            label="About map view"
+            content="All Flights shows the full demo map. Scenario focus zooms to the selected scenario region."
+          />
         </span>
         <div className="impact-map-mode" role="group" aria-labelledby="impact-map-mode-label">
           <button
@@ -33,6 +38,7 @@ export function ImpactQueryPanel({
             className={`btn${mapMode === "live" ? " btn--active" : ""}`}
             onClick={() => onChangeMapMode?.("live")}
             aria-pressed={mapMode === "live"}
+            title="Show all demo flight entities on the map"
           >
             All Flights
           </button>
@@ -42,12 +48,28 @@ export function ImpactQueryPanel({
             onClick={() => onChangeMapMode?.("scenario")}
             disabled={!scenarioId.trim()}
             aria-pressed={mapMode === "scenario"}
+            title="Frame the map on the active scenario region"
           >
             Scenario focus
           </button>
         </div>
 
-        <h3>Scenario Selection</h3>
+        <div className="impact-query-panel__scenario-heading">
+          <h3>Scenario Selection</h3>
+          <InfoTooltip
+            label="About scenario selection"
+            content="Choose a disruption scenario to run impact analysis. Selecting a scenario updates the map, results, and chat knowledge base."
+          />
+          <button
+            type="button"
+            className="impact-create-scenario-btn"
+            onClick={onCreateScenario}
+            aria-label="Create scenario"
+            title="Create a custom disruption scenario with AI assistance"
+          >
+            <Plus size={16} aria-hidden="true" />
+          </button>
+        </div>
 
         <span className="field-label" id="impact-scenario-label">
           Scenario
@@ -66,6 +88,7 @@ export function ImpactQueryPanel({
                 onClick={() => onChangeScenarioId(id)}
                 disabled={locked}
                 aria-pressed={scenarioId === id}
+                title={`Run ${labelForScenario(id)} and update impact analysis`}
               >
                 {labelForScenario(id)}
               </button>
@@ -74,23 +97,14 @@ export function ImpactQueryPanel({
         )}
         {scenariosError ? <p className="error">{scenariosError}</p> : null}
 
-        <label className="field-label" htmlFor="impact-question">
-          Question
-        </label>
-        <textarea
-          id="impact-question"
-          className="impact-textarea"
-          rows={8}
-          value={question}
-          onChange={(event) => onChangeQuestion(event.target.value)}
-          disabled={locked}
-        />
-
         {suggestedPrompts.length > 0 ? (
-          <div className="stack">
-            <span className="field-label" id="impact-suggested-prompt-label">
+          <div className="stack impact-suggested-prompts">
+            <SectionHeading
+              id="impact-suggested-prompt-label"
+              tooltip="Click a prompt to send it to the AI assistant and run impact analysis for the selected scenario."
+            >
               Suggested prompts
-            </span>
+            </SectionHeading>
             <div
               className="stack"
               role="group"
@@ -103,6 +117,7 @@ export function ImpactQueryPanel({
                   className="btn impact-suggested-prompt"
                   onClick={() => onRunSuggestedPrompt?.(prompt)}
                   disabled={locked || !scenarioId.trim()}
+                  title={`Send to AI assistant: ${prompt}`}
                 >
                   {prompt}
                 </button>
@@ -112,16 +127,15 @@ export function ImpactQueryPanel({
         ) : null}
       </div>
 
-      <div className="impact-query-panel__actions">
-        <button className="btn" type="button" onClick={onRunQuery} disabled={!canRun}>
-          Run Scenario
-        </button>
-        {queryLoading ? <p className="muted">Running Scenario…</p> : null}
-        {chatBusy && !queryLoading ? (
-          <p className="muted">Chat in progress — map refresh and Scenario paused…</p>
-        ) : null}
-        {queryError ? <p className="error">{queryError}</p> : null}
-      </div>
+      {showStatus ? (
+        <div className="impact-query-panel__actions">
+          {queryLoading ? <p className="muted">Running Scenario…</p> : null}
+          {chatBusy && !queryLoading ? (
+            <p className="muted">Chat in progress — map refresh and Scenario paused…</p>
+          ) : null}
+          {queryError ? <p className="error">{queryError}</p> : null}
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -134,10 +148,8 @@ ImpactQueryPanel.propTypes = {
   onChangeScenarioId: PropTypes.func,
   mapMode: PropTypes.oneOf(["live", "scenario"]),
   onChangeMapMode: PropTypes.func,
-  question: PropTypes.string,
-  onChangeQuestion: PropTypes.func,
-  onRunQuery: PropTypes.func,
   onRunSuggestedPrompt: PropTypes.func,
+  onCreateScenario: PropTypes.func,
   queryLoading: PropTypes.bool,
   chatBusy: PropTypes.bool,
   queryError: PropTypes.string,

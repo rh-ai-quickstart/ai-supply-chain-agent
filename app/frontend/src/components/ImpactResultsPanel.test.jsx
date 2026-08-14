@@ -8,10 +8,14 @@ vi.mock("./ChatMarkdownBody.jsx", () => ({
   ChatMarkdownBody: ({ content }) => <div data-testid="markdown">{content}</div>,
 }));
 
+async function expandSection(label) {
+  await userEvent.click(screen.getByRole("button", { name: new RegExp(label, "i") }));
+}
+
 describe("ImpactResultsPanel", () => {
   it("shows empty state when no result", () => {
     render(<ImpactResultsPanel />);
-    expect(screen.getByText(/Run a query to see impact score/i)).toBeInTheDocument();
+    expect(screen.getByText(/Select a scenario to see impact score/i)).toBeInTheDocument();
   });
 
   it("shows loading state", () => {
@@ -21,25 +25,33 @@ describe("ImpactResultsPanel", () => {
     expect(screen.getByText(/Analyzing impact/i)).toBeInTheDocument();
   });
 
-  it("renders KPIs, answer, options, breakdown, and trace from QueryResponse", () => {
+  it("renders KPIs, answer, options, breakdown, and trace from QueryResponse", async () => {
     render(<ImpactResultsPanel result={QUERY_RESPONSE_FIXTURE} />);
 
     expect(screen.getByText("0.650")).toBeInTheDocument();
     expect(screen.getByText(/1,234,567|\$1,234,567/)).toBeInTheDocument();
     expect(screen.getByText("3")).toBeInTheDocument();
     expect(screen.getByText("2")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Answer/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Response options/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Recommended diversions/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Affected entities/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Tool call trace/i })).toBeInTheDocument();
+
+    await expandSection("Answer");
     expect(screen.getByTestId("markdown")).toHaveTextContent(
       "Three aircraft are affected by the UK airspace closure.",
     );
+
+    await expandSection("Response options");
     expect(screen.getByText(/emergency_response/i)).toBeInTheDocument();
-    expect(screen.getByText(/Recommended Diversions/i)).toBeInTheDocument();
+
+    await expandSection("Recommended diversions");
     expect(screen.getByRole("button", { name: /opensky-407290.*Dublin/i })).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: /opensky-407290/ }).length).toBeGreaterThan(0);
-    expect(screen.getByText(/Tool call trace \(1\)/i)).toBeInTheDocument();
-    expect(screen.getByText(/Affected entities \(3\)/i)).toBeInTheDocument();
   });
 
-  it("strips duplicate diversion lists from the answer when structured reroutes exist", () => {
+  it("strips duplicate diversion lists from the answer when structured reroutes exist", async () => {
     const result = {
       ...QUERY_RESPONSE_FIXTURE,
       answer: [
@@ -55,11 +67,13 @@ describe("ImpactResultsPanel", () => {
     };
     render(<ImpactResultsPanel result={result} />);
 
+    await expandSection("Answer");
     const answer = screen.getByTestId("markdown");
     expect(answer).toHaveTextContent("Affected Aircraft");
     expect(answer).toHaveTextContent("BAW442 - Route: LHR-JFK");
     expect(answer).not.toHaveTextContent("Recommended Diversions");
     expect(answer).not.toHaveTextContent("USD 1,234,567 at risk");
+    await expandSection("Recommended diversions");
     expect(screen.getByRole("button", { name: /opensky-407290.*Dublin/i })).toBeInTheDocument();
   });
 
@@ -69,6 +83,7 @@ describe("ImpactResultsPanel", () => {
       <ImpactResultsPanel result={QUERY_RESPONSE_FIXTURE} onFocusEntity={onFocusEntity} />,
     );
 
+    await expandSection("Affected entities");
     await userEvent.click(screen.getByRole("button", { name: "opensky-471f52" }));
     expect(onFocusEntity).toHaveBeenCalledWith("opensky-471f52");
   });
@@ -82,6 +97,7 @@ describe("ImpactResultsPanel", () => {
       />,
     );
 
+    await expandSection("Recommended diversions");
     await userEvent.click(screen.getByRole("button", { name: /opensky-407290.*Dublin/i }));
     expect(onFocusDiversion).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -90,5 +106,16 @@ describe("ImpactResultsPanel", () => {
         target_label: "Dublin (EIDW)",
       }),
     );
+  });
+
+  it("keeps result sections collapsed by default for quick scanning", () => {
+    render(<ImpactResultsPanel result={QUERY_RESPONSE_FIXTURE} />);
+
+    expect(screen.getByRole("button", { name: /Answer/i })).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByRole("button", { name: /Response options/i })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+    expect(screen.queryByTestId("markdown")).not.toBeInTheDocument();
   });
 });

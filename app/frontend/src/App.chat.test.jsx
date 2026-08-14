@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
@@ -71,6 +71,11 @@ describe("App chat", () => {
     await waitFor(() => {
       expect(screen.getByLabelText("Chat input")).toBeInTheDocument();
     });
+    await waitFor(() => {
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "Knowledge base: air_risk_uk_nats_gps_closure-abc12345",
+      );
+    });
 
     const input = screen.getByLabelText("Chat input");
     await user.type(input, "What are fuel prices?");
@@ -130,6 +135,12 @@ describe("App chat", () => {
     await user.click(screen.getByRole("button", { name: "Port Strike LA" }));
     await waitFor(() => {
       expect(screen.queryByText(/Reply to UK question/)).not.toBeInTheDocument();
+    });
+    const chatBar = screen.getByLabelText("Chat input").closest(".chat-bar-container");
+    await waitFor(() => {
+      expect(within(chatBar).getByLabelText("Knowledge base status")).toHaveTextContent(
+        "Knowledge base: land_risk_port_strike_la-def67890",
+      );
     });
 
     await user.type(screen.getByLabelText("Chat input"), "Port question");

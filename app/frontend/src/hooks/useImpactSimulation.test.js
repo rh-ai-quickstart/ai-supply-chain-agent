@@ -135,11 +135,13 @@ describe("useImpactSimulation", () => {
       scenarios: ["opensky-uk-closure-001", "supply-chain-port-strike-la"],
     });
     runImpactQuery.mockResolvedValue({ success: true, affected_entities: [] });
-    const { result } = renderHook(() => useImpactSimulation({}));
+    const onScenarioChange = vi.fn();
+    const { result } = renderHook(() => useImpactSimulation({ onScenarioChange }));
     await waitFor(() => expect(result.current.scenariosLoading).toBe(false));
 
     act(() => result.current.handleChangeScenarioId("supply-chain-port-strike-la"));
 
+    expect(onScenarioChange).toHaveBeenCalledWith("supply-chain-port-strike-la");
     await waitFor(() =>
       expect(runImpactQuery).toHaveBeenCalledWith({
         scenarioId: "supply-chain-port-strike-la",

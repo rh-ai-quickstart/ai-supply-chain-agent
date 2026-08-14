@@ -28,6 +28,10 @@ vi.mock("../services/generalSimulationService", () => ({
   runImpactQuery: (...args) => runImpactQuery(...args),
 }));
 
+async function expandResultsSection(label) {
+  await userEvent.click(screen.getByRole("button", { name: new RegExp(label, "i") }));
+}
+
 describe("ImpactSimulationPage", () => {
   beforeEach(() => {
     listImpactScenarios.mockResolvedValue({
@@ -64,7 +68,7 @@ describe("ImpactSimulationPage", () => {
       );
     });
 
-    await userEvent.click(screen.getByRole("button", { name: /Run Scenario/i }));
+    await userEvent.click(screen.getByRole("button", { name: "UK Airspace Closure" }));
 
     await waitFor(() => {
       expect(runImpactQuery).toHaveBeenCalledWith({
@@ -73,6 +77,7 @@ describe("ImpactSimulationPage", () => {
       });
     });
 
+    await expandResultsSection("Answer");
     await waitFor(() => {
       expect(screen.getByTestId("markdown")).toHaveTextContent(
         "Three aircraft are affected by the UK airspace closure.",
@@ -85,11 +90,12 @@ describe("ImpactSimulationPage", () => {
     render(<ImpactSimulationPage />);
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: /Run Scenario/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "UK Airspace Closure" })).toBeInTheDocument();
     });
 
-    await userEvent.click(screen.getByRole("button", { name: /Run Scenario/i }));
+    await userEvent.click(screen.getByRole("button", { name: "UK Airspace Closure" }));
 
+    await expandResultsSection("Recommended diversions");
     await waitFor(() => {
       expect(screen.getByRole("button", { name: /opensky-407290.*Dublin/i })).toBeInTheDocument();
     });
@@ -185,9 +191,9 @@ describe("ImpactSimulationPage", () => {
     render(<ImpactSimulationPage />);
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: /Run Scenario/i })).toBeEnabled();
+      expect(screen.getByRole("button", { name: "UK Airspace Closure" })).toBeEnabled();
     });
-    await userEvent.click(screen.getByRole("button", { name: /Run Scenario/i }));
+    await userEvent.click(screen.getByRole("button", { name: "UK Airspace Closure" }));
 
     await waitFor(() => {
       expect(screen.getByText("solver unavailable")).toBeInTheDocument();
@@ -254,7 +260,18 @@ describe("ImpactSimulationPage", () => {
       "Show affected aircraft and recommend diversions.",
     );
     expect(runImpactQuery).not.toHaveBeenCalled();
-    const question = screen.getByLabelText(/Question/i);
-    expect(question).toHaveValue("Show affected aircraft and recommend diversions.");
+  });
+
+  it("opens create scenario from the query panel button", async () => {
+    const onOpenCreateScenario = vi.fn();
+    render(<ImpactSimulationPage onOpenCreateScenario={onOpenCreateScenario} />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /Create scenario/i })).toBeInTheDocument();
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: /Create scenario/i }));
+
+    expect(onOpenCreateScenario).toHaveBeenCalledTimes(1);
   });
 });

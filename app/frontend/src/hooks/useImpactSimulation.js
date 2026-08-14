@@ -148,12 +148,6 @@ export function useImpactSimulation({
         }
         setCollection(geoRes.geojson || { type: "FeatureCollection", features: [] });
         setMapScenarioId(scenarioId);
-        if (resultScenarioId !== scenarioId) {
-          setResult(null);
-          setFocusedEntityId("");
-          setSelectedDiversionKey("");
-          setDiversionFocusNonce(0);
-        }
       } catch (err) {
         if (err?.name === "AbortError") return;
         setMapError(messageFromError(err, "Unable to load map entities."));
@@ -164,7 +158,7 @@ export function useImpactSimulation({
       }
     })();
     return () => controller.abort();
-  }, [scenarioId, chatLoading, mapScenarioId, resultScenarioId]);
+  }, [scenarioId, chatLoading, mapScenarioId]);
 
   const applySimulationResult = useCallback(
     async (res, scenario) => {
@@ -239,14 +233,22 @@ export function useImpactSimulation({
   const handleChangeScenarioId = useCallback(
     (nextId) => {
       const nextQuestion = questionForScenario(nextId);
+      if (nextId !== scenarioId) {
+        setMapScenarioId("");
+        setResult(null);
+        setResultScenarioId("");
+        setFocusedEntityId("");
+        setSelectedDiversionKey("");
+        setDiversionFocusNonce(0);
+        onScenarioChange?.(nextId);
+      }
       setScenarioId(nextId);
-      setMapScenarioId("");
       setQuestion(nextQuestion);
       setQueryError("");
       setMapMode("scenario");
       void runQuery(nextId, nextQuestion);
     },
-    [runQuery],
+    [onScenarioChange, runQuery, scenarioId],
   );
 
   const handleMapModeChange = useCallback((mode) => {

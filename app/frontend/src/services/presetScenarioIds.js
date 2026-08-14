@@ -135,3 +135,13 @@ function escapeRegExp(value) {
 export function findVectorStoreIdForScenario(stores, scenarioId) {
   return findVectorStoreId(stores, vectorStoreKeywordsForScenario(scenarioId));
 }
+
+/** Display name of the vector store matched to a scenario, or empty when none. */
+export function findVectorStoreNameForScenario(stores, scenarioId) {
+  const id = findVectorStoreIdForScenario(stores, scenarioId);
+  if (!id || !Array.isArray(stores)) {
+    return "";
+  }
+  const store = stores.find((row) => (row.id || row.vector_store_id) === id);
+  return (store?.name || "").trim();
+}

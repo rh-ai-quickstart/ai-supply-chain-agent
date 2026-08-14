@@ -23,7 +23,40 @@ describe("useChatSession", () => {
         activeScenarioId: "supply-chain-suez-blockage",
       }),
     );
-    expect(result.current.chatRagHint).toMatch(/No knowledge base matched/);
+    expect(result.current.knowledgeBaseName).toBe("");
+    expect(result.current.chatRagHint).toBe("");
+  });
+
+  it("exposes the matched knowledge-base name for the active scenario", () => {
+    const { result } = renderHook(() =>
+      useChatSession({
+        vectorStores: VECTOR_STORES,
+        vectorStoresError: "",
+        activeScenarioId: "opensky-uk-closure-001",
+      }),
+    );
+    expect(result.current.knowledgeBaseName).toBe("air_risk_uk_nats_gps_closure-abc12345");
+  });
+
+  it("updates the knowledge-base name when the active scenario changes", () => {
+    const stores = [
+      { id: "vs-air", name: "air_risk_uk_nats_gps_closure-abc12345" },
+      { id: "vs-port", name: "land_risk_port_strike_la-def67890" },
+    ];
+    const { result, rerender } = renderHook(
+      ({ activeScenarioId }) =>
+        useChatSession({
+          vectorStores: stores,
+          vectorStoresError: "",
+          activeScenarioId,
+        }),
+      { initialProps: { activeScenarioId: "opensky-uk-closure-001" } },
+    );
+
+    expect(result.current.knowledgeBaseName).toBe("air_risk_uk_nats_gps_closure-abc12345");
+
+    rerender({ activeScenarioId: "supply-chain-port-strike-la" });
+    expect(result.current.knowledgeBaseName).toBe("land_risk_port_strike_la-def67890");
   });
 
   it("surfaces the vector-store loading error as the RAG hint", () => {
