@@ -10,7 +10,7 @@ const SCENARIO_LABELS = {
   "supply-chain-suez-blockage": "Suez Blockage",
 };
 
-export const SCENARIO_QUESTIONS = {
+const SCENARIO_QUESTIONS = {
   "opensky-uk-closure-001":
     "UK airspace is closed due to a NATS GPS failure. Which aircraft are affected, what diversions should be issued, and what is the estimated cost of impact?",
   "supply-chain-port-strike-la":
