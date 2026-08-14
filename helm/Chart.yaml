@@ -20,6 +20,6 @@ dependencies:
     condition: llm-service.enabled
   # Published from general-simulation main (GitHub Pages chart repo).
   - name: general-simulation
-    version: 0.1.1
+    version: 0.2.0
     repository: https://robertsandoval.github.io/general-simulation
     condition: general-simulation.enabled
