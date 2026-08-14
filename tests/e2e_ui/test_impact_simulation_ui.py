@@ -26,21 +26,21 @@ class TestImpactSimulationUIBasics:
         )
 
     def test_impact_query_panel_visible(self, page: Page):
-        expect(page.get_by_role("heading", name="Impact Query")).to_be_visible(
+        expect(page.get_by_role("heading", name="Scenario Selection")).to_be_visible(
             timeout=TEST_TIMEOUT
         )
-        expect(page.get_by_role("button", name="Live Flights")).to_be_visible(
+        expect(page.get_by_role("button", name="All Flights")).to_be_visible(
             timeout=TEST_TIMEOUT
         )
         expect(page.get_by_role("button", name="Scenario focus")).to_be_visible(
             timeout=TEST_TIMEOUT
         )
-        expect(page.get_by_role("button", name="Run impact query")).to_be_visible(
+        expect(page.get_by_role("button", name="Run Scenario")).to_be_visible(
             timeout=TEST_TIMEOUT
         )
 
     def test_map_view_defaults_to_live_flights(self, page: Page):
-        live = page.get_by_role("button", name="Live Flights")
+        live = page.get_by_role("button", name="All Flights")
         expect(live).to_have_attribute("aria-pressed", "true", timeout=TEST_TIMEOUT)
 
     def test_chat_input_visible(self, page: Page):
