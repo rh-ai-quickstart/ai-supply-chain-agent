@@ -7,6 +7,7 @@ from clients.llama_stack_client import LlamaStackClient
 from clients.vector_store_client import VectorStoreClient
 from services.agent_service import AgentService, ToolResult
 from services.guardrail_policy import GuardrailPolicy
+from services.news_vector_store_service import NewsVectorStoreService
 from services.rag_context_provider import RagContextProvider
 from services.simulation_intent import normalize_scenario_id
 
@@ -98,11 +99,13 @@ class ChatService:
         vector_store_client: Optional[VectorStoreClient] = None,
         openai_client: Optional[LlamaStackClient] = None,
         agent_service: Optional[AgentService] = None,
+        news_vector_store: Optional[NewsVectorStoreService] = None,
     ):
         self.llama_stack_client = llama_stack_client
         self.openai_client: LlamaStackClient = openai_client or llama_stack_client
         self.vector_store_client = vector_store_client
         self.agent_service = agent_service or AgentService(llama_stack_client)
+        self.news_vector_store = news_vector_store
         self._guardrails = GuardrailPolicy()
         self._rag = RagContextProvider(llama_stack_client, vector_store_client)
 
@@ -276,7 +279,16 @@ class ChatService:
 
     def _retrieve_context(self, query: str, vector_store_id: Optional[str] = None) -> str:
         """Return relevant knowledge-base context for *query*, or empty string."""
-        return self._rag.get_context(query, vector_store_id=vector_store_id)
+        base_context = self._rag.get_context(query, vector_store_id=vector_store_id)
+        news_context = ""
+        if self.news_vector_store:
+            try:
+                news_context = self.news_vector_store.search(query, max_results=3)
+            except Exception:
+                logger.warning("ChatService: news vector store search failed", exc_info=True)
+        if base_context and news_context:
+            return base_context + "\n\n[Recent News Context]\n\n" + news_context
+        return base_context + news_context
 
     def list_vector_stores(self) -> list[dict[str, Any]]:
         """Expose LlamaStack vector stores for the chat UI."""

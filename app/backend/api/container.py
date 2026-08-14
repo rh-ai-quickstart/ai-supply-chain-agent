@@ -21,6 +21,7 @@ from services.agent_service import AgentService
 from services.chat_service import ChatService
 from services.general_simulation_service import GeneralSimulationService
 from services.news_service import NewsService
+from services.news_vector_store_service import NewsVectorStoreService
 from services.readiness_service import ReadinessService
 from services.scenario_create_service import ScenarioCreateService
 from settings import Settings
@@ -120,16 +121,22 @@ class Container:
             vector_store_provider=settings.vector_store_provider,
         )
 
+        self.news_vector_store_service = NewsVectorStoreService(
+            llama_client=self.primary_llama_client,
+        )
+
         self.agent_service = AgentService(
             self.primary_llama_client,
             general_simulation_client=self.general_simulation_client,
             news_client=self.news_client,
+            news_vector_store=self.news_vector_store_service,
         )
         self.chat_service = ChatService(
             self.primary_llama_client,
             vector_store_client=self.vector_store_client,
             openai_client=self.openai_llama_client,
             agent_service=self.agent_service,
+            news_vector_store=self.news_vector_store_service,
         )
         self.scenario_create_service = ScenarioCreateService(
             llama_stack_client=self.primary_llama_client,
