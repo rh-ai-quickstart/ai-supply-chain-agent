@@ -11,14 +11,14 @@ stays as-is and the RSS cache works for ``fetch_news``.
 
 from __future__ import annotations
 
-import logging
 import re
 from typing import Any, Optional
 
 from clients.news_client import NewsClient
 from services.news_vector_store_service import NewsVectorStoreService
+from logging_config import getLogger
 
-logger = logging.getLogger(__name__)
+logger = getLogger(__name__)
 
 # Keep only the N most recent articles in the vector store at any time.
 _max_articles = 80

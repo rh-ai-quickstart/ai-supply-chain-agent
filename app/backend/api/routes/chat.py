@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import json
-import logging
 from typing import Any, Optional
 
 from container import Container
 from flask import Blueprint, Response, jsonify, request, stream_with_context
+from logging_config import getLogger
 
-logger = logging.getLogger(__name__)
+logger = getLogger(__name__)
 
 
 def _sse_event(payload: dict[str, Any]) -> str:

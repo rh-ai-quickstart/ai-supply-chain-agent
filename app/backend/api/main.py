@@ -4,12 +4,12 @@ All routing/business logic lives in ``routes/*`` (blueprints), ``container.py``
 (composition root), and ``services``/``clients``. See ``app_factory.py``.
 """
 
-import logging
+from logging_config import setup_logging
+
+setup_logging()
 
 from app_factory import create_app
 from settings import Settings
-
-logging.basicConfig(level=logging.INFO)
 
 settings = Settings.from_env()
 app = create_app(settings)

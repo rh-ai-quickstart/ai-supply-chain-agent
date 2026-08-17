@@ -3,15 +3,15 @@
 from __future__ import annotations
 
 import json
-import logging
 import re
 from typing import Any, Optional
 from uuid import uuid4
 
 from clients.general_simulation_client import GeneralSimulationClient
 from clients.llama_stack_client import LlamaStackClient
+from logging_config import getLogger
 
-logger = logging.getLogger(__name__)
+logger = getLogger(__name__)
 
 _PROPOSE_SYSTEM_PROMPT = (
     "You design supply-chain / logistics disruption scenarios for a simulation engine. "

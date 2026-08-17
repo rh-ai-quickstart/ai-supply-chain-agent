@@ -2,16 +2,16 @@
 
 from __future__ import annotations
 
-import logging
 import threading
 import time
 import xml.etree.ElementTree as ET
 from email.utils import parsedate_to_datetime
 from typing import Any, Optional
 
+from logging_config import getLogger
 import requests
 
-logger = logging.getLogger(__name__)
+logger = getLogger(__name__)
 
 # Stable free RSS feeds (no API key). Override via Settings.news_feed_urls_raw
 # (env var NEWS_FEED_URLS) if the cluster cannot reach these hosts

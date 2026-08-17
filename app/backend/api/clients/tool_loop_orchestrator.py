@@ -8,14 +8,14 @@ chat-completion client can drive the loop.
 from __future__ import annotations
 
 import json
-import logging
 from collections.abc import Callable, Iterator
 from typing import Any
 
 from clients.chat_completion_client import EMPTY_COMPLETION_ANSWER, NO_ENDPOINT_ANSWER, LlamaStackChatClient
+from logging_config import getLogger
 from openai import APIError
 
-logger = logging.getLogger(__name__)
+logger = getLogger(__name__)
 
 DEFAULT_TOOL_MAX_ROUNDS = 3
 
@@ -103,6 +103,37 @@ class ToolLoopOrchestrator:
             )
         return tool_messages
 
+    def _create_completion(
+        self,
+        messages: list[dict],
+        *,
+        tools: list[dict[str, Any]] | None = None,
+        stream: bool = False,
+    ) -> Any:
+        """Log and issue one completion request against the chat client."""
+        self._chat.log_chat_request(streaming=stream, message_count=len(messages))
+        kwargs = self._chat.completion_kwargs(
+            messages, stream=stream, tools=tools, tool_choice="auto" if tools else None
+        )
+        return self._chat._create_completion(**kwargs)
+
+    @staticmethod
+    def _final_result(
+        completion: Any, tool_calls_made: list[dict[str, Any]]
+    ) -> dict[str, Any]:
+        """Build the standard ``ask_with_tools`` result dict from a completion."""
+        text = completion.choices[0].message.content or EMPTY_COMPLETION_ANSWER
+        return {
+            "answer": text,
+            "completion": LlamaStackChatClient.completion_to_json(completion),
+            "tool_calls_made": tool_calls_made,
+        }
+
+    @staticmethod
+    def _tool_names(message: Any) -> list[str]:
+        """The tool call names requested by the model in this message."""
+        return [tc.function.name for tc in message.tool_calls or []]
+
     def ask_with_tools(
         self,
         user_input: str,
@@ -143,29 +174,16 @@ class ToolLoopOrchestrator:
 
         try:
             for _ in range(rounds):
-                self._chat.log_chat_request(streaming=False, message_count=len(messages))
-                completion = self._chat._create_completion(
-                    **self._chat.completion_kwargs(
-                        messages,
-                        stream=False,
-                        tools=tool_schemas,
-                        tool_choice="auto",
-                    ),
-                )
+                completion = self._create_completion(messages, tools=tool_schemas)
                 message = completion.choices[0].message
                 if not getattr(message, "tool_calls", None):
-                    text = message.content or EMPTY_COMPLETION_ANSWER
                     logger.info(
                         "ToolLoopOrchestrator[%s]: tool loop finished — model=%s tools=%d",
                         self.label,
                         completion.model,
                         len(tool_calls_made),
                     )
-                    return {
-                        "answer": text,
-                        "completion": self._chat.completion_to_json(completion),
-                        "tool_calls_made": tool_calls_made,
-                    }
+                    return self._final_result(completion, tool_calls_made)
 
                 messages.append(self._assistant_message_dict(message))
                 messages.extend(
@@ -173,16 +191,8 @@ class ToolLoopOrchestrator:
                 )
 
             # Max rounds with tools exhausted — one final call without tools.
-            self._chat.log_chat_request(streaming=False, message_count=len(messages))
-            completion = self._chat._create_completion(
-                **self._chat.completion_kwargs(messages, stream=False),
-            )
-            text = completion.choices[0].message.content or EMPTY_COMPLETION_ANSWER
-            return {
-                "answer": text,
-                "completion": self._chat.completion_to_json(completion),
-                "tool_calls_made": tool_calls_made,
-            }
+            completion = self._create_completion(messages)
+            return self._final_result(completion, tool_calls_made)
         except APIError as exc:
             logger.error("ToolLoopOrchestrator[%s]: ask_with_tools failed: %s", self.label, exc)
             return {
@@ -228,30 +238,17 @@ class ToolLoopOrchestrator:
 
         try:
             for _ in range(rounds):
-                self._chat.log_chat_request(streaming=False, message_count=len(messages))
-                completion = self._chat._create_completion(
-                    **self._chat.completion_kwargs(
-                        messages,
-                        stream=False,
-                        tools=tool_schemas,
-                        tool_choice="auto",
-                    ),
-                )
+                completion = self._create_completion(messages, tools=tool_schemas)
                 message = completion.choices[0].message
                 if not getattr(message, "tool_calls", None):
                     text = message.content or EMPTY_COMPLETION_ANSWER
                     if text:
                         yield {"type": "delta", "content": text}
-                    yield {
-                        "type": "done",
-                        "answer": text,
-                        "completion": self._chat.completion_to_json(completion),
-                        "tool_calls_made": tool_calls_made,
-                    }
+                    yield {"type": "done", **self._final_result(completion, tool_calls_made)}
                     return
 
-                for tc in message.tool_calls:
-                    yield {"type": "tool", "name": tc.function.name}
+                for name in self._tool_names(message):
+                    yield {"type": "tool", "name": name}
 
                 messages.append(self._assistant_message_dict(message))
                 messages.extend(
@@ -259,10 +256,7 @@ class ToolLoopOrchestrator:
                 )
 
             # Stream final answer after tool results (no tools on this call).
-            self._chat.log_chat_request(streaming=True, message_count=len(messages))
-            stream = self._chat._create_completion(
-                **self._chat.completion_kwargs(messages, stream=True),
-            )
+            stream = self._create_completion(messages, stream=True)
             for event in self._chat.iter_stream_events(stream):
                 if event.get("type") == "done":
                     event = {**event, "tool_calls_made": tool_calls_made}

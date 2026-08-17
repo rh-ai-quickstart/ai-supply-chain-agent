@@ -1,4 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
+import { getLogger } from "../utils/logger.js";
+
+const logger = getLogger(import.meta.url);
 
 /**
  * Hand-rolled hash-based routing, extracted from `App.jsx` (SRP): parses
@@ -52,6 +55,7 @@ export function useHashRoute() {
   }, []);
 
   const navigate = useCallback((view, { scenarioId } = {}) => {
+    logger.info("useHashRoute: navigate to view=%s scenarioId=%s", view, scenarioId || "");
     if (view === "knowledge-bases") {
       window.location.hash = "#/knowledge-bases";
       return;

@@ -9,13 +9,13 @@ Inversion move referenced throughout the refactor plan.
 
 from __future__ import annotations
 
-import logging
 from typing import Optional
 
 from clients.general_simulation_client import GeneralSimulationClient
 from clients.llama_stack_client import LlamaStackClient
 from clients.news_client import NewsClient
 from clients.vector_store_client import VectorStoreClient
+from logging_config import getLogger
 from repositories.knowledge_base_repository import KnowledgeBaseRepository
 from services.agent_service import AgentService
 from services.chat_service import ChatService
@@ -26,7 +26,7 @@ from services.readiness_service import ReadinessService
 from services.scenario_create_service import ScenarioCreateService
 from settings import Settings
 
-logger = logging.getLogger(__name__)
+logger = getLogger(__name__)
 
 _FALLBACK_OPENAI_MODEL = "gpt-4o-mini"
 
@@ -79,12 +79,12 @@ def _build_vector_store_client(settings: Settings) -> Optional[VectorStoreClient
             embed_base_url=settings.embed_base_url,
             embed_api_key=settings.embed_api_key,
         )
-        logger.info("VectorStoreClient initialised successfully.")
+        logger.info("VectorStoreClient initialized successfully.")
         return client
     # Broad catch: best-effort init; external libs may raise varied errors, proceed without RAG context.
     except Exception as exc:
         logger.warning(
-            "VectorStoreClient could not be initialised (%s). Chat will proceed without RAG context.",
+            "VectorStoreClient could not be initialized (%s). Chat will proceed without RAG context.",
             exc,
         )
         return None

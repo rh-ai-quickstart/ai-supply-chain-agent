@@ -1,12 +1,7 @@
-import logging
-import sys
+from logging_config import setup_logging, getLogger
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)-8s %(name)s — %(message)s",
-    datefmt="%H:%M:%S",
-)
-logger = logging.getLogger(__name__)
+setup_logging()
+logger = getLogger(__name__)
 
 
 def _build_langchain_service():
@@ -59,14 +54,13 @@ def main() -> None:
         logger.info("=== Done: %d item(s) ingested ===", count)
     except FileNotFoundError as exc:
         logger.error("Source directory missing — %s", exc)
-        sys.exit(1)
+        raise
     except ValueError as exc:
         logger.error("No documents to ingest — %s", exc)
-        sys.exit(1)
-    # Broad catch: top-level CLI boundary; log unexpected errors and exit non-zero.
+        raise
     except Exception as exc:
         logger.exception("Unexpected error during ingestion: %s", exc)
-        sys.exit(1)
+        raise
 
 
 if __name__ == "__main__":

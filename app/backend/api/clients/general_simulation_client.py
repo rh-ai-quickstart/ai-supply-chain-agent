@@ -1,9 +1,9 @@
-import logging
 from typing import Any, Optional
 
+from logging_config import getLogger
 import requests
 
-logger = logging.getLogger(__name__)
+logger = getLogger(__name__)
 
 _DEFAULT_BASE_URL = "http://localhost:8000"
 

@@ -7,12 +7,12 @@ chunking and embedding.
 
 from __future__ import annotations
 
-import logging
 from typing import Optional
 
 from clients.llama_stack_client import LlamaStackClient
+from logging_config import getLogger
 
-logger = logging.getLogger(__name__)
+logger = getLogger(__name__)
 
 _NEWS_VECTOR_STORE_NAME = "supply-chain-news"
 

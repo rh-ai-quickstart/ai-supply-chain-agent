@@ -1,4 +1,7 @@
 import { apiGet, apiPostStream } from "./apiClient";
+import { getLogger } from "../utils/logger.js";
+
+const logger = getLogger(import.meta.url);
 
 function chatRequestBody(input, chatHistory, vectorStoreId, useVllm, scenarioId) {
   const trimmed = vectorStoreId && String(vectorStoreId).trim();

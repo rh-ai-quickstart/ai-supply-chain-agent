@@ -1,5 +1,8 @@
 import { useCallback, useState } from "react";
 import { createScenario, proposeScenario } from "../services/scenarioCreateService";
+import { getLogger } from "../utils/logger.js";
+
+const logger = getLogger(import.meta.url);
 
 const EMPTY_DRAFT = {
   name: "",
@@ -26,6 +29,7 @@ export function useCreateScenario(onCreated) {
   const propose = useCallback(async () => {
     const text = prompt.trim();
     if (!text || locked) return;
+    logger.info("useCreateScenario: propose: %s", text.slice(0, 80));
     setError("");
     setProposing(true);
     try {
@@ -36,7 +40,9 @@ export function useCreateScenario(onCreated) {
         return;
       }
       setDraft({ ...EMPTY_DRAFT, ...result.draft });
+      logger.info("useCreateScenario: propose success: %s", result.draft.scenario_id);
     } catch (err) {
+      logger.error("useCreateScenario propose error: %s", err.message);
       setError(err instanceof Error ? err.message : "Unable to propose a scenario.");
       setDraft(null);
     } finally {
@@ -50,6 +56,7 @@ export function useCreateScenario(onCreated) {
 
   const create = useCallback(async () => {
     if (!draft || locked) return;
+    logger.info("useCreateScenario: create: scenario=%s", draft.scenario_id);
     setError("");
     setCreating(true);
     try {
@@ -58,8 +65,10 @@ export function useCreateScenario(onCreated) {
         setError(result?.error || "Unable to create scenario.");
         return;
       }
+      logger.info("useCreateScenario: create success: scenario=%s", result.scenario_id);
       onCreated?.(result.scenario_id);
     } catch (err) {
+      logger.error("useCreateScenario create error: %s", err.message);
       setError(err instanceof Error ? err.message : "Unable to create scenario.");
     } finally {
       setCreating(false);

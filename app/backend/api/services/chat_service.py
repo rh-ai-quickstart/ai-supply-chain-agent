@@ -1,4 +1,3 @@
-import logging
 from collections.abc import Iterator
 from dataclasses import dataclass, field
 from typing import Any, Optional
@@ -10,8 +9,9 @@ from services.guardrail_policy import GuardrailPolicy
 from services.news_vector_store_service import NewsVectorStoreService
 from services.rag_context_provider import RagContextProvider
 from services.simulation_intent import normalize_scenario_id, scenario_context_block
+from logging_config import getLogger
 
-logger = logging.getLogger(__name__)
+logger = getLogger(__name__)
 
 _TOOL_PRIORITY = ("general_simulation", "fetch_news", "knowledge_base")
 

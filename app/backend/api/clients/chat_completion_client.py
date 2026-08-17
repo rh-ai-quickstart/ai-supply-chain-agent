@@ -8,11 +8,11 @@ store administration lives in ``llama_vector_store_admin.py``.
 
 from __future__ import annotations
 
-import logging
 from collections.abc import Iterator
 from dataclasses import dataclass, field
 from typing import Any
 
+from logging_config import getLogger
 from openai import APIError, OpenAI
 from tenacity import (
     retry,
@@ -22,7 +22,7 @@ from tenacity import (
     wait_exponential,
 )
 
-logger = logging.getLogger(__name__)
+logger = getLogger(__name__)
 
 SYSTEM_PROMPT = (
     "You are an AI assistant for a supply chain command center. "

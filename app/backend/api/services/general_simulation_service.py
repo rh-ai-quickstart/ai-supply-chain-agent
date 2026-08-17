@@ -1,9 +1,9 @@
-import logging
 from typing import Any, Optional
 
 from clients.general_simulation_client import GeneralSimulationClient
+from logging_config import getLogger
 
-logger = logging.getLogger(__name__)
+logger = getLogger(__name__)
 
 
 class GeneralSimulationService:
