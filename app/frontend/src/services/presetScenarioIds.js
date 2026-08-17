@@ -54,13 +54,55 @@ const SCENARIO_BBOXES = {
 };
 
 /**
- * Keywords matched against Llama Stack vector-store names when a scenario is selected.
+ * Always-on news store; never auto-selected as a scenario's RAG knowledge base.
+ * Its name is kept in sync with `news_vector_store_service._NEWS_VECTOR_STORE_NAME`.
+ */
+const NEWS_VECTOR_STORE_NAME = "supply-chain-news";
+
+/**
+ * Keywords matched against Llama Stack vector-store names when a scenario is
+ * selected. Augmented with tokens from the scenario label and id, so
+ * user-uploaded knowledge bases with descriptive names match reliably.
  */
 const SCENARIO_VECTOR_STORE_KEYWORDS = {
-  "opensky-uk-closure-001": ["uk", "nats", "gps", "air"],
-  "supply-chain-port-strike-la": ["port", "strike", "la"],
-  "supply-chain-suez-blockage": ["suez", "blockage"],
+  "opensky-uk-closure-001": [
+    "uk",
+    "nats",
+    "gps",
+    "air",
+    "airspace",
+    "flight",
+    "aviation",
+    "aircraft",
+    "opensky",
+    "closure",
+  ],
+  "supply-chain-port-strike-la": [
+    "port",
+    "strike",
+    "la",
+    "los",
+    "angeles",
+    "long",
+    "beach",
+    "vessel",
+    "cargo",
+    "shipping",
+  ],
+  "supply-chain-suez-blockage": ["suez", "canal", "blockage", "block", "vessel", "shipping", "egypt"],
 };
+
+/** Generic words derived from scenario ids that should not drive KB matching. */
+const SCENARIO_KEYWORD_STOPWORDS = new Set([
+  "supply",
+  "chain",
+  "scenario",
+  "demo",
+  "impact",
+  "data",
+  "simulation",
+  "news",
+]);
 
 /** Broad envelope covering all seeded demo entities. */
 export const GLOBAL_DEMO_BBOX = "-130,20,50,62";
@@ -97,26 +139,55 @@ export function bboxForScenario(scenarioId) {
   return SCENARIO_BBOXES[scenarioId] || GLOBAL_DEMO_BBOX;
 }
 
+/** Keywords used to select a vector store for *scenarioId*. */
 function vectorStoreKeywordsForScenario(scenarioId) {
-  return SCENARIO_VECTOR_STORE_KEYWORDS[scenarioId] || [];
+  const explicit = SCENARIO_VECTOR_STORE_KEYWORDS[scenarioId] || [];
+  const labelTokens = normalizeTokens(labelForScenario(scenarioId));
+  const idTokens = normalizeTokens(scenarioId);
+  const seen = new Set();
+  const resolved = [];
+  for (const raw of [...explicit, ...labelTokens, ...idTokens]) {
+    const kw = String(raw || "").toLowerCase().trim();
+    if (!kw || seen.has(kw)) continue;
+    if (SCENARIO_KEYWORD_STOPWORDS.has(kw)) continue;
+    if (/^\d{2,}$/.test(kw)) continue; // numeric id segments (e.g. "001")
+    seen.add(kw);
+    resolved.push(kw);
+  }
+  return resolved;
 }
 
-/** First vector store whose name contains any of the given keywords (case-insensitive). */
+/** Split a name/id into lowercase alphanumeric tokens. */
+function normalizeTokens(value) {
+  return String(value || "")
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean);
+}
+
+/**
+ * Best vector-store id for a scenario: the store whose name covers the most
+ * keywords. Prefers full coverage; falls back to the highest partial score.
+ */
 function findVectorStoreId(stores, keywords) {
-  if (!Array.isArray(stores) || !Array.isArray(keywords) || keywords.length === 0) {
+  if (!Array.isArray(stores) || keywords.length === 0) {
     return "";
   }
   let bestId = "";
   let bestScore = 0;
   for (const store of stores) {
-    const name = (store.name || "").toLowerCase();
+    const name = store.name || store.id || "";
+    if (name.toLowerCase().includes(NEWS_VECTOR_STORE_NAME)) {
+      continue;
+    }
+    const tokens = normalizeTokens(name);
     let score = 0;
     for (const kw of keywords) {
-      const needle = String(kw || "").toLowerCase().trim();
-      if (!needle) continue;
-      // Word-boundary match avoids accidental substring hits (e.g. short tokens in longer names).
-      const pattern = new RegExp(`(?:^|[^a-z0-9])${escapeRegExp(needle)}(?:[^a-z0-9]|$)`);
-      if (pattern.test(name)) {
+      // Exact token match, or prefix match for meaningful (>=3 char) keywords
+      // (e.g. "air" -> "airspace"); short keywords like "la" must match exactly.
+      const match = (token) =>
+        token === kw || (kw.length >= 3 && token.startsWith(kw));
+      if (tokens.some(match)) {
         score += 1;
       }
     }
@@ -126,10 +197,6 @@ function findVectorStoreId(stores, keywords) {
     }
   }
   return bestScore > 0 ? bestId : "";
-}
-
-function escapeRegExp(value) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 export function findVectorStoreIdForScenario(stores, scenarioId) {
