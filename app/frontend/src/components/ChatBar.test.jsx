@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { ChatBar } from "./ChatBar";
@@ -347,4 +347,71 @@ describe("ChatBar", () => {
       expect(screen.getByText(`Used tool: ${tool}`)).toBeInTheDocument();
     },
   );
+
+  it("does not show the clear button when there are no messages", () => {
+    render(
+      <ChatBar
+        chatInput=""
+        onChangeChatInput={vi.fn()}
+        onSubmitChat={vi.fn()}
+        chatLoading={false}
+        chatMessages={[]}
+        onClearChat={vi.fn()}
+      />
+    );
+    expect(screen.queryByRole("button", { name: "Clear conversation" })).not.toBeInTheDocument();
+  });
+
+  it("calls onClearChat when the clear button is clicked", async () => {
+    const user = userEvent.setup();
+    const onClearChat = vi.fn();
+    render(
+      <ChatBar
+        chatInput=""
+        onChangeChatInput={vi.fn()}
+        onSubmitChat={vi.fn()}
+        chatLoading={false}
+        chatMessages={[{ role: "human", content: "hi" }, { role: "ai", content: "ok" }]}
+        onClearChat={onClearChat}
+      />
+    );
+    await user.click(screen.getByRole("button", { name: "Clear conversation" }));
+    expect(onClearChat).toHaveBeenCalled();
+    expect(onClearChat).toHaveBeenCalledWith();
+  });
+
+  it("calls onClearChat without the click event (modal header)", async () => {
+    const user = userEvent.setup();
+    const onClearChat = vi.fn();
+    render(
+      <ChatBar
+        chatInput=""
+        onChangeChatInput={vi.fn()}
+        onSubmitChat={vi.fn()}
+        chatLoading={false}
+        chatMessages={[{ role: "human", content: "hi" }, { role: "ai", content: "ok" }]}
+        onClearChat={onClearChat}
+      />
+    );
+    fireEvent.click(screen.getByRole("button", { name: "View conversation" }));
+    const modalClear = within(screen.getByRole("dialog")).getByRole("button", {
+      name: "Clear conversation",
+    });
+    await user.click(modalClear);
+    expect(onClearChat).toHaveBeenCalledWith();
+  });
+
+  it("hides the clear button while loading to avoid clearing an in-flight reply", () => {
+    render(
+      <ChatBar
+        chatInput=""
+        onChangeChatInput={vi.fn()}
+        onSubmitChat={vi.fn()}
+        chatLoading={true}
+        chatMessages={[{ role: "human", content: "hi" }, { role: "ai", content: "" }]}
+        onClearChat={vi.fn()}
+      />
+    );
+    expect(screen.queryByRole("button", { name: "Clear conversation" })).not.toBeInTheDocument();
+  });
 });

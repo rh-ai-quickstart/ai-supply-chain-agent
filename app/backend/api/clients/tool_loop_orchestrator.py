@@ -111,6 +111,7 @@ class ToolLoopOrchestrator:
         tools: list[dict[str, Any]] | None = None,
         execute_tool: Callable[[str, dict[str, Any]], str] | None = None,
         max_rounds: int = DEFAULT_TOOL_MAX_ROUNDS,
+        scenario_context: str = "",
     ) -> dict[str, Any]:
         """Chat completion with an OpenAI-style tool loop.
 
@@ -123,13 +124,20 @@ class ToolLoopOrchestrator:
                 "tool_calls_made": [],
             }
 
-        messages = self._chat.build_messages(user_input, context, conversation_messages)
+        messages = self._chat.build_messages(
+            user_input, context, conversation_messages, scenario_context
+        )
         tool_schemas = tools or []
         tool_calls_made: list[dict[str, Any]] = []
         rounds = max(1, int(max_rounds or DEFAULT_TOOL_MAX_ROUNDS))
 
         if not tool_schemas or execute_tool is None:
-            plain = self._chat.ask(user_input, context=context, conversation_messages=conversation_messages)
+            plain = self._chat.ask(
+                user_input,
+                context=context,
+                conversation_messages=conversation_messages,
+                scenario_context=scenario_context,
+            )
             plain["tool_calls_made"] = []
             return plain
 
@@ -191,6 +199,7 @@ class ToolLoopOrchestrator:
         tools: list[dict[str, Any]] | None = None,
         execute_tool: Callable[[str, dict[str, Any]], str] | None = None,
         max_rounds: int = DEFAULT_TOOL_MAX_ROUNDS,
+        scenario_context: str = "",
     ) -> Iterator[dict[str, Any]]:
         """Run non-streamed tool rounds, then stream the final assistant answer.
 
@@ -203,10 +212,17 @@ class ToolLoopOrchestrator:
 
         tool_schemas = tools or []
         if not tool_schemas or execute_tool is None:
-            yield from self._chat.ask_stream(user_input, context=context, conversation_messages=conversation_messages)
+            yield from self._chat.ask_stream(
+                user_input,
+                context=context,
+                conversation_messages=conversation_messages,
+                scenario_context=scenario_context,
+            )
             return
 
-        messages = self._chat.build_messages(user_input, context, conversation_messages)
+        messages = self._chat.build_messages(
+            user_input, context, conversation_messages, scenario_context
+        )
         tool_calls_made: list[dict[str, Any]] = []
         rounds = max(1, int(max_rounds or DEFAULT_TOOL_MAX_ROUNDS))
 

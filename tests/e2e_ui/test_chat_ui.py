@@ -34,7 +34,7 @@ def _wait_for_ai_reply(page: Page, pattern: re.Pattern[str]) -> None:
             text = ai_messages.last.inner_text()
             if pattern.search(text):
                 return
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - playwright locator errors are transient during polling
             last_error = exc
         if page.get_by_text("Thinking…", exact=False).is_visible():
             time.sleep(1)
@@ -57,3 +57,31 @@ class TestChatUI:
         _send_chat_message(page, "Where is the best pizza?")
         _wait_for_ai_reply(page, re.compile(r"supply chain", re.IGNORECASE))
         expect(page.locator(".chat-message.human").last).to_contain_text("pizza")
+
+    def test_clear_conversation_removes_messages_keeps_scenario_context(self, page: Page):
+        """Clearing the conversation drops user/AI bubbles but keeps the KB context."""
+        # Confirm the knowledge base status is visible before chatting.
+        kb_status = page.locator(".chat-kb-status__text").first
+        expect(kb_status).to_be_visible(timeout=TEST_TIMEOUT)
+        kb_before = kb_status.inner_text()
+        assert kb_before.startswith("Knowledge base:")
+
+        _send_chat_message(page, "Where is the best pizza?")
+        _wait_for_ai_reply(page, re.compile(r"supply chain", re.IGNORECASE))
+        expect(page.locator(".chat-message.human").last).to_contain_text("pizza")
+
+        # The modal auto-opens after a reply; the clear button lives in the header.
+        dialog = page.get_by_role("dialog")
+        expect(dialog).to_be_visible(timeout=TEST_TIMEOUT)
+        clear_button = dialog.get_by_role("button", name="Clear conversation", exact=True)
+        expect(clear_button).to_be_visible(timeout=TEST_TIMEOUT)
+        expect(page.locator(".chat-message.human")).to_have_count(1)
+
+        clear_button.click()
+
+        # Conversation is reset to the empty state.
+        expect(page.get_by_text("No chat messages yet.")).to_be_visible(timeout=TEST_TIMEOUT)
+        expect(page.locator(".chat-message.human")).to_have_count(0)
+
+        # The scenario context (KB status) from before the chat still shows.
+        expect(page.locator(".chat-kb-status__text").first).to_have_text(kb_before)

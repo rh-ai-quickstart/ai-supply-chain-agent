@@ -343,3 +343,178 @@ def test_retrieve_context_merges_news_vector_store(mock_llama_stack_client):
         "what is happening at the suez canal?",
         max_results=3,
     )
+
+
+def test_reply_keeps_context_when_history_is_empty(mock_llama_stack_client):
+    """Cleared chat (empty history) still retrieves KB context."""
+    svc = ChatService(mock_llama_stack_client, vector_store_client=None)
+    svc.reply(
+        "Show me the affected routes",
+        chat_history=[],
+        scenario_id="opensky-uk-closure-001",
+        vector_store_id="vs_newsroom",
+    )
+    # Context should still be retrieved from vector store with empty history
+    mock_llama_stack_client.search_vector_store.assert_called_once_with(
+        "vs_newsroom",
+        "Show me the affected routes",
+        max_num_results=8,
+    )
+    # The LLM call should happen with context but empty conversation
+    call_kw = mock_llama_stack_client.ask_with_tools.call_args.kwargs
+    assert call_kw["context"] == "context chunk"
+    assert call_kw["conversation_messages"] == []
+
+
+def test_reply_keeps_scenario_context_when_history_is_empty(mock_llama_stack_client):
+    """Scenario ID is respected even with cleared history."""
+    agent = MagicMock()
+    agent.openai_tools.return_value = [
+        {"type": "function", "function": {"name": "general_simulation", "parameters": {}}},
+    ]
+    agent.run_tool.return_value = ToolResult(
+        success=True,
+        output="summary",
+        data={
+            "success": True,
+            "answer": "ok",
+            "scenario_id": "opensky-uk-closure-001",
+            "question": "What-if impact?",
+            "affected_entities": [],
+            "solver": {},
+            "tool_call_trace": [],
+        },
+    )
+
+    def _ask_with_tools(*_args, execute_tool=None, **_kwargs):
+        assert execute_tool is not None
+        # Execute with empty conversation but context present
+        execute_tool("general_simulation", {"question": "What-if impact?"})
+        return {"answer": "ok", "completion": None, "tool_calls_made": []}
+
+    mock_llama_stack_client.ask_with_tools.side_effect = _ask_with_tools
+    svc = ChatService(
+        mock_llama_stack_client,
+        vector_store_client=None,
+        agent_service=agent,
+    )
+    svc.reply(
+        "What-if impact?",
+        chat_history=[],  # cleared history
+        scenario_id="opensky-uk-closure-001",
+    )
+    # Scenario ID should still be bound correctly
+    agent.run_tool.assert_called_once_with(
+        "general_simulation",
+        question="What-if impact?",
+        scenario_id="opensky-uk-closure-001",
+    )
+
+
+def test_map_chat_history_returns_empty_for_cleared_session():
+    """After clearing, mapped history is empty."""
+    mapped = ChatService._map_chat_history([])
+    assert mapped == []
+
+
+def test_reply_with_history_retrieves_context(mock_llama_stack_client):
+    """Context is retrieved from vector store when history is non-empty."""
+    svc = ChatService(mock_llama_stack_client, vector_store_client=None)
+    history = [
+        {"role": "human", "content": "previous question"},
+        {"role": "ai", "content": "previous answer"},
+        {"role": "human", "content": "follow-up"},
+    ]
+    svc.reply(
+        "follow-up",
+        chat_history=history,
+        vector_store_id="vs_kb",
+    )
+    # Context query uses the text content
+    mock_llama_stack_client.search_vector_store.assert_called_once()
+    call_args = mock_llama_stack_client.search_vector_store.call_args
+    assert call_args[0][0] == "vs_kb"
+    # conversation_messages should contain the mapped history
+    call_kw = mock_llama_stack_client.ask_with_tools.call_args.kwargs
+    assert len(call_kw["conversation_messages"]) == 3
+
+
+def test_reply_injects_active_scenario_context(mock_llama_stack_client):
+    """The active scenario is named in the LLM context block (not only the tool)."""
+    svc = ChatService(mock_llama_stack_client, vector_store_client=None)
+    svc.reply(
+        "What is the impact?",
+        chat_history=[],
+        scenario_id="opensky-uk-closure-001",
+        vector_store_id="vs_abc",
+    )
+    call_kw = mock_llama_stack_client.ask_with_tools.call_args.kwargs
+    assert call_kw["scenario_context"] == (
+        "Active scenario: opensky-uk-closure-001 (UK Airspace Closure)."
+    )
+    assert call_kw["context"] == "context chunk"  # RAG context still retrieved
+
+
+def test_reply_leaves_scenario_context_empty_without_scenario(mock_llama_stack_client):
+    """Without an active scenario, no scenario context block is sent."""
+    svc = ChatService(mock_llama_stack_client, vector_store_client=None)
+    svc.reply("What is the impact?", chat_history=[], scenario_id="")
+    call_kw = mock_llama_stack_client.ask_with_tools.call_args.kwargs
+    assert call_kw["scenario_context"] == ""
+
+
+def test_reply_stream_injects_active_scenario_context(mock_llama_stack_client):
+    svc = ChatService(mock_llama_stack_client, vector_store_client=None)
+    list(svc.reply_stream("What is the impact?", chat_history=[], scenario_id="opensky-uk-closure-001"))
+    call_kw = mock_llama_stack_client.ask_stream_with_tools.call_args.kwargs
+    assert call_kw["scenario_context"] == (
+        "Active scenario: opensky-uk-closure-001 (UK Airspace Closure)."
+    )
+
+
+def test_scenario_context_block_absent_without_scenario():
+    from clients.chat_completion_client import LlamaStackChatClient
+    from services.simulation_intent import scenario_context_block
+
+    messages = LlamaStackChatClient(base_url="http://unused:1", label="test").build_messages(
+        "hi",
+        context="kb chunk",
+        conversation_messages=[],
+        scenario_context=scenario_context_block(""),
+    )
+    system = messages[0]["content"]
+    assert "Active scenario" not in system
+    assert "Relevant context from the knowledge base" in system
+
+
+def test_scenario_context_block_prepends_scenario_before_kb_context():
+    from clients.chat_completion_client import LlamaStackChatClient
+    from services.simulation_intent import scenario_context_block
+
+    messages = LlamaStackChatClient(base_url="http://unused:1", label="test").build_messages(
+        "hi",
+        context="kb chunk",
+        conversation_messages=[],
+        scenario_context=scenario_context_block("supply-chain-port-strike-la"),
+    )
+    system = messages[0]["content"]
+    assert "Active scenario: supply-chain-port-strike-la (Port Strike LA)." in system
+    assert "Relevant context from the knowledge base" in system
+    assert system.index("Active scenario") < system.index("Relevant context")
+
+
+def test_system_prompt_lists_all_registered_tools(mock_llama_stack_client):
+    """Every tool the agent exposes must be named in the static system prompt."""
+    from clients.chat_completion_client import SYSTEM_PROMPT
+    from services.agent_service import AgentService
+
+    agent = AgentService(mock_llama_stack_client)
+    registered = {t["function"]["name"] for t in agent.openai_tools()}
+    assert registered == {
+        "news_knowledge_base",
+        "knowledge_base",
+        "general_simulation",
+        "fetch_news",
+    }
+    for name in registered:
+        assert name in SYSTEM_PROMPT, f"{name!r} must be named in SYSTEM_PROMPT"

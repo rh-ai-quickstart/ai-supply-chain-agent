@@ -207,4 +207,119 @@ describe("useChatSession", () => {
     });
     expect(sendChatMessageStream).not.toHaveBeenCalled();
   });
+
+  it("clearChat removes user and AI messages for the active scenario", async () => {
+    sendChatMessageStream.mockImplementation(async (_input, _history, _vs, _vllm, onEvent) => {
+      onEvent({ type: "done", answer: "ok", completion: { model: "test" } });
+    });
+    const { result } = renderHook(() =>
+      useChatSession({
+        vectorStores: VECTOR_STORES,
+        vectorStoresError: "",
+        activeScenarioId: "opensky-uk-closure-001",
+      }),
+    );
+
+    act(() => result.current.handleChangeChatInput("hi"));
+    await act(async () => {
+      await result.current.handleSubmitChat();
+    });
+    expect(result.current.chatMessages.length).toBeGreaterThan(0);
+
+    act(() => result.current.clearChat());
+    expect(result.current.chatMessages).toEqual([]);
+    expect(result.current.chatInput).toBe("");
+    expect(result.current.chatError).toBe("");
+    expect(result.current.knowledgeBaseName).toBe("air_risk_uk_nats_gps_closure-abc12345");
+  });
+
+  it("clearChat resets loading and simulation state from a cleared response", async () => {
+    sendChatMessageStream.mockImplementation(async (_input, _history, _vs, _vllm, onEvent) => {
+      onEvent({
+        type: "done",
+        answer: "ok",
+        simulation: { affected_entities: ["a"], answer: "ok", success: true },
+      });
+    });
+    const { result } = renderHook(() =>
+      useChatSession({
+        vectorStores: VECTOR_STORES,
+        vectorStoresError: "",
+        activeScenarioId: "opensky-uk-closure-001",
+      }),
+    );
+
+    act(() => result.current.handleChangeChatInput("hi"));
+    await act(async () => {
+      await result.current.handleSubmitChat();
+    });
+    expect(result.current.chatSimulation).toMatchObject({ affected_entities: ["a"] });
+    expect(result.current.chatLoading).toBe(false);
+
+    act(() => result.current.clearChat());
+    expect(result.current.chatMessages).toEqual([]);
+    expect(result.current.chatLoading).toBe(false);
+    expect(result.current.chatSimulation).toBe(null);
+    expect(result.current.knowledgeBaseName).toBe("air_risk_uk_nats_gps_closure-abc12345");
+  });
+
+  it("clearChat with a scenario override only clears that scenario", () => {
+    const { result, rerender } = renderHook(
+      ({ activeScenarioId }) =>
+        useChatSession({ vectorStores: [], vectorStoresError: "", activeScenarioId }),
+      { initialProps: { activeScenarioId: "scenario-a" } },
+    );
+
+    act(() => result.current.handleChangeChatInput("hello a"));
+    expect(result.current.chatInput).toBe("hello a");
+
+    act(() => result.current.clearChat("scenario-b"));
+    expect(result.current.chatInput).toBe("hello a");
+
+    act(() => result.current.clearChat("scenario-a"));
+    expect(result.current.chatInput).toBe("");
+    expect(result.current.chatMessages).toEqual([]);
+  });
+
+  it("clearChat keeps the scenario loaded so KB context persists after clearing", async () => {
+    sendChatMessageStream.mockImplementation(async (_input, history, _vs, _vllm, onEvent) => {
+      onEvent({ type: "done", answer: "ok", completion: { model: "test" } });
+    });
+    const { result } = renderHook(() =>
+      useChatSession({
+        vectorStores: VECTOR_STORES,
+        vectorStoresError: "",
+        activeScenarioId: "opensky-uk-closure-001",
+      }),
+    );
+
+    act(() => result.current.handleChangeChatInput("first question"));
+    await act(async () => {
+      await result.current.handleSubmitChat();
+    });
+    expect(result.current.chatMessages.length).toBeGreaterThan(0);
+
+    act(() => result.current.clearChat());
+    expect(result.current.chatMessages).toEqual([]);
+
+    act(() => result.current.handleChangeChatInput("second question"));
+    await act(async () => {
+      await result.current.handleSubmitChat();
+    });
+
+    expect(sendChatMessageStream).toHaveBeenLastCalledWith(
+      "second question",
+      expect.arrayContaining([
+        expect.objectContaining({ role: "human", content: "second question" }),
+      ]),
+      "vs-air",
+      true,
+      expect.any(Function),
+      expect.objectContaining({ scenarioId: "opensky-uk-closure-001" }),
+    );
+    const historyArg = sendChatMessageStream.mock.calls.at(-1)[1];
+    expect(historyArg).toHaveLength(1);
+    expect(historyArg[0]).toMatchObject({ role: "human", content: "second question" });
+    expect(result.current.knowledgeBaseName).toBe("air_risk_uk_nats_gps_closure-abc12345");
+  });
 });

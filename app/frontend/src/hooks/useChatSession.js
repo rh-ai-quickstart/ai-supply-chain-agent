@@ -133,6 +133,18 @@ export function useChatSession({ vectorStores, vectorStoresError, activeScenario
     [submitChat],
   );
 
+  const clearChat = useCallback(
+    (scenarioKeyOverride) => {
+      const key = scenarioKeyOverride || chatKey;
+      setChatMessagesByScenario((prev) => ({ ...prev, [key]: [] }));
+      setChatInputByScenario((prev) => ({ ...prev, [key]: "" }));
+      setChatErrorByScenario((prev) => ({ ...prev, [key]: "" }));
+      setChatLoadingByScenario((prev) => ({ ...prev, [key]: false }));
+      setChatSimulation(null);
+    },
+    [chatKey],
+  );
+
   return {
     chatMessages,
     chatInput,
@@ -145,5 +157,6 @@ export function useChatSession({ vectorStores, vectorStoresError, activeScenario
     handleSubmitChat,
     sendPrompt,
     abortActiveStream,
+    clearChat,
   };
 }

@@ -26,6 +26,7 @@ function App() {
     chatMessages,
     chatRagHint,
     chatSimulation,
+    clearChat,
     handleChangeChatInput,
     handleSubmitChat,
     knowledgeBaseName,
@@ -116,6 +117,7 @@ function App() {
                 chatMessages={chatMessages}
                 chatRagHint={chatRagHint}
                 knowledgeBaseName={knowledgeBaseName}
+                onClearChat={clearChat}
               />
               {isCreateScenarioOpen ? (
                 <CreateScenarioModal

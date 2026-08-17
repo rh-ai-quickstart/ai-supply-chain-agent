@@ -24,6 +24,7 @@ export function ChatBar({
   chatMessages = [],
   chatRagHint = "",
   knowledgeBaseName = "",
+  onClearChat,
 }) {
   const [isChatModalOpen, setIsChatModalOpen] = useState(false);
   const logEndRef = useRef(null);
@@ -194,6 +195,16 @@ export function ChatBar({
               View conversation
             </button>
           ) : null}
+          {chatMessages.length > 0 && !chatLoading && typeof onClearChat === "function" ? (
+            <button
+              type="button"
+              className="chat-clear-btn"
+              onClick={() => onClearChat()}
+              title="Clear the current conversation. The selected scenario and knowledge base stay loaded."
+            >
+              Clear conversation
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -212,6 +223,16 @@ export function ChatBar({
           <div className="chat-modal-content">
             <div className="chat-modal-header">
               <h3 id="chat-modal-title">AI Assistant</h3>
+              {chatMessages.length > 0 && !chatLoading && typeof onClearChat === "function" ? (
+                <button
+                  type="button"
+                  className="chat-history-btn chat-clear-btn"
+                  onClick={() => onClearChat()}
+                  title="Clear the current conversation. The selected scenario and knowledge base stay loaded."
+                >
+                  Clear conversation
+                </button>
+              ) : null}
               <button type="button" className="chat-modal-dismiss" onClick={closeModal} aria-label="Close dialog">
                 ×
               </button>
@@ -256,4 +277,5 @@ ChatBar.propTypes = {
   chatMessages: PropTypes.array,
   chatRagHint: PropTypes.string,
   knowledgeBaseName: PropTypes.string,
+  onClearChat: PropTypes.func,
 };
