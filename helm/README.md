@@ -1,156 +1,115 @@
 # Supply Chain Dashboard — Helm chart
 
-Umbrella chart for the AI Supply Chain Agent quickstart. It deploys the application tier (backend, frontend, ingest job) plus shared AI/data subcharts from [ai-architecture-charts](https://github.com/rh-ai-quickstart/ai-architecture-charts), and optionally the [general-simulation](https://github.com/robertsandoval/general-simulation) platform as a subchart.
+Umbrella chart for the AI Supply Chain Agent quickstart. It deploys the application tier (backend, frontend, ingest job) and the [general-simulation](https://github.com/robertsandoval/general-simulation) **0.0.1** platform subchart (Postgres, Neo4j, Llama Stack, llm-service, API, ingestion).
 
 ## What it deploys
 
-- **Shared Postgres** — gen-sim’s Postgres (AGE + pgvector + PostGIS) stores agent RAG and gen-sim data; optional standalone `pgvector` subchart only for agent-only installs
-- **llama-stack** — Llama Stack API (chat, vector stores); default inference via MaaS / `external-model`
-- **llm-service** — Optional in-cluster model serving (disabled by default)
-- **general-simulation** — Optional subchart (Postgres + Neo4j + API + ingestion); see below
-- **backend** — Flask API
+- **general-simulation** — Postgres, Neo4j, Llama Stack, llm-service, bootstrap, API (optional ingestion CronJob)
+- **backend** — Flask API (Llama Stack + gen-sim API clients)
 - **frontend** — React dashboard (nginx)
 - **ingest** — Optional post-install Job (`ingest.enabled`)
+
+**Model selection is owned by gen-sim.** Configure providers under `general-simulation.global.models`, `general-simulation.llm-service`, and set the canonical stack model id on `general-simulation.api.models.generation`. The supply-chain backend sets `LLAMA_STACK_MODEL` from that value — it does not implement its own provider logic.
+
+For a full visual map of every gen-sim value (defaults, supply-chain overrides, and credential sync), see [`docs/GEN_SIM_VALUES_MAPPING.md`](../docs/GEN_SIM_VALUES_MAPPING.md).
 
 ## Prerequisites
 
 - Helm 3.14+
 - OpenShift CLI (`oc`) for cluster deploys
-- A MaaS / LiteMaaS API token (default path: `global.models.external-model.apiToken` in `secrets.yaml`)
-- A [Hugging Face token](https://huggingface.co/settings/tokens) only if you re-enable `llm-service` for gated models
-- When `general-simulation.enabled: true`: Neo4j auth Secret (below)
+- OpenShift AI 3.4+ (KServe) for default `llm-service`
+- Hugging Face token: `general-simulation.llm-service.secret.hf_token` in `helm/secrets.yaml`
 
-## Provide the MaaS API token (default)
-
-Set a **literal** token on `global.models.external-model.apiToken` (via `helm/secrets.yaml` or `--set`). Do not use `${env.VAR}` — the llama-stack `wait-for-models` init script expands that unquoted and bash fails with `bad substitution`.
-
-**Option A — use `helm/secrets.yaml`** (recommended for local development):
-
-1. Copy the example file and edit:
+## Provide the Hugging Face token (default)
 
 ```bash
 cp helm/secrets.example.yaml helm/secrets.yaml
-# Edit helm/secrets.yaml and set global.models.external-model.apiToken
+# Set general-simulation.llm-service.secret.hf_token
+make helm-install REGISTRY=quay.io/<your-org>
 ```
 
-2. Deploy as usual — the Makefile automatically applies `helm/secrets.yaml` if it exists:
+## Configure models (gen-sim only)
 
-```bash
-make helm-install
-```
-
-**Option B — pass at install time:**
-
-```bash
-helm upgrade --install supply-chain-dashboard ./helm \
-  -f helm/values.yaml \
-  --set global.models.external-model.apiToken="<your-maas-token>" \
-  --namespace supply-chain-dashboard \
-  --create-namespace
-```
-
-## Optional: local model (Hugging Face token)
-
-Only when `llm-service.enabled: true`. The `llm-service` sub-chart reads Secret `huggingface-secret` (key `HF_TOKEN`), or `llm-service.secret.hf_token` from `secrets.yaml`.
-
-```bash
-oc create secret generic huggingface-secret \
-  -n supply-chain-dashboard \
-  --from-literal=HF_TOKEN="<your-hf-token>"
-```
-
-## General Simulation subchart
-
-Enabled by default via `general-simulation.enabled`. Gen-sim brings Postgres and Neo4j into the **same** namespace. With `pgvector.enabled: false` (default), the agent and Llama Stack reuse that Postgres via an umbrella `Secret/pgvector` bridge (`host: postgres`, db/user `sim`). Set `pgvector.enabled: true` only for agent-only installs without gen-sim.
-
-**Gen-sim does not use MaaS.** It calls OpenAI (`api.llm.backend: openai`) with `apiKey` from `helm/secrets.yaml`. Override `baseUrl` if you want a different OpenAI-compatible endpoint.
-
-Before install, create Neo4j auth and set passwords in `helm/secrets.yaml` (see `secrets.example.yaml`):
-
-```bash
-oc create secret generic neo4j-auth \
-  -n supply-chain-dashboard \
-  --from-literal=NEO4J_AUTH="neo4j/<NEO4J_PASSWORD>"
-```
-
-Backend URL (same namespace):
-
-```yaml
-backend:
-  env:
-    GENERAL_SIMULATION_BASE_URL: "http://general-sim-api:8000"
-```
-
-**OpenSky / map data:** `general-simulation.ingestion.enabled` defaults to **`false`**. OpenSky Network often blocks AWS and other hyperscaler source IPs at TCP; a cluster NetworkPolicy cannot fix that. Seed demo scenarios and maritime entities from your laptop after install:
-
-```bash
-make seed-gen-sim
-# optional: live aircraft via laptop egress
-make seed-opensky-live GEN_SIM_NAMESPACE=supply-chain-dashboard
-```
-
-Requires a local [general-simulation](https://github.com/robertsandoval/general-simulation) checkout (default `../general-simulation`) and `oc` login.
-
-To use a **standalone** gen-sim install in another project instead (and restore the standalone pgvector chart for agent RAG):
+Change the model under `general-simulation` in `values.yaml` or via `--set`, for example:
 
 ```yaml
 general-simulation:
-  enabled: false
-pgvector:
-  enabled: true
-  secret:
-    user: postgres
-    password: password
-    dbname: blueprint
-    host: pgvector
-backend:
-  env:
-    GENERAL_SIMULATION_BASE_URL: "http://general-sim-api.general-simulation.svc:8000"
-    PG_HOST: pgvector
-    PG_USER: postgres
-    PG_DB: blueprint
+  global:
+    models:
+      deepseek-r1-distill-qwen-1-5b:
+        enabled: true
+        id: deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B
+        apiToken: unused
+      llama-3-2-3b-instruct:
+        enabled: false
+  llm-service:
+    models:
+      deepseek-r1-distill-qwen-1-5b:
+        enabled: true
+        id: deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B
+  api:
+    models:
+      generation: deepseek-r1-distill-qwen-1-5b/deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B
 ```
+
+The backend automatically uses `general-simulation.api.models.generation` for chat.
+
+## Optional: external MaaS
+
+Disable `llm-service`, enable `general-simulation.global.models.external-model`, set `apiToken`, and set `general-simulation.api.models.generation` to `external-model/<id>`.
 
 ## Install
 
-From the repository root:
-
 ```bash
 helm dependency update ./helm
+
+# Point all images (supply-chain + gen-sim) at your registry:
 helm upgrade --install supply-chain-dashboard ./helm \
   -f helm/values.yaml \
+  -f helm/secrets.yaml \
   --namespace supply-chain-dashboard \
   --create-namespace \
-  --wait \
-  --timeout 10m
+  --set global.registry=quay.io/<your-org> \
+  --wait --timeout 15m
 ```
 
-Or use `make helm-deps` and `make helm-install` (see root `Makefile`).
-
-## Chart dependencies
-
-| Subchart | Source | Notes |
-|----------|--------|-------|
-| `pgvector`, `llama-stack`, `llm-service` | Remote: [ai-architecture-charts](https://rh-ai-quickstart.github.io/ai-architecture-charts) | Fetched by `helm dependency update` into `helm/charts/` (gitignored `*.tgz`) |
-| `general-simulation` | Local `file://../../general-simulation/deploy/helm/general-simulation` | Sibling checkout required until a published chart includes the wait/retry fixes this umbrella expects |
-
-Do **not** commit `helm/charts/*.tgz` — they are a local Helm cache. Kind CI clones the sibling `general-simulation` repo next to this workspace before `helm dependency update`.
-
-**GPU / local models:** use the Option B snippet in the root README when enabling in-cluster `llm-service`.
+Or via Make: `make helm-upgrade-install REGISTRY=quay.io/<your-org>`
 
 ## Verify
 
 ```bash
-oc get pods,route -n supply-chain-dashboard
-curl -s http://general-sim-api:8000/health   # from a pod in the namespace
+oc get pods,svc,inferenceservice -n supply-chain-dashboard
+
+# Neo4j (gen-sim umbrella creates Secret/neo4j-auth, SA/neo4j-sa, and STS/neo4j):
+oc get secret neo4j-auth sa/neo4j-sa sts/neo4j svc/neo4j -n supply-chain-dashboard
 ```
 
-## Customize
+`values.yaml` sets demo Neo4j passwords on `general-simulation.bootstrap.neo4j.password` and matching `api`/`ingestion` blocks (required for Secret `neo4j-auth`). Override via `helm/secrets.yaml` — see `secrets.example.yaml`.
 
-- **MaaS** — `global.models.external-model` (`id`, `url`, `apiToken` via secrets)
-- **Local models** — re-enable `llm-service` and `global.models.<model>.enabled`
-- **GPU** — `llm-service.device` and per-model `device` when local serving is on
-- **Ingest** — `ingest.strategy` (`llamastack` | `langchain`), `ingest.enabled`, `ingest.hookDeletePolicy`, chunking under `ingest.*` for LangChain only
-- **General simulation** — `general-simulation.enabled`, nested passwords / OpenAI `llm.apiKey` (not MaaS), `ingestion.enabled` (keep false on hyperscalers)
+## Kind / local Kubernetes smoke
 
-Full operator documentation: [README.md](../README.md) and [docs/WHAT_TO_EXPECT.md](../docs/WHAT_TO_EXPECT.md).
+CI and local developers can install with `helm/values-kind.yaml` (disables OpenShift Routes, llama-stack, llm-service, and heavy ingestion). Supply-chain images are built into a local registry (`localhost:5001`) via per-component `image.repository` flags (`HELM_KIND_IMAGE_SETS`); platform images use `general-simulation.global.registry` in `values-kind.yaml`.
+
+| Environment | Minimum RAM | Notes |
+|-------------|-------------|-------|
+| GHA `ubuntu-latest` | ~7Gi allocatable | Used by `.github/workflows/kind-helm-smoke.yml` |
+| Local Podman + Kind | **8Gi Podman VM** | Neo4j requests 2Gi (official chart minimum) |
+
+Neo4j cannot be reduced below 2Gi per the upstream `neo4j/neo4j` chart. Disabling Neo4j would break `general-sim-api` and the scenarios integration test.
+
+```bash
+make kind-preflight                    # check Podman VM / Kind node RAM (local only)
+make local-kind-smoke-test             # cluster + build + helm-install-kind + verify
+make local-kind-smoke-test LOCAL_KIND_SMOKE_ARGS='--recreate --skip-build'
+```
+
+If preflight fails on a 2Gi Podman machine, resize before recreating the cluster:
+
+```bash
+podman machine stop
+podman machine set --memory 8192
+podman machine start
+make local-kind-smoke-test LOCAL_KIND_SMOKE_ARGS='--recreate --skip-build'
+```
+
+Full docs: [README.md](../README.md).

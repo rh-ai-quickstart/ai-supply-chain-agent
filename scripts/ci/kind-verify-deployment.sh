@@ -79,9 +79,10 @@ kubectl wait -n "${NAMESPACE}" --for=condition=available \
 kubectl wait -n "${NAMESPACE}" --for=condition=available \
   "deployment/${HELM_RELEASE}-frontend" --timeout=120s
 
-if kubectl get deployment pgvector -n "${NAMESPACE}" >/dev/null 2>&1; then
-  log "Waiting for pgvector Deployment"
-  kubectl wait -n "${NAMESPACE}" --for=condition=available deployment/pgvector --timeout=300s
+if kubectl get statefulset postgres -n "${NAMESPACE}" >/dev/null 2>&1; then
+  log "Waiting for gen-sim Postgres StatefulSet"
+  kubectl wait -n "${NAMESPACE}" --for=condition=ready \
+    "statefulset/postgres" --timeout=300s
 fi
 
 log "Port-forward backend Service"

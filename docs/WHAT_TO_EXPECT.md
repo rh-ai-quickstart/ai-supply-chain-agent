@@ -15,9 +15,9 @@ A Helm install (`supply-chain-dashboard` in `./helm`) brings up the application 
 | **Backend** (`supply-chain-dashboard-backend`) | Flask API on port 5001 — impact simulation proxy, RAG chat, knowledge-base uploads, scenario create |
 | **Frontend** (`supply-chain-dashboard-frontend`) | React SPA on port 8080 — impact workspace (standalone Route) |
 | **General Simulation** (subchart, enabled by default) | Impact engine (API + Neo4j + Postgres) for scenarios, GeoJSON entities, and NL impact queries |
-| **Shared Postgres** (gen-sim subchart) | PostgreSQL with AGE + pgvector + PostGIS; agent RAG and gen-sim share one instance (`pgvector.enabled: false` by default) |
-| **Llama Stack** (subchart) | LLM and vector-store APIs for chat and ingestion (default inference: MaaS / `external-model`) |
-| **LLM service** (subchart, **disabled** by default) | Optional in-cluster model serving; enable only for Option B (local CPU/GPU) |
+| **Shared Postgres** (gen-sim subchart) | PostgreSQL with AGE + pgvector + PostGIS; agent RAG and gen-sim share one Postgres instance |
+| **Llama Stack** (gen-sim subchart) | LLM and vector-store APIs for chat and ingestion |
+| **LLM service** (gen-sim subchart) | In-cluster vLLM; model id from `general-simulation.api.models.generation` |
 | **Ingest Job** (optional, `ingest.enabled`) | Post-install job that loads bundled risk documents (`ingest.strategy`: **`llamastack`** by default → Llama Stack vector stores; set `langchain` for PGVector) |
 
 OpenShift **Routes** (main Helm release `supply-chain-dashboard`):
