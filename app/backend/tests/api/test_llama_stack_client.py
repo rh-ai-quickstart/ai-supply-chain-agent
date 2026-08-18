@@ -165,6 +165,56 @@ def test_ask_with_tools_executes_tool_then_returns_final_answer():
     assert chat.client.chat.completions.create.call_count == 2
 
 
+def test_ask_with_tools_runs_news_knowledge_base_when_asked_about_news():
+    chat = _bare_chat_client()
+    orchestrator = ToolLoopOrchestrator(chat)
+
+    tool_call = MagicMock()
+    tool_call.id = "call_news"
+    tool_call.function.name = "news_knowledge_base"
+    tool_call.function.arguments = '{"query": "latest port news"}'
+
+    first = MagicMock()
+    first.model = "test-model"
+    first.choices = [MagicMock(message=MagicMock(content=None, tool_calls=[tool_call]))]
+    first.model_dump.return_value = {"id": "c1"}
+
+    second = MagicMock()
+    second.model = "test-model"
+    second.choices = [
+        MagicMock(message=MagicMock(content="Latest port news summarized.", tool_calls=None))
+    ]
+    second.model_dump.return_value = {"id": "c2"}
+
+    chat.client.chat.completions.create.side_effect = [first, second]
+    executed = []
+
+    def execute_tool(name, args):
+        executed.append((name, args))
+        return "news chunks"
+
+    with patch.object(
+        LlamaStackChatClient,
+        "build_messages",
+        return_value=[{"role": "user", "content": "any news about ports?"}],
+    ):
+        out = orchestrator.ask_with_tools(
+            "any news about ports?",
+            tools=[
+                {
+                    "type": "function",
+                    "function": {"name": "news_knowledge_base"},
+                }
+            ],
+            execute_tool=execute_tool,
+        )
+
+    assert out["answer"] == "Latest port news summarized."
+    assert executed == [("news_knowledge_base", {"query": "latest port news"})]
+    assert out["tool_calls_made"][0]["name"] == "news_knowledge_base"
+    assert chat.client.chat.completions.create.call_count == 2
+
+
 def test_ask_with_tools_without_tools_falls_back_to_ask():
     chat = _bare_chat_client()
     orchestrator = ToolLoopOrchestrator(chat)

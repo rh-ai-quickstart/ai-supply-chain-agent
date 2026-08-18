@@ -1,54 +1,88 @@
 import { useCallback, useState } from "react";
 import { ChatBar } from "./components/ChatBar";
-import { CreateScenarioPage } from "./components/CreateScenarioPage";
+import { CreateScenarioModal } from "./components/CreateScenarioModal";
 import { DashboardHeader } from "./components/DashboardHeader";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { KnowledgeBasesPage } from "./components/KnowledgeBasesPage";
 import { ImpactSimulationPage } from "./components/ImpactSimulationPage";
-import { NewsTicker } from "./components/NewsTicker";
 import { useChatSession } from "./hooks/useChatSession";
 import { useHashRoute } from "./hooks/useHashRoute";
 import { useNewsFeed } from "./hooks/useNewsFeed";
 import { useVectorStores } from "./hooks/useVectorStores";
+import { formatNewsItemForScenarioPrompt } from "./utils/newsScenarioPrompt";
 
 function App() {
   const [isLightTheme, setIsLightTheme] = useState(false);
+  const [isCreateScenarioOpen, setIsCreateScenarioOpen] = useState(false);
+  const [createScenarioInitialPrompt, setCreateScenarioInitialPrompt] = useState("");
   const { activeView, activeScenarioId, setActiveScenarioId, syncScenarioHash, navigate } =
     useHashRoute();
   const { vectorStores, vectorStoresError, reloadVectorStores } = useVectorStores();
-  const chat = useChatSession({ vectorStores, vectorStoresError, activeScenarioId });
-  const { newsItems, newsLoading } = useNewsFeed(chat.chatLoading);
+  const {
+    abortActiveStream,
+    chatInput,
+    chatError,
+    chatLoading,
+    chatMessages,
+    chatRagHint,
+    chatSimulation,
+    handleChangeChatInput,
+    handleSubmitChat,
+    knowledgeBaseName,
+    sendPrompt,
+  } = useChatSession({ vectorStores, vectorStoresError, activeScenarioId });
+  const { newsItems, newsLoading } = useNewsFeed(chatLoading);
+
+  const handleOpenCreateScenario = useCallback((prompt = "") => {
+    setCreateScenarioInitialPrompt(typeof prompt === "string" ? prompt : "");
+    setIsCreateScenarioOpen(true);
+  }, []);
+
+  const handleCloseCreateScenario = useCallback(() => {
+    setIsCreateScenarioOpen(false);
+    setCreateScenarioInitialPrompt("");
+  }, []);
 
   const handleScenarioCreated = useCallback(
     (scenarioId) => {
       const nextId = scenarioId || "";
+      handleCloseCreateScenario();
       setActiveScenarioId(nextId);
       navigate("simulation", { scenarioId: nextId });
     },
-    [navigate, setActiveScenarioId],
+    [handleCloseCreateScenario, navigate, setActiveScenarioId],
+  );
+
+  const handleCreateScenarioFromNews = useCallback(
+    (item) => {
+      const prompt = formatNewsItemForScenarioPrompt(item);
+      if (prompt) {
+        handleOpenCreateScenario(prompt);
+      }
+    },
+    [handleOpenCreateScenario],
   );
 
   const handleActiveScenarioChange = useCallback(
     (scenarioId) => {
       const nextId = scenarioId || "";
       if (nextId !== activeScenarioId) {
-        chat.abortActiveStream();
+        abortActiveStream();
       }
       setActiveScenarioId(nextId);
       syncScenarioHash(nextId);
     },
-    [activeScenarioId, chat, setActiveScenarioId, syncScenarioHash],
+    [abortActiveStream, activeScenarioId, setActiveScenarioId, syncScenarioHash],
   );
 
-  const isKbOrCreate =
-    activeView === "knowledge-bases" || activeView === "create-scenario";
+  const isKnowledgeBases = activeView === "knowledge-bases";
 
   return (
     <div className={`dashboard-root ${isLightTheme ? "light-theme" : ""}`}>
       <ErrorBoundary>
         <div
           className={`dashboard-wrapper${
-            isKbOrCreate ? " dashboard-wrapper--kb" : " dashboard-wrapper--simulation"
+            isKnowledgeBases ? " dashboard-wrapper--kb" : " dashboard-wrapper--simulation"
           }`}
         >
           <DashboardHeader
@@ -56,30 +90,40 @@ function App() {
             onToggleTheme={() => setIsLightTheme((value) => !value)}
             activeView={activeView}
             onNavigate={navigate}
+            newsItems={newsItems}
+            newsLoading={newsLoading}
+            onCreateScenarioFromNews={handleCreateScenarioFromNews}
           />
 
-          {activeView === "knowledge-bases" ? (
+          {isKnowledgeBases ? (
             <KnowledgeBasesPage onKnowledgeBaseCreated={reloadVectorStores} />
-          ) : activeView === "create-scenario" ? (
-            <CreateScenarioPage onCreated={handleScenarioCreated} />
           ) : (
             <>
-              <NewsTicker items={newsItems} loading={newsLoading} />
               <ImpactSimulationPage
                 initialScenarioId={activeScenarioId}
                 onScenarioChange={handleActiveScenarioChange}
-                chatSimulation={chat.chatSimulation}
-                chatLoading={chat.chatLoading}
+                onOpenCreateScenario={handleOpenCreateScenario}
+                chatSimulation={chatSimulation}
+                chatLoading={chatLoading}
+                onSendPrompt={sendPrompt}
               />
               <ChatBar
-                chatInput={chat.chatInput}
-                onChangeChatInput={chat.handleChangeChatInput}
-                onSubmitChat={chat.handleSubmitChat}
-                chatLoading={chat.chatLoading}
-                chatError={chat.chatError}
-                chatMessages={chat.chatMessages}
-                chatRagHint={chat.chatRagHint}
+                chatInput={chatInput}
+                onChangeChatInput={handleChangeChatInput}
+                onSubmitChat={handleSubmitChat}
+                chatLoading={chatLoading}
+                chatError={chatError}
+                chatMessages={chatMessages}
+                chatRagHint={chatRagHint}
+                knowledgeBaseName={knowledgeBaseName}
               />
+              {isCreateScenarioOpen ? (
+                <CreateScenarioModal
+                  initialPrompt={createScenarioInitialPrompt}
+                  onClose={handleCloseCreateScenario}
+                  onCreated={handleScenarioCreated}
+                />
+              ) : null}
             </>
           )}
         </div>

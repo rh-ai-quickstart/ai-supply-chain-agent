@@ -118,8 +118,8 @@ runs:
         set +e
         NS="${{ inputs.namespace }}"
         REL="${{ inputs.helm_release }}"
-        echo "=== kubectl get deploy,sts,svc,pvc,job,pods -n ${NS} ==="
-        kubectl get deploy,sts,svc,pvc,job,pods -n "${NS}" -o wide
+        echo "=== kubectl get deploy,sts,svc,pvc,job,sa,pods -n ${NS} ==="
+        kubectl get deploy,sts,svc,pvc,job,sa,pods -n "${NS}" -o wide
         echo "=== kubectl get events -n ${NS} (last 50) ==="
         kubectl get events -n "${NS}" --sort-by=.lastTimestamp | tail -50
         echo "=== StorageClasses ==="

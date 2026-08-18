@@ -11,7 +11,7 @@ const EMPTY_DRAFT = {
 };
 
 /**
- * Propose/create scenario-draft workflow, extracted from `CreateScenarioPage.jsx`
+ * Propose/create scenario-draft workflow, extracted from `CreateScenarioModal.jsx`
  * (SRP). The page component stays responsible only for the form markup.
  */
 export function useCreateScenario(onCreated) {

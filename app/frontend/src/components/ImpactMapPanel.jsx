@@ -1,6 +1,9 @@
 import PropTypes from "prop-types";
 import { memo, useEffect, useMemo, useRef } from "react";
-import { CircleMarker, MapContainer, Polyline, Popup, TileLayer, useMap } from "react-leaflet";
+import L from "leaflet";
+import { renderToStaticMarkup } from "react-dom/server";
+import { Building2, PlaneTakeoff, Anchor } from "lucide-react";
+import { CircleMarker, MapContainer, Marker, Polyline, Popup, TileLayer, useMap } from "react-leaflet";
 import {
   aircraftValueUsd,
   cargoCostForAircraft,
@@ -17,18 +20,69 @@ const DEFAULT_ZOOM = 5;
 
 /** Marker / route colors shared by the map and legend. */
 const MAP_COLORS = {
-  entity: "#00E0FF",
+  flight: "#111111",
+  facility: "#2ECC71",
   affected: "#FF4757",
   focused: "#FFC312",
   diversion: "#2ECC71",
   diversionSelected: "#F1C40F",
 };
 
+/** Default marker color per entity kind. */
+const KIND_COLORS = {
+  flight: MAP_COLORS.flight,
+  facility: MAP_COLORS.facility,
+  vessel: MAP_COLORS.flight,
+};
+
 const DIVERSION_COLOR = MAP_COLORS.diversion;
 const DIVERSION_SELECTED_COLOR = MAP_COLORS.diversionSelected;
 
+/** Inline SVG paths (24×24 viewBox), one per entity kind. */
+const ENTITY_ICONS = {
+  flight: PlaneTakeoff,
+  facility: Building2,
+  vessel: Anchor,
+};
+
+const KIND_BY_TYPE = {
+  moving_entity: "flight",
+  facility: "facility",
+  vessel: "vessel",
+};
+
+/** Map a GeoJSON feature to a display kind derived from its ``type`` property. */
+function kindForType(type) {
+  const kind = KIND_BY_TYPE[String(type || "")];
+  return kind || "facility";
+}
+
+/** Render a lucide icon to an inline SVG string for use in a Leaflet divIcon. */
+function entityIconHtml(kind, color, size, strokeWidth) {
+  const Icon = ENTITY_ICONS[kind] || ENTITY_ICONS.facility;
+  return renderToStaticMarkup(
+    <span className="impact-entity-glyph" style={{ color }}>
+      <Icon size={size} strokeWidth={strokeWidth} aria-hidden="true" />
+    </span>,
+  );
+}
+
+/** ``L.divIcon`` for an entity kind, tinted by the current marker state color. */
+function entityIcon(kind, color, isEmphasized) {
+  const size = isEmphasized ? 34 : 26;
+  const strokeWidth = isEmphasized ? 2 : 1.75;
+  return L.divIcon({
+    className: "impact-entity-icon",
+    html: entityIconHtml(kind, color, size, strokeWidth),
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+    popupAnchor: [0, -size / 2],
+  });
+}
+
 const MAP_LEGEND_ITEMS = [
-  { color: MAP_COLORS.entity, label: "Entity (flight, facility, or vessel)" },
+  { kind: "flight", label: "Flight (moving entity)" },
+  { kind: "facility", label: "Facility (port, warehouse, airport)" },
   { color: MAP_COLORS.affected, label: "Affected by scenario" },
   { color: MAP_COLORS.focused, label: "Focused entity" },
   { color: MAP_COLORS.diversion, label: "Diversion destination" },
@@ -179,21 +233,18 @@ function EntityMarker({
   const coords = featureLatLng(feature);
   if (!coords) return null;
 
+  const kind = kindForType(info.type);
+  const markerColor = isFocused
+    ? MAP_COLORS.focused
+    : isHighlighted
+      ? MAP_COLORS.affected
+      : KIND_COLORS[kind] || MAP_COLORS.flight;
+
   return (
-    <CircleMarker
+    <Marker
       ref={markerRef}
-      center={coords}
-      radius={isHighlighted || isFocused ? 9 : 5}
-      pathOptions={{
-        color: isFocused ? MAP_COLORS.focused : isHighlighted ? MAP_COLORS.affected : MAP_COLORS.entity,
-        fillColor: isFocused
-          ? MAP_COLORS.focused
-          : isHighlighted
-            ? MAP_COLORS.affected
-            : MAP_COLORS.entity,
-        fillOpacity: isHighlighted || isFocused ? 0.9 : 0.55,
-        weight: isHighlighted || isFocused ? 2 : 1,
-      }}
+      position={coords}
+      icon={entityIcon(kind, markerColor, isHighlighted || isFocused)}
     >
       <Popup>
         <div className="impact-map-popup">
@@ -260,7 +311,7 @@ function EntityMarker({
           ) : null}
         </div>
       </Popup>
-    </CircleMarker>
+    </Marker>
   );
 }
 
@@ -450,11 +501,25 @@ export const ImpactMapPanel = memo(function ImpactMapPanel({
         <ul className="impact-map-legend" aria-label="Map legend">
           {MAP_LEGEND_ITEMS.map((item) => (
             <li key={item.label} className="impact-map-legend-item">
-              <span
-                className="impact-map-legend-swatch"
-                style={{ backgroundColor: item.color }}
-                aria-hidden="true"
-              />
+              {item.kind ? (
+                <span
+                  className="impact-map-legend-icon"
+                  dangerouslySetInnerHTML={{
+                    __html: entityIconHtml(
+                      item.kind,
+                      KIND_COLORS[item.kind] || MAP_COLORS.flight,
+                      14,
+                      2,
+                    ),
+                  }}
+                />
+              ) : (
+                <span
+                  className="impact-map-legend-swatch"
+                  style={{ backgroundColor: item.color }}
+                  aria-hidden="true"
+                />
+              )}
               <span>{item.label}</span>
             </li>
           ))}

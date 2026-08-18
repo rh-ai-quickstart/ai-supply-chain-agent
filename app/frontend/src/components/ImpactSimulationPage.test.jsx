@@ -7,6 +7,7 @@ import { ImpactSimulationPage } from "./ImpactSimulationPage";
 vi.mock("react-leaflet", () => ({
   MapContainer: ({ children }) => <div data-testid="map">{children}</div>,
   TileLayer: () => null,
+  Marker: ({ children }) => <div>{children}</div>,
   CircleMarker: ({ children }) => <div>{children}</div>,
   Popup: ({ children }) => <div>{children}</div>,
   Polyline: () => <div data-testid="diversion-route" />,
@@ -26,6 +27,20 @@ vi.mock("../services/generalSimulationService", () => ({
   getImpactEntitiesGeoJson: (...args) => getImpactEntitiesGeoJson(...args),
   runImpactQuery: (...args) => runImpactQuery(...args),
 }));
+
+async function expandResultsSection(labelPattern) {
+  const trigger = screen
+    .getAllByRole("button")
+    .find(
+      (button) =>
+        button.classList.contains("collapsible-section__trigger") &&
+        new RegExp(labelPattern, "i").test(button.textContent || ""),
+    );
+  if (!trigger) {
+    throw new Error(`Collapsible section not found: ${labelPattern}`);
+  }
+  await userEvent.click(trigger);
+}
 
 describe("ImpactSimulationPage", () => {
   beforeEach(() => {
@@ -63,7 +78,7 @@ describe("ImpactSimulationPage", () => {
       );
     });
 
-    await userEvent.click(screen.getByRole("button", { name: /Run impact query/i }));
+    await userEvent.click(screen.getByRole("button", { name: "UK Airspace Closure" }));
 
     await waitFor(() => {
       expect(runImpactQuery).toHaveBeenCalledWith({
@@ -72,6 +87,7 @@ describe("ImpactSimulationPage", () => {
       });
     });
 
+    await expandResultsSection("Answer");
     await waitFor(() => {
       expect(screen.getByTestId("markdown")).toHaveTextContent(
         "Three aircraft are affected by the UK airspace closure.",
@@ -84,11 +100,12 @@ describe("ImpactSimulationPage", () => {
     render(<ImpactSimulationPage />);
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: /Run impact query/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "UK Airspace Closure" })).toBeInTheDocument();
     });
 
-    await userEvent.click(screen.getByRole("button", { name: /Run impact query/i }));
+    await userEvent.click(screen.getByRole("button", { name: "UK Airspace Closure" }));
 
+    await expandResultsSection("Recommended diversions");
     await waitFor(() => {
       expect(screen.getByRole("button", { name: /opensky-407290.*Dublin/i })).toBeInTheDocument();
     });
@@ -164,7 +181,7 @@ describe("ImpactSimulationPage", () => {
     });
     expect(getImpactEntitiesGeoJson).not.toHaveBeenCalled();
     expect(
-      screen.getByText(/Chat in progress — map refresh and impact query paused/i),
+      screen.getByText(/Chat in progress — map refresh and Scenario paused/i),
     ).toBeInTheDocument();
 
     rerender(<ImpactSimulationPage chatLoading={false} />);
@@ -184,12 +201,87 @@ describe("ImpactSimulationPage", () => {
     render(<ImpactSimulationPage />);
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: /Run impact query/i })).toBeEnabled();
+      expect(screen.getByRole("button", { name: "UK Airspace Closure" })).toBeEnabled();
     });
-    await userEvent.click(screen.getByRole("button", { name: /Run impact query/i }));
+    await userEvent.click(screen.getByRole("button", { name: "UK Airspace Closure" }));
 
     await waitFor(() => {
       expect(screen.getByText("solver unavailable")).toBeInTheDocument();
     });
+  });
+
+  it("runs the impact query and highlights the button when a scenario is selected", async () => {
+    listImpactScenarios.mockResolvedValue({
+      success: true,
+      scenarios: ["opensky-uk-closure-001", "supply-chain-port-strike-la"],
+    });
+    render(<ImpactSimulationPage />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Port Strike LA" })).toBeInTheDocument();
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: "Port Strike LA" }));
+
+    await waitFor(() => {
+      expect(runImpactQuery).toHaveBeenCalledWith({
+        scenarioId: "supply-chain-port-strike-la",
+        question: expect.stringContaining("Port of Los Angeles"),
+      });
+    });
+    expect(screen.getByRole("button", { name: "Port Strike LA" })).toHaveClass("btn--active");
+    expect(screen.getByRole("button", { name: "UK Airspace Closure" })).not.toHaveClass(
+      "btn--active",
+    );
+  });
+
+  it("runs the impact query from a suggested prompt chip", async () => {
+    render(<ImpactSimulationPage />);
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: /Show affected aircraft/i }),
+      ).toBeInTheDocument();
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: /Show affected aircraft/i }));
+
+    await waitFor(() => {
+      expect(runImpactQuery).toHaveBeenCalledWith({
+        scenarioId: "opensky-uk-closure-001",
+        question: "Show affected aircraft and recommend diversions.",
+      });
+    });
+  });
+
+  it("sends a suggested prompt through the chat agent and saves it as a chat message", async () => {
+    const onSendPrompt = vi.fn();
+    render(<ImpactSimulationPage onSendPrompt={onSendPrompt} />);
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: /Show affected aircraft/i }),
+      ).toBeInTheDocument();
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: /Show affected aircraft/i }));
+
+    expect(onSendPrompt).toHaveBeenCalledWith(
+      "Show affected aircraft and recommend diversions.",
+    );
+    expect(runImpactQuery).not.toHaveBeenCalled();
+  });
+
+  it("opens create scenario from the query panel button", async () => {
+    const onOpenCreateScenario = vi.fn();
+    render(<ImpactSimulationPage onOpenCreateScenario={onOpenCreateScenario} />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /Create scenario/i })).toBeInTheDocument();
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: /Create scenario/i }));
+
+    expect(onOpenCreateScenario).toHaveBeenCalledTimes(1);
   });
 });

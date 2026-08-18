@@ -128,4 +128,46 @@ describe("useImpactSimulation", () => {
     );
     await waitFor(() => expect(onScenarioChange).toHaveBeenCalledWith("opensky-uk-closure-001"));
   });
+
+  it("runs the impact query automatically when the scenario is changed", async () => {
+    listImpactScenarios.mockResolvedValue({
+      success: true,
+      scenarios: ["opensky-uk-closure-001", "supply-chain-port-strike-la"],
+    });
+    runImpactQuery.mockResolvedValue({ success: true, affected_entities: [] });
+    const onScenarioChange = vi.fn();
+    const { result } = renderHook(() => useImpactSimulation({ onScenarioChange }));
+    await waitFor(() => expect(result.current.scenariosLoading).toBe(false));
+
+    act(() => result.current.handleChangeScenarioId("supply-chain-port-strike-la"));
+
+    expect(onScenarioChange).toHaveBeenCalledWith("supply-chain-port-strike-la");
+    await waitFor(() =>
+      expect(runImpactQuery).toHaveBeenCalledWith({
+        scenarioId: "supply-chain-port-strike-la",
+        question: expect.stringContaining("Port of Los Angeles"),
+      }),
+    );
+    expect(result.current.mapMode).toBe("scenario");
+  });
+
+  it("runs the impact query from a suggested prompt and updates the question", async () => {
+    runImpactQuery.mockResolvedValue({ success: true, affected_entities: [] });
+    const { result } = renderHook(() =>
+      useImpactSimulation({ initialScenarioId: "opensky-uk-closure-001" }),
+    );
+    await waitFor(() => expect(result.current.scenariosLoading).toBe(false));
+
+    await act(async () => {
+      await result.current.handleRunSuggestedPrompt(
+        "Show affected aircraft and recommend diversions.",
+      );
+    });
+
+    expect(runImpactQuery).toHaveBeenCalledWith({
+      scenarioId: "opensky-uk-closure-001",
+      question: "Show affected aircraft and recommend diversions.",
+    });
+    expect(result.current.question).toBe("Show affected aircraft and recommend diversions.");
+  });
 });

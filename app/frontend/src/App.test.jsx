@@ -32,7 +32,7 @@ describe("App", () => {
     await waitFor(() => {
       expect(screen.getByRole("heading", { name: /live flights/i })).toBeInTheDocument();
     });
-    expect(screen.getByRole("button", { name: "Live Flights" })).toHaveAttribute(
+    expect(screen.getByRole("button", { name: "All Flights" })).toHaveAttribute(
       "aria-pressed",
       "true",
     );

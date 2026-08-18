@@ -54,6 +54,10 @@ ingest:
 # fullnameOverride is required: the official neo4j chart names Service/STS after
 # the Helm release (e.g. supply-chain-dashboard). api/bootstrap wait for host
 # "neo4j", so without this override general-sim-api stays Init:wait-for-deps.
+#
+# Published gen-sim also pins podSpec.serviceAccountName=neo4j-sa (OpenShift
+# anyuid). Clear it here so the official chart uses the default SA on Kind;
+# the Kind action still creates neo4j-sa if the overlay is missed.
 general-simulation:
   # Do not inherit values.yaml MaaS (external-model.enabled: true). Kind has
   # no llama-stack and must not try LiteMaaS / in-cluster vLLM.

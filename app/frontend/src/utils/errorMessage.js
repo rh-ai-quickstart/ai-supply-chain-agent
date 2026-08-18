@@ -2,7 +2,7 @@
  * Shared error-to-user-message mapping. Consolidates the ad hoc
  * `err instanceof Error ? err.message : ...` / AbortError-swallowing logic
  * that was duplicated across `ImpactSimulationPage`, `KnowledgeBasesPage`,
- * and `CreateScenarioPage`.
+ * and `CreateScenarioModal`.
  */
 
 /** True when `err` is a `fetch`/`AbortController` cancellation, not a real failure. */

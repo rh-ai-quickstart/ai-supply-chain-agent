@@ -43,3 +43,5 @@ helm/secrets.yaml
 
 # IDE workspace files
 .cursor/
+venv/
+app/backend/venv/

@@ -7,10 +7,11 @@ from clients.llama_stack_client import LlamaStackClient
 from clients.news_client import NewsClient
 from services.general_simulation_service import GeneralSimulationService
 from services.news_service import NewsService
+from services.news_vector_store_service import NewsVectorStoreService
 
 logger = logging.getLogger(__name__)
 
-_LLM_TOOL_NAMES = ("knowledge_base", "general_simulation", "fetch_news")
+_LLM_TOOL_NAMES = ("news_knowledge_base", "knowledge_base", "general_simulation", "fetch_news")
 
 
 @dataclass(frozen=True)
@@ -60,16 +61,45 @@ class AgentService:
         llama_stack_client: LlamaStackClient,
         general_simulation_client: GeneralSimulationClient | None = None,
         news_client: NewsClient | None = None,
+        news_vector_store: NewsVectorStoreService | None = None,
     ):
         self._llama_client = llama_stack_client
         self._sim_service = GeneralSimulationService(
             client=general_simulation_client or GeneralSimulationClient(),
         )
         self._news_service = NewsService(client=news_client or NewsClient())
+        self._news_vector_store = news_vector_store
         self._tools: dict[str, ToolSpec] = {}
         self._register_tools()
 
     def _register_tools(self) -> None:
+        news_knowledge_base = ToolSpec(
+            name="news_knowledge_base",
+            description=(
+                "Search the recent news knowledge base for relevant, up-to-date news "
+                "articles about supply chains, logistics, trade, and disruptions. "
+                "Use for questions about the latest news, current events, or recent "
+                "disruptions affecting the supply chain."
+            ),
+            parameters={
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "The search query for the news knowledge base",
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "description": "Maximum number of results to return (default 5)",
+                        "default": 5,
+                    },
+                },
+                "required": ["query"],
+            },
+            fn=self._run_news_knowledge_base,
+        )
+        self._tools[news_knowledge_base.name] = news_knowledge_base
+
         knowledge_base = ToolSpec(
             name="knowledge_base",
             description=(
@@ -177,6 +207,37 @@ class AgentService:
                 output="",
                 error=str(exc),
             )
+
+    def _run_news_knowledge_base(
+        self,
+        query: str,
+        max_results: int = 5,
+    ) -> ToolResult:
+        if not query or not query.strip():
+            return ToolResult(success=False, output="", error="query is required")
+        if self._news_vector_store is None:
+            return ToolResult(
+                success=False,
+                output="",
+                error="News knowledge base is not available",
+            )
+
+        context = self._news_vector_store.search(
+            query.strip(),
+            max_results=max_results,
+        )
+        if not context:
+            return ToolResult(
+                success=True,
+                output="No recent news articles found matching that query.",
+                data=[],
+            )
+
+        return ToolResult(
+            success=True,
+            output=context,
+            data=context,
+        )
 
     def _run_knowledge_base(
         self,

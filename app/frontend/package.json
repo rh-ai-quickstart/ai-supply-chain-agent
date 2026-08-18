@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "leaflet": "^1.9.4",
+    "lucide-react": "^1.31.0",
     "prop-types": "^15.8.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
