@@ -1,130 +1,116 @@
+# Image registry — override with: --set global.registry=quay.io/<your-org>
+# Propagates to supply-chain app images and the general-simulation subchart.
 global:
-  models:
-    llama-3-2-3b-instruct:
-      id: meta-llama/Llama-3.2-3B-Instruct
-      enabled: false
-    # Red Hat LiteMaaS (OpenAI-compatible). Set apiToken in helm/secrets.yaml.
-    # Do NOT use ${env.VAR} here — the llama-stack wait-for-models init script
-    # expands it unquoted and bash fails with "bad substitution".
-    external-model:
-      enabled: true
-      id: Qwen3.6-35B-A3B
-      url: https://litemaas.rhoai.rh-aiservices-bu.com/v1
-      apiToken: "" # Set in helm/secrets.yaml
+  registry: quay.io/rh-ai-quickstart
+  imageTag: latest
+  images:
+    backend: ai-supply-chain-agent-backend
+    frontend: ai-supply-chain-agent-frontend
+    ingest: ai-supply-chain-agent-ingestion
+    app: general-sim-api
+    postgres: general-sim-postgres
 
-# Shared Postgres: when general-simulation is enabled (default), disable the
-# standalone pgvector StatefulSet and reuse gen-sim's Postgres (AGE + vector +
-# PostGIS). The umbrella template creates Secret/pgvector for Llama Stack.
-# For agent-only installs (general-simulation.enabled: false), set
-# pgvector.enabled: true so the subchart deploys its own DB.
-pgvector:
-  enabled: false
-  secret:
-    create: true
-    # Must match general-simulation.postgres.postgres.username / database /
-    # password (Service hostname is "postgres").
-    user: sim
-    # ⚠️ Demo default only. Override via helm/secrets.yaml if needed.
-    # Do NOT set password to "" — an empty overlay blanks the Secret and
-    # breaks LlamaStack auth to Postgres.
-    # Changing the password after first install requires deleting the gen-sim
-    # Postgres PVC (POSTGRES_PASSWORD applies only on init).
-    password: password
-    dbname: sim
-    host: postgres
-    port: "5432"
-
-llama-stack:
-  enabled: true
-  rawDeploymentMode: true
-  pgvector:
-    enabled: true
-  secrets: {}
-
-# Local vLLM disabled — inference comes from MaaS (global.models.external-model).
-llm-service:
-  enabled: false
-  device: cpu
-  secret:
-    # Unused while llm-service.enabled is false; keep for re-enabling local models.
-    hf_token: ""
-    enabled: true
-  models:
-    llama-3-2-3b-instruct:
-      enabled: false
-      device: cpu
-
-# General Simulation platform (optional Helm subchart).
-# Same-namespace Service URL when enabled. For a standalone gen-sim install in
-# another project, set enabled: false and point GENERAL_SIMULATION_BASE_URL at
-# http://general-sim-api.<ns>.svc:8000 instead.
-#
-# Gen-sim uses its own OpenAI-compatible LLM (api.openai.com by default) — not
-# LiteMaaS. Set api/ingestion.llm.apiKey in helm/secrets.yaml.
+# Platform infra (Postgres, Neo4j, Llama Stack, llm-service, API, ingestion)
+# is deployed via the general-simulation umbrella subchart (chart 0.0.1).
+# Model selection (Llama Stack providers, llm-service, api.models.generation)
+# is owned entirely under general-simulation — supply-chain reads
+# general-simulation.api.models.generation for LLAMA_STACK_MODEL.
 general-simulation:
-  enabled: true
-  # The umbrella chart deploys its own llama-stack; disable the subchart's
-  # bundled one so it does not also render a duplicate "pgvector" Secret
-  # (llamastack-pg-secret.yaml), which breaks `helm install` with
-  # "secrets pgvector already exists".
-  llama-stack:
-    enabled: false
-    pgvector:
-      enabled: false
-  vllm:
-    enabled: false
-  # Stable Service/STS name so api/bootstrap can wait on host "neo4j" even when
-  # this chart is installed under a parent release (e.g. supply-chain-dashboard).
-  # Changing this on an existing install recreates Neo4j with a new PVC.
+  global:
+    models:
+      # Disable gen-sim default OpenAI provider (enabled: true in the subchart).
+      openai:
+        enabled: false
+        id: gpt-4o-mini          # or gpt-4o, etc.
+        url: https://api.openai.com/v1
+      deepseek-r1-distill-qwen-1-5b:
+        enabled: false
+        id: deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B
+        apiToken: unused
+      # Optional external MaaS — disable llm-service and set apiToken in secrets.
+      external-model:
+        enabled: true
+        id: Qwen3.6-35B-A3B
+        url: https://litemaas.rhoai.rh-aiservices-bu.com/v1
+        apiToken: ""
+  openshift:
+    neo4j:
+      scc:
+        enabled: true
+  postgres:
+    postgres:
+      username: sim
+      # Demo default — override via helm/secrets.yaml (keep in sync across
+      # postgres.* blocks below). Changing after install requires deleting the
+      # gen-sim Postgres PVC (POSTGRES_PASSWORD applies only on init).
+      password: password
+      database: sim
   neo4j:
     fullnameOverride: neo4j
-    # gen-sim pins Neo4j to ServiceAccount neo4j-sa (anyuid on OpenShift). The
-    # umbrella chart creates the SA; cluster admins must grant SCC before install:
-    #   oc adm policy add-scc-to-user anyuid system:serviceaccount:<ns>:neo4j-sa
-  # Override subchart default (quay.io/robertsandoval/general-sim-app).
+    disableLookups: true
+  bootstrap:
+    enabled: true
+    waitFor:
+      enabled: true
+      timeoutSeconds: 300
+    postgres:
+      user: sim
+      password: password
+      database: sim
+      host: postgres
+    neo4j:
+      password: password
+  llama-stack:
+    enabled: true
+    rawDeploymentMode: true
+    # Secret/pgvector is created by gen-sim (points Llama Stack at Postgres).
+    pgvector:
+      enabled: true
+  llm-service:
+    enabled: false
+    device: cpu
+    secret:
+      enabled: true
+      hf_token: "" # Set in helm/secrets.yaml
+    models:
+      deepseek-r1-distill-qwen-1-5b:
+        enabled: true
+        id: deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B
+        device: gpu
   api:
-    image: quay.io/rh-ai-quickstart/general-simulation-api:latest
-    # Init (TCP) → lifespan (pool/driver) → startup/readiness (/health).
     waitFor:
       enabled: true
       timeoutSeconds: 300
       startupFailureThreshold: 60
     llm:
       backend: openai
-      baseUrl: https://api.openai.com/v1
-      # apiKey via helm/secrets.yaml
+      baseUrl: http://llamastack:8321/v1
+      apiKey: unused
+    models:
+      generation: deepseek-r1-distill-qwen-1-5b/deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B
+      embedding: nomic-ai/nomic-embed-text-v1.5
+      embeddingDimension: "768"
     postgres:
       user: sim
       password: password
       database: sim
       host: postgres
-  bootstrap:
-    image: quay.io/rh-ai-quickstart/general-simulation-api:latest
-    waitFor:
-      enabled: true
-      timeoutSeconds: 300
-    postgres:
-      user: sim
+    neo4j:
       password: password
-      database: sim
-      host: postgres
   # Live OpenSky CronJob (opensky-network.org). Keep disabled on AWS/hyperscaler
   # clusters: OpenSky drops those source IPs at TCP (documented; they refuse AI
   # dashboard allowlists). Cluster NetworkPolicy / EgressFirewall cannot fix it.
   # Seed offline demo data with general-simulation scripts/seed_demo.py instead.
   # To use live data: egress via a non-hyperscaler proxy, or swap the adapter.
   ingestion:
-    enabled: false
-    image: quay.io/rh-ai-quickstart/general-simulation-api:latest
-    llm:
-      backend: openai
-      baseUrl: https://api.openai.com/v1
-      # apiKey via helm/secrets.yaml
+    enabled: true
     postgres:
       user: sim
       password: password
       database: sim
       host: postgres
+    neo4j:
+      password: password
 
 imagePullSecrets: []
 
@@ -132,8 +118,8 @@ backend:
   enabled: true
   replicaCount: 1
   image:
-    repository: quay.io/rh-ai-quickstart/ai-supply-chain-agent-backend
-    tag: latest
+    name: ai-supply-chain-agent-backend
+    tag: ""
     pullPolicy: Always
   service:
     port: 5001
@@ -141,20 +127,15 @@ backend:
     enabled: true
     host: ""
     timeout: 5m
-  # Secret/pgvector (bridge template or pgvector subchart) — key "password".
+  # Secret/pgvector (created by general-simulation for Llama Stack) — key "password".
   pgvectorSecretName: pgvector
   env:
-    LLAMA_STACK_URL: http://llamastack.supply-chain-dashboard.svc.cluster.local:8321
-    # LLAMA_STACK_MODEL is set by backend-deployment from global.models
-    # (external-model/<id> or llama-3-2-3b-instruct/<id>), not from this map.
-    # OpenAI client timeout (seconds) for chat and vector-store API calls.
+    LLAMA_STACK_URL: http://llamastack:8321
+    # LLAMA_STACK_MODEL / LLAMA_STACK_OPENAI_MODEL come from general-simulation.api.models.generation.
     LLAMA_STACK_TIMEOUT_SECONDS: "300"
-    EMBED_MODEL: all-MiniLM-L6-v2
     # PG_ prefix avoids collision with a Kubernetes service-discovery
     # PGVECTOR_PORT=tcp://… var if a Service named pgvector exists.
-    # Same-namespace short name when general-simulation is a subchart.
     GENERAL_SIMULATION_BASE_URL: "http://general-sim-api:8000"
-    # Shared gen-sim Postgres (when pgvector.enabled is false).
     PG_HOST: postgres
     PG_PORT: "5432"
     PG_USER: sim
@@ -173,8 +154,8 @@ ingest:
   # failed run; set to "before-hook-creation" to auto-delete the prior Job.
   hookDeletePolicy: ""
   image:
-    repository: quay.io/rh-ai-quickstart/ai-supply-chain-agent-ingestion
-    tag: latest
+    name: ai-supply-chain-agent-ingestion
+    tag: ""
     pullPolicy: Always
   # "langchain" — client-side chunking/embedding via LangChain + PGVector.
   # "llamastack" — server-side: uploads files to LlamaStack, which handles
@@ -195,8 +176,8 @@ frontend:
   enabled: true
   replicaCount: 1
   image:
-    repository: quay.io/rh-ai-quickstart/ai-supply-chain-agent-frontend
-    tag: latest
+    name: ai-supply-chain-agent-frontend
+    tag: ""
     pullPolicy: Always
   service:
     port: 8080

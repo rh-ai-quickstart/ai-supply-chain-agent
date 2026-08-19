@@ -1,25 +1,13 @@
 apiVersion: v2
 name: supply-chain-agent
-description: AI Supply Chain Agent — demo dashboard with shared Postgres (pgvector) and Llama Stack
+description: AI Supply Chain Agent — demo dashboard via general-simulation platform subchart
 type: application
 version: 0.2.0
 appVersion: "0.1.0"
 
 dependencies:
-  - name: pgvector
-    version: 0.5.5
-    repository: https://rh-ai-quickstart.github.io/ai-architecture-charts
-    condition: pgvector.enabled
-  - name: llama-stack
-    version: 0.8.5
-    repository: https://rh-ai-quickstart.github.io/ai-architecture-charts
-    condition: llama-stack.enabled
-  - name: llm-service
-    version: 0.5.9
-    repository: https://rh-ai-quickstart.github.io/ai-architecture-charts
-    condition: llm-service.enabled
-  # Published from general-simulation main (GitHub Pages chart repo).
+  # Postgres, Neo4j, Llama Stack, llm-service, API, and ingestion are owned by
+  # general-simulation 0.0.1 — not sibling dependencies of this umbrella.
   - name: general-simulation
-    version: 0.2.0
+    version: 0.0.1
     repository: https://robertsandoval.github.io/general-simulation
-    condition: general-simulation.enabled

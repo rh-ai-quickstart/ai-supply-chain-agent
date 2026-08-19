@@ -7,9 +7,30 @@ REGISTRY        ?= quay.io/rh-ai-quickstart
 BACKEND_IMAGE      ?= $(REGISTRY)/ai-supply-chain-agent-backend
 INGEST_IMAGE       ?= $(REGISTRY)/ai-supply-chain-agent-ingestion
 FRONTEND_IMAGE     ?= $(REGISTRY)/ai-supply-chain-agent-frontend
-BACKEND_TAG        ?= dev
-INGEST_TAG         ?= dev
-FRONTEND_TAG       ?= dev
+BACKEND_TAG        ?= latest
+INGEST_TAG         ?= latest
+FRONTEND_TAG       ?= latest
+GEN_SIM_TAG        ?= $(BACKEND_TAG)
+GEN_SIM_APP_IMAGE  ?= $(REGISTRY)/general-sim-api:$(GEN_SIM_TAG)
+GEN_SIM_POSTGRES_IMAGE ?= $(REGISTRY)/general-sim-postgres:$(GEN_SIM_TAG)
+
+# Helm --set flags for container images (supply-chain chart).
+HELM_IMAGE_SETS = \
+	--set global.registry=$(REGISTRY) \
+	--set global.imageTag=$(BACKEND_TAG) \
+	--set backend.image.tag=$(BACKEND_TAG) \
+	--set frontend.image.tag=$(FRONTEND_TAG) \
+	--set ingest.image.tag=$(INGEST_TAG)
+
+# Kind: supply-chain images from local registry via image.repository (avoids
+# Helm global.registry bleed into the general-simulation subchart).
+HELM_KIND_IMAGE_SETS = \
+	--set backend.image.repository=$(REGISTRY)/ai-supply-chain-agent-backend \
+	--set backend.image.tag=$(BACKEND_TAG) \
+	--set frontend.image.repository=$(REGISTRY)/ai-supply-chain-agent-frontend \
+	--set frontend.image.tag=$(FRONTEND_TAG) \
+	--set ingest.image.repository=$(REGISTRY)/ai-supply-chain-agent-ingestion \
+	--set ingest.image.tag=$(INGEST_TAG)
 
 # --- Helm Config ---
 HELM_CHART     ?= ./helm
@@ -23,6 +44,7 @@ BUILD_PLATFORM ?= linux/amd64
 PUSH_EXTRA_ARGS ?=
 KIND_VALUES_FILE ?= $(HELM_CHART)/values-kind.yaml
 HELM_EXTRA_ARGS ?=
+GENERAL_SIM_CHART_DIR ?= $(CURDIR)/../../general-simulation/deploy/helm/general-simulation
 
 # --- Secrets (auto-applied if helm/secrets.yaml exists) ---
 SECRETS_FILE ?= $(HELM_CHART)/secrets.yaml
@@ -62,10 +84,12 @@ help:
 	@echo ""
 	@echo "  Helm:"
 	@echo "    helm-deps          Update Helm chart dependencies"
+	@echo "    helm-deps-local    Package general-simulation from sibling checkout (before chart is republished to GitHub Pages)"
 	@echo "    helm-lint          Lint the Helm chart"
 	@echo "    helm-test          Run Helm unit tests (helm-unittest)"
 	@echo "    helm-render        Render chart templates to stdout (dry-run)"
-	@echo "    helm-install       Install the Helm release"
+	@echo "    helm-install       Install the Helm release (OpenShift project)"
+	@echo "    helm-upgrade-install  helm upgrade --install with REGISTRY / secrets"
 	@echo "    helm-upgrade       Upgrade an existing Helm release"
 	@echo "    helm-uninstall     Uninstall the Helm release"
 	@echo "    helm-status        Show Helm release status"
@@ -86,6 +110,8 @@ help:
 	@echo "    k8s-namespace      Create/set kubectl namespace (NAMESPACE)"
 	@echo "    kind-verify          Post-deploy checks (port-forward + curl; Kind cluster must be up)"
 	@echo "    kind-verify-e2e      kind-verify + Playwright UI tests (RUN_UI_E2E=1)"
+	@echo "    kind-preflight       Check Podman VM / Kind node RAM before local smoke"
+	@echo "    local-kind-smoke-test  Full local Kind smoke (cluster + images + helm-install-kind + verify)"
 	@echo ""
 	@echo "  E2E UI (Playwright):"
 	@echo "    e2e-ui-install       Install pytest-playwright and Chromium"
@@ -107,6 +133,7 @@ help:
 	@echo "    clean              Remove locally built images"
 	@echo ""
 	@echo "  Overridable variables (e.g. make build-backend BACKEND_TAG=v2):"
+	@echo "    GEN_SIM_TAG        $(GEN_SIM_TAG)"
 	@echo "    REGISTRY           $(REGISTRY)"
 	@echo "    BACKEND_TAG        $(BACKEND_TAG)"
 	@echo "    INGEST_TAG         $(INGEST_TAG)"
@@ -294,6 +321,14 @@ helm-deps:
 	@echo ">>> Updating Helm dependencies in $(HELM_CHART)"
 	helm dependency update $(HELM_CHART)
 
+.PHONY: helm-deps-local
+helm-deps-local:
+	@echo ">>> Packaging general-simulation from $(GENERAL_SIM_CHART_DIR) into $(HELM_CHART)/charts"
+	@test -f "$(GENERAL_SIM_CHART_DIR)/Chart.yaml" || \
+	  { echo ">>> ERROR: chart not found. Set GENERAL_SIM_CHART_DIR or clone general-simulation."; exit 1; }
+	helm dependency update "$(GENERAL_SIM_CHART_DIR)"
+	helm package "$(GENERAL_SIM_CHART_DIR)" -d "$(HELM_CHART)/charts"
+
 .PHONY: helm-lint
 helm-lint: helm-deps
 	@echo ">>> Linting Helm chart: $(HELM_CHART)"
@@ -308,30 +343,26 @@ helm-test: helm-deps
 
 .PHONY: helm-render
 helm-render: helm-deps
-	@echo ">>> Rendering Helm templates (namespace: $(NAMESPACE))"
+	@echo ">>> Rendering Helm templates (namespace: $(NAMESPACE), registry: $(REGISTRY))"
 	@echo ">>> Secrets file: $(if $(SECRETS_FLAGS),$(SECRETS_FILE) (found),not found - see secrets.example.yaml)"
 	helm template $(HELM_RELEASE) $(HELM_CHART) \
 		--namespace $(NAMESPACE) \
 		-f $(VALUES_FILE) \
 		$(SECRETS_FLAGS) \
-		--set backend.image.tag=$(BACKEND_TAG) \
-		--set frontend.image.tag=$(FRONTEND_TAG) \
-		--set ingest.image.tag=$(INGEST_TAG) \
+		$(HELM_IMAGE_SETS) \
 		$(HELM_EXTRA_ARGS)
 
 .PHONY: helm-install
 helm-install: helm-deps
 	@echo ">>> Installing Helm release: $(HELM_RELEASE) in namespace: $(NAMESPACE)"
-	@echo ">>> Images: backend=$(BACKEND_TAG) frontend=$(FRONTEND_TAG) ingest=$(INGEST_TAG)"
+	@echo ">>> Registry: $(REGISTRY) (backend=$(BACKEND_TAG) frontend=$(FRONTEND_TAG) ingest=$(INGEST_TAG))"
 	@echo ">>> Secrets file: $(if $(SECRETS_FLAGS),$(SECRETS_FILE) (found),not found - see secrets.example.yaml)"
 	oc get namespace $(NAMESPACE) 2>/dev/null || oc new-project $(NAMESPACE)
 	helm install $(HELM_RELEASE) $(HELM_CHART) \
 		--namespace $(NAMESPACE) \
 		-f $(VALUES_FILE) \
 		$(SECRETS_FLAGS) \
-		--set backend.image.tag=$(BACKEND_TAG) \
-		--set frontend.image.tag=$(FRONTEND_TAG) \
-		--set ingest.image.tag=$(INGEST_TAG) \
+		$(HELM_IMAGE_SETS) \
 		$(HELM_EXTRA_ARGS) \
 		--wait \
 		--timeout 10m
@@ -339,18 +370,31 @@ helm-install: helm-deps
 .PHONY: helm-upgrade
 helm-upgrade: helm-deps
 	@echo ">>> Upgrading Helm release: $(HELM_RELEASE) in namespace: $(NAMESPACE)"
-	@echo ">>> Images: backend=$(BACKEND_TAG) frontend=$(FRONTEND_TAG) ingest=$(INGEST_TAG)"
+	@echo ">>> Registry: $(REGISTRY) (backend=$(BACKEND_TAG) frontend=$(FRONTEND_TAG) ingest=$(INGEST_TAG))"
 	@echo ">>> Secrets file: $(if $(SECRETS_FLAGS),$(SECRETS_FILE) (found),not found - see secrets.example.yaml)"
 	helm upgrade $(HELM_RELEASE) $(HELM_CHART) \
 		--namespace $(NAMESPACE) \
 		-f $(VALUES_FILE) \
 		$(SECRETS_FLAGS) \
-		--set backend.image.tag=$(BACKEND_TAG) \
-		--set frontend.image.tag=$(FRONTEND_TAG) \
-		--set ingest.image.tag=$(INGEST_TAG) \
+		$(HELM_IMAGE_SETS) \
 		$(HELM_EXTRA_ARGS) \
 		--wait \
 		--timeout 10m
+
+.PHONY: helm-upgrade-install
+helm-upgrade-install: helm-deps
+	@echo ">>> Installing/upgrading Helm release: $(HELM_RELEASE) in namespace: $(NAMESPACE)"
+	@echo ">>> Registry: $(REGISTRY) (backend=$(BACKEND_TAG) frontend=$(FRONTEND_TAG) ingest=$(INGEST_TAG))"
+	@echo ">>> Secrets file: $(if $(SECRETS_FLAGS),$(SECRETS_FILE) (found),not found - see secrets.example.yaml)"
+	helm upgrade --install $(HELM_RELEASE) $(HELM_CHART) \
+		--namespace $(NAMESPACE) \
+		--create-namespace \
+		-f $(VALUES_FILE) \
+		$(SECRETS_FLAGS) \
+		$(HELM_IMAGE_SETS) \
+		$(HELM_EXTRA_ARGS) \
+		--wait \
+		--timeout 15m
 
 .PHONY: helm-uninstall
 helm-uninstall:
@@ -376,9 +420,17 @@ k8s-namespace:
 kind-verify:
 	@bash ./scripts/ci/kind-verify-deployment.sh
 
+.PHONY: kind-preflight
+kind-preflight:
+	@bash ./scripts/ci/kind-preflight.sh
+
 .PHONY: kind-verify-e2e
 kind-verify-e2e: e2e-ui-install
 	@RUN_UI_E2E=1 bash ./scripts/ci/kind-verify-deployment.sh
+
+.PHONY: local-kind-smoke-test
+local-kind-smoke-test:
+	@bash ./scripts/local-kind-smoke-test.sh $(LOCAL_KIND_SMOKE_ARGS)
 
 .PHONY: e2e-ui-install
 e2e-ui-install:
@@ -399,12 +451,7 @@ helm-install-kind: helm-deps k8s-namespace
 		-f $(VALUES_FILE) \
 		-f $(KIND_VALUES_FILE) \
 		$(SECRETS_FLAGS) \
-		--set backend.image.repository=$(REGISTRY)/ai-supply-chain-agent-backend \
-		--set backend.image.tag=$(BACKEND_TAG) \
-		--set frontend.image.repository=$(REGISTRY)/ai-supply-chain-agent-frontend \
-		--set frontend.image.tag=$(FRONTEND_TAG) \
-		--set ingest.image.repository=$(REGISTRY)/ai-supply-chain-agent-ingestion \
-		--set ingest.image.tag=$(INGEST_TAG) \
+		$(HELM_KIND_IMAGE_SETS) \
 		$(HELM_EXTRA_ARGS) \
 		--wait \
 		--timeout 15m
@@ -464,10 +511,10 @@ ingest:
 		--env KNOWLEDGE_BASE_DIR=knowledge_base \
 		--env INGEST_DROP_OLD=true \
 		--env LLAMA_STACK_URL=http://llamastack:8321 \
-		--env PG_HOST=pgvector \
+		--env PG_HOST=postgres \
 		--env PG_PORT=5432 \
-		--env PG_USER=postgres \
-		--env PG_DB=blueprint
+		--env PG_USER=sim \
+		--env PG_DB=sim
 
 .PHONY: ingest-logs
 ingest-logs:

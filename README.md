@@ -67,17 +67,13 @@ flowchart TB
         ING["Ingest Job<br/>risk docs → embeddings"]
       end
 
-      subgraph data["Data & AI (Helm subcharts)"]
+      subgraph data["Data & AI (gen-sim subchart)"]
         PG[("PGVector<br/>PostgreSQL + pgvector")]
         LS["Llama Stack<br/>:8321"]
+        VLLM["llm-service<br/>in-cluster vLLM"]
         GS["General Simulation<br/>API + Neo4j + Postgres"]
       end
     end
-  end
-
-  subgraph external["External"]
-    MAAS["LiteMaaS / OpenAI-compatible<br/>inference (default)"]
-    OAI["OpenAI-compatible<br/>(gen-sim LLM)"]
   end
 
   U1 --> R_FE --> FE
@@ -88,8 +84,8 @@ flowchart TB
   BE -->|"impact query / GeoJSON"| GS
   BE -->|"RAG similarity search"| PG
   BE -->|"chat, vector stores, ingest API"| LS
-  LS --> MAAS
-  GS --> OAI
+  LS --> VLLM
+  GS --> LS
 
   ING -->|"llamastack or langchain strategy"| LS
   ING -.->|"langchain path"| PG
@@ -101,9 +97,8 @@ flowchart TB
   classDef ext fill:#eff6ff,stroke:#2563eb,color:#111
   class U1 user
   class FE,BE,ING app
-  class PG,LS,GS data
+  class PG,LS,VLLM,GS data
   class R_FE,R_BE route
-  class MAAS,OAI ext
 ```
 
 #### Impact simulation and RAG chat
@@ -116,9 +111,9 @@ sequenceDiagram
   participant GS as General Simulation
   participant PG as PGVector
   participant LS as Llama Stack
-  participant LLM as MaaS / external model
+  participant VLLM as llm-service (vLLM)
 
-  Note over UI,LLM: Impact map
+  Note over UI,VLLM: Impact map
   UI->>BE: GET /api/v1/general-simulation/scenarios
   BE->>GS: list scenarios
   GS-->>BE: scenario IDs
@@ -127,21 +122,21 @@ sequenceDiagram
   BE->>GS: GeoJSON features
   GS-->>UI: map markers (via BE)
 
-  Note over UI,LLM: Impact query
+  Note over UI,VLLM: Impact query
   UI->>BE: POST /api/v1/general-simulation/query
   BE->>GS: NL impact question + scenario
   GS-->>BE: score, VaR, entities, diversions
   BE-->>UI: Impact results + map highlights
 
-  Note over UI,LLM: RAG chat (SSE stream)
+  Note over UI,VLLM: RAG chat (SSE stream)
   UI->>BE: POST /api/v1/chat
   alt Off-topic prompt
     BE-->>UI: Guardrail reply
   else RAG / tools path
     BE->>PG: Similarity search (optional fallback)
     BE->>LS: Chat completion (augmented prompt)
-    LS->>LLM: Inference
-    LLM-->>LS: Tokens
+    LS->>VLLM: Inference
+    VLLM-->>LS: Tokens
     LS-->>BE: Completion / stream chunks
     BE-->>UI: Markdown answer
   end
@@ -151,16 +146,16 @@ sequenceDiagram
 
 ### Minimum hardware requirements
 
-| Resource | Default (MaaS) | With local `llm-service` |
-|----------|----------------|--------------------------|
-| CPU | 4 vCPU | 8+ vCPU |
-| Memory | 16 GB | 32+ GB (CPU vLLM needs more) |
-| GPU | Not required | 1× NVIDIA A10G (24 GB VRAM) or equivalent, or larger CPU nodes |
-| Storage | 20 GB (PGVector + app) | 50 GB (model weights + PGVector) |
+| Resource | Default (`llm-service`) | Optional MaaS |
+|----------|-------------------------|---------------|
+| CPU | 8+ vCPU | 4 vCPU |
+| Memory | 32+ GB (CPU vLLM needs more) | 16 GB |
+| GPU | Recommended (or CPU with AVX-512) | Not required |
+| Storage | 50 GB (model weights + PGVector) | 20 GB |
 
-> **Note**: If using MaaS (external model endpoint), GPU is not required. `helm/values.yaml` uses LiteMaaS (`global.models.external-model`) and leaves `llm-service.enabled: false`, so no in-cluster model or GPU is deployed.
+> **Note**: Default `helm/values.yaml` enables gen-sim **llm-service** under `general-simulation`. Model selection (`general-simulation.global.models`, `api.models.generation`) is owned by the gen-sim subchart; the supply-chain backend reads `general-simulation.api.models.generation` for `LLAMA_STACK_MODEL`. Set `general-simulation.llm-service.secret.hf_token` in `helm/secrets.yaml`.
 
-**Optional local model:** re-enable `llm-service` and a gated Hugging Face model (CPU or GPU). On AWS CPU mode, instances must support AVX-512 (tested on m6i).
+**Optional MaaS:** configure `general-simulation.global.models.external-model` and disable `llm-service` (see `helm/README.md`).
 
 ### Minimum software requirements
 
@@ -169,7 +164,7 @@ sequenceDiagram
 | OpenShift | 4.21+ |
 | OpenShift AI | 3.4+ |
 | Helm | 3.14+ |
-| Llama Stack | compatible with the `llama-stack` subchart in `helm/` (from [ai-architecture-charts](https://github.com/rh-ai-quickstart/ai-architecture-charts)) |
+| Llama Stack | via `general-simulation` subchart (from [general-simulation](https://github.com/robertsandoval/general-simulation) chart 0.0.1) |
 | Python | 3.12 |
 | Node.js | 22 (frontend builds) |
 | `oc` CLI | Recommended for deploy status and troubleshooting |
@@ -187,8 +182,8 @@ Before deploying, ensure you have:
 - Access to a Red Hat OpenShift cluster with OpenShift AI 3.4+ installed
 - `oc` CLI (OpenShift 4.21+) installed and authenticated
 - `helm` CLI (3.14+) installed
-- API token for your MaaS / LiteMaaS model endpoint (default Option A)
-- Hugging Face token for gated models (Option B / local model only)
+- A [Hugging Face token](https://huggingface.co/settings/tokens) for gen-sim `llm-service` (gated models; set in `helm/secrets.yaml`)
+- Optional: MaaS only if you disable `llm-service` and configure `general-simulation.global.models.external-model`
 - Sibling checkout of [general-simulation](https://github.com/robertsandoval/general-simulation) at `../general-simulation` for `make seed-gen-sim` (recommended for map data)
 
 ### Installation
@@ -202,6 +197,23 @@ Defaults used below (overridable on `make`, e.g. `make helm-install NAMESPACE=my
 | Namespace | `supply-chain-dashboard` |
 | Values file | `helm/values.yaml` |
 | CI/CD Values File | `helm/values-kind.yaml` |
+
+### Kind / local Kubernetes smoke
+
+The same Helm chart installs on Kind for CI (`.github/workflows/kind-helm-smoke.yml`) and local smoke tests. Supply-chain images are built into `localhost:5001` via per-component `image.repository` (`HELM_KIND_IMAGE_SETS`); platform images use `general-simulation.global.registry` in `values-kind.yaml`.
+
+| Environment | Minimum RAM | Notes |
+|-------------|-------------|-------|
+| GHA `ubuntu-latest` | ~7Gi allocatable | CI path — no extra setup |
+| Local Podman + Kind | **8Gi Podman VM** | Neo4j requests 2Gi (official chart minimum) |
+
+```bash
+make kind-preflight                              # check RAM before local smoke
+make local-kind-smoke-test                       # full cluster + install + verify
+make local-kind-smoke-test LOCAL_KIND_SMOKE_ARGS='--recreate --skip-build'
+```
+
+If preflight fails on a 2Gi Podman machine, resize the VM and recreate the cluster — see [`helm/README.md`](helm/README.md#kind--local-kubernetes-smoke).
 
 Run `make help` for the full target list.
 
@@ -218,28 +230,28 @@ cd ai-supply-chain-agent
 oc new-project supply-chain-dashboard
 ```
 
-3. Set your model API token.
+3. Set your Hugging Face token for `llm-service`.
 
-**Option A secrets (default) — use `helm/secrets.yaml`** (recommended for local development):
+**Default — use `helm/secrets.yaml`** (recommended):
 
 ```bash
 cp helm/secrets.example.yaml helm/secrets.yaml
-# Edit helm/secrets.yaml and set global.models.external-model.apiToken
+# Edit helm/secrets.yaml and set general-simulation.llm-service.secret.hf_token
 ```
 
-**Option A secrets — pre-create / override at install** (token never needs to sit in a file):
+**Override at install:**
 
 ```bash
 helm upgrade --install supply-chain-dashboard ./helm \
   -f helm/values.yaml \
-  --set global.models.external-model.apiToken="<your-maas-token>" \
+  --set general-simulation.llm-service.secret.hf_token="<your-hf-token>" \
   --namespace supply-chain-dashboard \
   --create-namespace \
   --wait \
-  --timeout 10m
+  --timeout 15m
 ```
 
-**Only when using Option B (local model):** also set a Hugging Face token so `llm-service` can pull gated weights (`llm-service.secret.hf_token` in `secrets.yaml`, or pre-create Secret `huggingface-secret` with key `HF_TOKEN`).
+**Optional MaaS:** configure under `general-simulation` only — see `helm/README.md`.
 
 Everything else in `helm/values.yaml` works with the chart defaults (images, PGVector demo credentials, in-cluster API proxy, Llama Stack URLs).
 
@@ -257,59 +269,49 @@ make helm-deps
 
 5. Deploy the application.
 
-#### Option A: MaaS / external model (default)
+#### Default: in-cluster `llm-service` (via gen-sim)
 
-`helm/values.yaml` already enables `global.models.external-model` (LiteMaaS) and disables `llm-service`. After setting `global.models.external-model.apiToken` (step 3):
+`helm/values.yaml` enables `general-simulation.llm-service`. After setting the HF token (step 3):
 
 ```bash
 helm upgrade --install supply-chain-dashboard ./helm \
   -f helm/values.yaml \
+  -f helm/secrets.yaml \
   --namespace supply-chain-dashboard \
   --create-namespace \
+  --set global.registry=quay.io/<your-org> \
   --wait \
-  --timeout 10m
+  --timeout 15m
 ```
 
-**Makefile alternatives** (use `VALUES_FILE=helm/my-values.yaml` when not using the default):
+**Makefile:**
 
 ```bash
-# First install (creates the OpenShift project if missing)
-make helm-install VALUES_FILE=helm/values.yaml
-
-# Subsequent upgrades
-make helm-upgrade VALUES_FILE=helm/values.yaml
-
-# Dry-run rendered manifests
-make helm-render VALUES_FILE=helm/values.yaml
-
-# Release status
-make helm-status
+make helm-upgrade-install REGISTRY=quay.io/<your-org>
 ```
 
-The Makefile automatically applies `helm/secrets.yaml` if it exists.
+`global.registry` sets images for supply-chain (backend, frontend, ingest) **and** the general-simulation subchart (postgres, api, bootstrap, ingestion). The Makefile passes the same via `REGISTRY=`.
 
-#### Option B: Local CPU/GPU
+#### Optional: MaaS / external model
 
-Re-enable the in-cluster model and disable MaaS, for example:
+Configure only under `general-simulation`:
 
 ```yaml
-# overrides or edit values.yaml
-global:
-  models:
-    llama-3-2-3b-instruct:
-      enabled: true
-    external-model:
-      enabled: false
-llm-service:
-  enabled: true
-  models:
-    llama-3-2-3b-instruct:
-      enabled: true
+general-simulation:
+  global:
+    models:
+      llama-3-2-3b-instruct:
+        enabled: false
+      external-model:
+        enabled: true
+  llm-service:
+    enabled: false
+  api:
+    models:
+      generation: external-model/<your-model-id>
 ```
 
-`LLAMA_STACK_MODEL` is derived from `global.models` by the backend Deployment template (no `backend.env.LLAMA_STACK_MODEL` override).
-
-Set `llm-service.secret.hf_token` (or Secret `huggingface-secret`), then install with the same `helm upgrade --install` / `make helm-install` commands as Option A. Use `llm-service.device: gpu` (and matching per-model `device`) when GPUs are available.
+Set `general-simulation.global.models.external-model.apiToken` in `helm/secrets.yaml`, then install.
 
 #### Custom OpenAI-compatible endpoint
 
@@ -318,9 +320,10 @@ To point at a non-default OpenAI-compatible endpoint:
 ```bash
 helm upgrade --install supply-chain-dashboard ./helm \
   -f helm/values.yaml \
-  --set global.models.external-model.id=<your-model-id> \
-  --set global.models.external-model.url=https://<your-endpoint>/v1 \
-  --set global.models.external-model.apiToken=<your-token> \
+  --set general-simulation.global.models.external-model.id=<your-model-id> \
+  --set general-simulation.global.models.external-model.url=https://<your-endpoint>/v1 \
+  --set general-simulation.global.models.external-model.apiToken=<your-token> \
+  --set general-simulation.api.models.generation=external-model/<your-model-id> \
   --namespace supply-chain-dashboard \
   --create-namespace \
   --wait \
@@ -467,15 +470,15 @@ oc delete project supply-chain-dashboard
 
 ### Environment variables
 
-**Helm (`helm/secrets.yaml`)** — for the default MaaS path, set `global.models.external-model.apiToken` to a literal token (copy from `secrets.example.yaml`). Do not use `${env.VAR}` — the llama-stack init script will hit bash `bad substitution`. A Hugging Face token (`llm-service.secret.hf_token` or Secret `huggingface-secret` / `HF_TOKEN`) is only required when you re-enable local `llm-service`.
+**Helm (`helm/secrets.yaml`)** — default: `general-simulation.llm-service.secret.hf_token`. Optional MaaS: `general-simulation.global.models.external-model.apiToken`. Do not use `${env.VAR}` in tokens.
 
 **Backend**
 
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `LLAMA_STACK_URL` | Llama Stack base URL | — |
-| `LLAMA_STACK_MODEL` | Model identifier | — |
-| `EMBED_MODEL` | Embedding model identifier | — |
+| `LLAMA_STACK_MODEL` | Model identifier (from `general-simulation.api.models.generation`) | — |
+| `EMBED_MODEL` | Embedding model (default: `general-simulation.api.models.embedding`) | — |
 | `PG_HOST` | PostgreSQL host | — |
 | `PG_PORT` | PostgreSQL port | `5432` |
 | `PG_USER` | PostgreSQL user | — |
@@ -506,13 +509,13 @@ oc delete project supply-chain-dashboard
 
 | Optional override | When you need it |
 |-------------------|------------------|
-| `backend.image.repository` / `tag`, `frontend.image.*`, `ingest.image.*` | Images built and pushed to your own registry (defaults: `quay.io/rh-ai-quickstart/...`) |
+| `global.registry` / `global.imageTag` | Point all images at your registry (supply-chain + gen-sim subchart) |
+| `backend.image.name` / `tag`, `frontend.image.*`, `ingest.image.*` | Per-component image name or tag override |
 | `frontend.apiProxyUpstream` | Backend Service is not `http://<release>-backend:<port>` in the release namespace |
-| `global.models.external-model.id` / `url` | Different MaaS model or endpoint (also drives `LLAMA_STACK_MODEL` / `LLAMA_STACK_OPENAI_MODEL` in the backend Deployment) |
-| `backend.env.EMBED_MODEL` | Different embedding model ID |
-| `backend.env.LLAMA_STACK_URL` | Release installed outside `supply-chain-dashboard` namespace (default URL is namespace-scoped) |
-| `pgvector.secret.*` | Shared Postgres credentials for Llama Stack / backend (must match gen-sim Postgres password when `pgvector.enabled: false`) |
-| `llm-service.enabled` + `device` / per-model `device` | Local inference instead of MaaS |
+| `general-simulation.*` (models, llm-service, api.models.generation) | All inference config — backend reads `api.models.generation` |
+| `backend.env.EMBED_MODEL` | Optional override; default is `general-simulation.api.models.embedding` |
+| `backend.env.LLAMA_STACK_URL` | Release installed outside `supply-chain-dashboard` namespace |
+| `general-simulation.postgres.postgres.password` (+ matching `general-simulation.*.postgres.password`) | Shared Postgres credentials (must stay in sync) |
 | `ingest.strategy` | `langchain` for PGVector ingest instead of default `llamastack` |
 | `general-simulation.api.llm.*` | Gen-sim OpenAI endpoint / model overrides (`apiKey` in secrets) |
 | `general-simulation.ingestion.enabled` | Keep `false` on AWS/hyperscaler clusters (OpenSky IP block); seed from laptop instead |
@@ -529,7 +532,10 @@ Or build and push in one step (after `make login` to your registry):
 
 ```bash
 make release REGISTRY=quay.io/<your-org>
+make helm-upgrade-install REGISTRY=quay.io/<your-org>
 ```
+
+`REGISTRY` maps to `--set global.registry=...` for all supply-chain and gen-sim images.
 
 Individual images:
 

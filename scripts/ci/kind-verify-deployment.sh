@@ -79,11 +79,6 @@ kubectl wait -n "${NAMESPACE}" --for=condition=available \
 kubectl wait -n "${NAMESPACE}" --for=condition=available \
   "deployment/${HELM_RELEASE}-frontend" --timeout=120s
 
-if kubectl get deployment pgvector -n "${NAMESPACE}" >/dev/null 2>&1; then
-  log "Waiting for pgvector Deployment"
-  kubectl wait -n "${NAMESPACE}" --for=condition=available deployment/pgvector --timeout=300s
-fi
-
 log "Port-forward backend Service"
 kubectl port-forward -n "${NAMESPACE}" "svc/${HELM_RELEASE}-backend" \
   "${BACKEND_PF_PORT}:5001" >/tmp/kind-pf-backend.log 2>&1 &

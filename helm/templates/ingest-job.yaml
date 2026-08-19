@@ -79,7 +79,7 @@ spec:
             allowPrivilegeEscalation: false
             capabilities:
               drop: [ALL]
-          image: "{{ .Values.ingest.image.repository }}:{{ .Values.ingest.image.tag }}"
+          image: {{ include "supply-chain.containerImage" (dict "image" .Values.ingest.image "global" .Values.global) | quote }}
           imagePullPolicy: {{ .Values.ingest.image.pullPolicy }}
           command: ["python", "main.py"]
           env:

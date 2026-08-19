@@ -1,32 +1,32 @@
 # Kind / plain Kubernetes CI overrides (use with: make helm-install-kind)
 #
 # Availability contract for helm --wait (must become Ready/Complete):
-#   backend, frontend, pgvector, gen-sim postgres, neo4j (Service name neo4j),
+#   backend, frontend, gen-sim postgres, neo4j (Service name neo4j),
 #   general-sim-api, then general-sim-bootstrap post-install hook.
 #
 # Kept off so they cannot block --wait or pull heavy images:
-#   llama-stack, llm-service, umbrella ingest Job, gen-sim OpenSky CronJob, vLLM.
+#   gen-sim llama-stack, llm-service, umbrella ingest Job, gen-sim OpenSky CronJob.
 # OpenShift Routes disabled (no router on Kind).
-
-# Shared DB: bridge Secret/pgvector → Service postgres (password must match below).
-pgvector:
-  enabled: false
-  secret:
-    password: kind-demo-password
-
-llama-stack:
-  enabled: false
-
-llm-service:
-  enabled: false
+#
+# Kind CI builds/pushes supply-chain images into localhost:5001. `make
+# helm-install-kind` sets backend/frontend/ingest image.repository to the local
+# registry (see HELM_KIND_IMAGE_SETS) so Helm global.registry does not bleed
+# into gen-sim. Platform images use general-simulation.global.registry below.
+# created only when llama-stack is on — point the backend at gen-sim's
+# postgres-credentials instead.
+#
+# Local Podman + Kind needs an 8Gi Podman VM (Neo4j chart minimum is 2Gi).
+# Run `make kind-preflight` before local smoke. GHA ubuntu-latest (~7Gi) is fine.
 
 backend:
   route:
     enabled: false
   image:
     pullPolicy: IfNotPresent
+  # llama-stack is off, so gen-sim does not render Secret/pgvector.
+  pgvectorSecretName: postgres-credentials
   env:
-    # Unused while llama-stack is off; backend probes /healthz (liveness-only).
+    # Unused while gen-sim llama-stack is off; backend probes /healthz (liveness-only).
     LLAMA_STACK_URL: http://llamastack:8321
     PG_HOST: postgres
     PG_USER: sim
@@ -45,8 +45,7 @@ ingest:
 
 # Demo-only credentials so general-simulation's Postgres/Neo4j secret templates
 # render in the ephemeral Kind namespace (see helm/secrets.example.yaml for the
-# real-deployment equivalent). neo4j-auth and neo4j-sa are pre-created by
-# .github/actions/kind before `helm install`.
+# real-deployment equivalent).
 #
 # Published gen-sim defaults pin Neo4j to gp3-csi + 2CPU/4Gi (OpenShift/AWS).
 # Kind has neither that StorageClass nor the headroom — without these overrides
@@ -60,27 +59,39 @@ ingest:
 # anyuid). Clear it here so the official chart uses the default SA on Kind;
 # the Kind action still creates neo4j-sa if the overlay is missed.
 general-simulation:
-  # The umbrella chart deploys its own llama-stack; disable the subchart's
-  # bundled one to avoid a duplicate "pgvector" Secret (llamastack-pg-secret.yaml),
-  # which fails helm install with "secrets pgvector already exists".
+  # Do not inherit values.yaml MaaS (external-model.enabled: true). Kind has
+  # no llama-stack and must not try LiteMaaS / in-cluster vLLM.
+  global:
+    registry: quay.io/rh-ai-quickstart
+    imageTag: latest
+    models:
+      openai:
+        enabled: false
+      deepseek-r1-distill-qwen-1-5b:
+        enabled: false
+      external-model:
+        enabled: false
+  openshift:
+    neo4j:
+      scc:
+        enabled: false
   llama-stack:
     enabled: false
-    pgvector:
-      enabled: false
+  llm-service:
+    enabled: false
   postgres:
     postgres:
       password: kind-demo-password
   neo4j:
     fullnameOverride: neo4j
-    # Kind action pre-creates neo4j-auth; skip live-cluster lookups during helm
-    # template/install so CI does not depend on lookup timing.
+    # Skip live-cluster lookups during helm template/install (not needed for Secret/pgvector tests).
     disableLookups: true
-    # Empty string overrides the published chart's neo4j-sa pin (OpenShift).
+    # SCC off skips ServiceAccount/neo4j-sa; the chart still defaults to it.
     podSpec:
-      serviceAccountName: ""
+      serviceAccountName: default
     neo4j:
       resources:
-        # Chart enforces memory >= 2Gi; keep CPU light for Kind runners.
+        # Official neo4j chart fails helm template below 2Gi — this is the floor.
         cpu: "500m"
         memory: 2Gi
     volumes:

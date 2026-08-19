@@ -42,9 +42,8 @@ tests:
               secretKeyRef:
                 name: pgvector
                 key: password
-      - equal:
-          path: spec.template.spec.containers[0].securityContext.allowPrivilegeEscalation
-          value: false
+      - notExists:
+          path: spec.template.spec.containers[0].securityContext.runAsUser
       - equal:
           path: spec.template.spec.securityContext.runAsNonRoot
           value: true

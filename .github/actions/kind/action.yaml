@@ -31,7 +31,7 @@ inputs:
     required: false
     default: "false"
   hf_token:
-    description: Optional Hugging Face token (only needed if you enable llm-service via helm_extra_args)
+    description: Optional Hugging Face token (only needed if you enable general-simulation.llm-service via helm_extra_args)
     required: false
     default: ""
 
@@ -86,29 +86,6 @@ runs:
       shell: bash
       run: make k8s-namespace NAMESPACE=${{ inputs.namespace }}
 
-    # general-simulation's neo4j subchart does a live-cluster lookup for this
-    # Secret at install time (see helm/secrets.example.yaml); the password here
-    # must match helm/values-kind.yaml's general-simulation.*.neo4j.password.
-    - name: Create neo4j-auth Secret (general-simulation demo credentials)
-      shell: bash
-      run: |
-        kubectl create secret generic neo4j-auth \
-          --namespace ${{ inputs.namespace }} \
-          --from-literal=NEO4J_AUTH="neo4j/kind-demo-password" \
-          --dry-run=client -o yaml | kubectl apply -f -
-
-    # Published gen-sim charts pin neo4j.podSpec.serviceAccountName=neo4j-sa
-    # (OpenShift anyuid SCC). The official neo4j chart uses that name on the
-    # StatefulSet but does not create the ServiceAccount. Kind has no SCC;
-    # values-kind.yaml clears the pin, and this SA is belt-and-suspenders so a
-    # missed overlay cannot leave neo4j-0 Forbidden for 15m.
-    - name: Create neo4j-sa ServiceAccount
-      shell: bash
-      run: |
-        kubectl create serviceaccount neo4j-sa \
-          --namespace ${{ inputs.namespace }} \
-          --dry-run=client -o yaml | kubectl apply -f -
-
     # Belt-and-suspenders: values-kind disables api.route, but keep a Route CRD
     # stub so a misconfigured overlay still renders on Kind.
     - name: Install OpenShift Route CRD stub (Kind)
@@ -124,7 +101,7 @@ runs:
         set -euo pipefail
         EXTRA="${{ inputs.helm_extra_args }}"
         if [ -n "${HF_TOKEN}" ]; then
-          EXTRA="${EXTRA} --set llm-service.secret.hf_token=${HF_TOKEN}"
+          EXTRA="${EXTRA} --set general-simulation.llm-service.secret.hf_token=${HF_TOKEN}"
         fi
         make helm-install-kind \
           NAMESPACE=${{ inputs.namespace }} \
