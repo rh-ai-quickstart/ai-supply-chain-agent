@@ -1,0 +1,57 @@
+suite: values-maas llama-stack
+templates:
+  - charts/general-simulation/charts/llama-stack/templates/deployment.yaml
+  - templates/backend-deployment.yaml
+values:
+  - ../values-maas.yaml
+release:
+  name: supply-chain-dashboard
+  namespace: supply-chain-dashboard
+set:
+  general-simulation.global.models.external-model.apiToken: test-maas-token
+  backend.env.EMBED_API_KEY: test-maas-token
+tests:
+  - it: waits only for MaaS chat URL, not in-cluster vllm services
+    template: charts/general-simulation/charts/llama-stack/templates/deployment.yaml
+    asserts:
+      - matchRegexRaw:
+          path: spec.template.spec.initContainers[0].command[2]
+          pattern: "https://maas-rhdp\\.apps\\.maas\\.redhatworkshops\\.io/v1/models#test-maas-token"
+      - notMatchRegexRaw:
+          path: spec.template.spec.initContainers[0].command[2]
+          pattern: llama-scout-17b-vllm
+      - notMatchRegexRaw:
+          path: spec.template.spec.initContainers[0].command[2]
+          pattern: nomic-embed-text-v1-5-vllm
+  - it: wires MaaS embedding env to the backend (direct, not via Llama Stack)
+    template: templates/backend-deployment.yaml
+    set:
+      backend.enabled: true
+      backend.pgvectorSecretName: pgvector
+      backend.env.LLAMA_STACK_URL: "http://llamastack:8321"
+      backend.env.PG_HOST: postgres
+      backend.env.PG_PORT: "5432"
+      backend.env.PG_USER: sim
+      backend.env.PG_DB: sim
+      backend.env.GENERAL_SIMULATION_BASE_URL: "http://general-sim-api:8000"
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: EMBED_MODEL
+            value: nomic-embed-text-v1-5
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: EMBED_BASE_URL
+            value: https://maas-rhdp.apps.maas.redhatworkshops.io/v1
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: EMBED_API_KEY
+            value: test-maas-token
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: LLAMA_STACK_MODEL
+            value: external-model/llama-scout-17b

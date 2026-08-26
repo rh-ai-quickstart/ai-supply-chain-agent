@@ -1,6 +1,7 @@
 import logging
 import os
 
+from clients.embedding_client import openai_embeddings_kwargs
 from langchain_openai import OpenAIEmbeddings
 from langchain_postgres import PGVector
 
@@ -35,12 +36,14 @@ class VectorStoreClient:
         ).rstrip("/")
         embed_model = os.getenv("EMBED_MODEL", "all-MiniLM-L6-v2")
 
+        embed_kwargs = openai_embeddings_kwargs(
+            llama_stack_url=llama_stack_url,
+            embed_model=embed_model,
+        )
         embeddings = OpenAIEmbeddings(
-            api_key="not-required",
-            base_url=f"{llama_stack_url}/v1",
-            model=embed_model,
             tiktoken_enabled=False,
             check_embedding_ctx_length=False,
+            **embed_kwargs,
         )
 
         self.vector_store = PGVector(

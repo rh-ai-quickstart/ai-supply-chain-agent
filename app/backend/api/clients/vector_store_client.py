@@ -1,5 +1,6 @@
 import logging
 
+from clients.embedding_client import openai_embeddings_kwargs
 from langchain_openai import OpenAIEmbeddings
 from langchain_postgres import PGVector
 
@@ -21,6 +22,8 @@ class VectorStoreClient:
         database: str = "blueprint",
         llama_stack_url: str = "http://llamastack:8321",
         embed_model: str = "all-MiniLM-L6-v2",
+        embed_base_url: str | None = None,
+        embed_api_key: str | None = None,
     ) -> None:
         if not password:
             raise RuntimeError(
@@ -36,12 +39,16 @@ class VectorStoreClient:
 
         llama_stack_url = llama_stack_url.rstrip("/")
 
+        embed_kwargs = openai_embeddings_kwargs(
+            llama_stack_url=llama_stack_url,
+            embed_model=embed_model,
+            embed_base_url=embed_base_url,
+            embed_api_key=embed_api_key,
+        )
         embeddings = OpenAIEmbeddings(
-            api_key="not-required",
-            base_url=f"{llama_stack_url}/v1",
-            model=embed_model,
             tiktoken_enabled=False,
             check_embedding_ctx_length=False,
+            **embed_kwargs,
         )
 
         self.vector_store = PGVector(

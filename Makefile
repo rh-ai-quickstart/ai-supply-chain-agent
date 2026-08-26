@@ -42,7 +42,9 @@ VALUES_FILE    ?= $(HELM_CHART)/values.yaml
 BUILD_PLATFORM ?= linux/amd64
 # Optional on push, e.g. PUSH_EXTRA_ARGS=--tls-verify=false for Kind (localhost:5001)
 PUSH_EXTRA_ARGS ?=
-KIND_VALUES_FILE ?= $(HELM_CHART)/values-kind.yaml
+# MaaS profile — external-model via helm/values-maas.yaml (see file header).
+MAAS_VALUES_FILE ?= $(HELM_CHART)/values-maas.yaml
+
 HELM_EXTRA_ARGS ?=
 GENERAL_SIM_CHART_DIR ?= $(CURDIR)/../../general-simulation/deploy/helm/general-simulation
 
@@ -90,6 +92,7 @@ help:
 	@echo "    helm-render        Render chart templates to stdout (dry-run)"
 	@echo "    helm-install       Install the Helm release (OpenShift project)"
 	@echo "    helm-upgrade-install  helm upgrade --install with REGISTRY / secrets"
+	@echo "    helm-upgrade-install-maas  MaaS profile (VALUES_FILE=helm/values-maas.yaml)"
 	@echo "    helm-upgrade       Upgrade an existing Helm release"
 	@echo "    helm-uninstall     Uninstall the Helm release"
 	@echo "    helm-status        Show Helm release status"
@@ -395,6 +398,10 @@ helm-upgrade-install: helm-deps
 		$(HELM_EXTRA_ARGS) \
 		--wait \
 		--timeout 15m
+
+.PHONY: helm-upgrade-install-maas
+helm-upgrade-install-maas:
+	$(MAKE) helm-upgrade-install VALUES_FILE=$(MAAS_VALUES_FILE)
 
 .PHONY: helm-uninstall
 helm-uninstall:
