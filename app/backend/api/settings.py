@@ -55,6 +55,9 @@ class Settings:
     pg_password: str | None = None
     pg_database: str = "blueprint"
     embed_model: str = "all-MiniLM-L6-v2"
+    # Direct OpenAI-compatible embeddings (e.g. MaaS); bypasses Llama Stack when set.
+    embed_base_url: str | None = None
+    embed_api_key: str | None = None
 
     # General-simulation upstream service
     general_simulation_base_url: str = "http://localhost:8000"
@@ -93,6 +96,8 @@ class Settings:
             pg_password=os.environ.get("PG_PASSWORD"),
             pg_database=os.getenv("PG_DB", "blueprint"),
             embed_model=os.getenv("EMBED_MODEL", "all-MiniLM-L6-v2"),
+            embed_base_url=os.getenv("EMBED_BASE_URL") or None,
+            embed_api_key=os.getenv("EMBED_API_KEY") or os.getenv("OPENAI_API_KEY") or None,
             general_simulation_base_url=os.getenv(
                 "GENERAL_SIMULATION_BASE_URL", "http://localhost:8000"
             ),

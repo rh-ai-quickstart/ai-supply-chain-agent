@@ -76,6 +76,8 @@ def _build_vector_store_client(settings: Settings) -> Optional[VectorStoreClient
             database=settings.pg_database,
             llama_stack_url=settings.llama_stack_url,
             embed_model=settings.embed_model,
+            embed_base_url=settings.embed_base_url,
+            embed_api_key=settings.embed_api_key,
         )
         logger.info("VectorStoreClient initialised successfully.")
         return client

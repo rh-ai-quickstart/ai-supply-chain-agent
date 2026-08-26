@@ -1,4 +1,5 @@
 {{- if .Values.ingest.enabled }}
+{{- $genSim := index .Values "general-simulation" }}
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -100,7 +101,15 @@ spec:
             - name: LLAMA_STACK_URL
               value: {{ .Values.backend.env.LLAMA_STACK_URL | quote }}
             - name: EMBED_MODEL
-              value: {{ .Values.backend.env.EMBED_MODEL | quote }}
+              value: {{ .Values.backend.env.EMBED_MODEL | default $genSim.api.models.embedding | quote }}
+            {{- with .Values.backend.env.EMBED_BASE_URL }}
+            - name: EMBED_BASE_URL
+              value: {{ . | quote }}
+            {{- end }}
+            {{- with .Values.backend.env.EMBED_API_KEY }}
+            - name: EMBED_API_KEY
+              value: {{ . | quote }}
+            {{- end }}
             # ── PGVector connection (PG_ prefix avoids K8s collision) ──────
             - name: PG_HOST
               value: {{ .Values.backend.env.PG_HOST | quote }}
