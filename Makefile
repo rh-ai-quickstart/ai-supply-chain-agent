@@ -7,20 +7,26 @@ REGISTRY        ?= quay.io/rh-ai-quickstart
 BACKEND_IMAGE      ?= $(REGISTRY)/ai-supply-chain-agent-backend
 INGEST_IMAGE       ?= $(REGISTRY)/ai-supply-chain-agent-ingestion
 FRONTEND_IMAGE     ?= $(REGISTRY)/ai-supply-chain-agent-frontend
-BACKEND_TAG        ?= latest
-INGEST_TAG         ?= latest
-FRONTEND_TAG       ?= latest
+BACKEND_TAG        ?= dev
+INGEST_TAG         ?= dev
+FRONTEND_TAG       ?= dev
 GEN_SIM_TAG        ?= $(BACKEND_TAG)
-GEN_SIM_APP_IMAGE  ?= $(REGISTRY)/general-sim-api:$(GEN_SIM_TAG)
+GEN_SIM_APP_IMAGE  ?= $(REGISTRY)/general-simulation-api:$(GEN_SIM_TAG)
 GEN_SIM_POSTGRES_IMAGE ?= $(REGISTRY)/general-sim-postgres:$(GEN_SIM_TAG)
 
 # Helm --set flags for container images (supply-chain chart).
+# Gen-sim API/bootstrap/ingestion ignore global.images.app when imageName is set
+# in the published chart (default: general-sim-api). Pass the full image ref.
 HELM_IMAGE_SETS = \
 	--set global.registry=$(REGISTRY) \
 	--set global.imageTag=$(BACKEND_TAG) \
 	--set backend.image.tag=$(BACKEND_TAG) \
 	--set frontend.image.tag=$(FRONTEND_TAG) \
-	--set ingest.image.tag=$(INGEST_TAG)
+	--set ingest.image.tag=$(INGEST_TAG) \
+	--set general-simulation.api.image=$(GEN_SIM_APP_IMAGE) \
+	--set general-simulation.bootstrap.image=$(GEN_SIM_APP_IMAGE) \
+	--set general-simulation.ingestion.image=$(GEN_SIM_APP_IMAGE) \
+	--set general-simulation.postgres.image=$(GEN_SIM_POSTGRES_IMAGE)
 
 # Kind: supply-chain images from local registry via image.repository (avoids
 # Helm global.registry bleed into the general-simulation subchart).
@@ -37,6 +43,7 @@ HELM_CHART     ?= ./helm
 HELM_RELEASE   ?= supply-chain-dashboard
 NAMESPACE      ?= supply-chain-dashboard
 VALUES_FILE    ?= $(HELM_CHART)/values.yaml
+KIND_VALUES_FILE ?= $(HELM_CHART)/values-kind.yaml
 
 # --- Podman ---
 BUILD_PLATFORM ?= linux/amd64
@@ -54,6 +61,12 @@ ifeq ($(wildcard $(SECRETS_FILE)),)
 SECRETS_FLAGS =
 else
 SECRETS_FLAGS = -f $(SECRETS_FILE)
+endif
+
+ifeq ($(wildcard $(KIND_VALUES_FILE)),)
+KIND_VALUES_FLAGS =
+else
+KIND_VALUES_FLAGS = -f $(KIND_VALUES_FILE)
 endif
 
 # ============================================================
@@ -147,6 +160,7 @@ help:
 	@echo "    OPENSKY_MAX        $(OPENSKY_MAX)  (seed-opensky-live cap; 0=unlimited)"
 	@echo "    HELM_RELEASE       $(HELM_RELEASE)"
 	@echo "    VALUES_FILE        $(VALUES_FILE)  (set secrets in helm/secrets.yaml — see secrets.example.yaml)"
+	@echo "    KIND_VALUES_FILE   $(KIND_VALUES_FILE)"
 	@echo ""
 
 # ============================================================
@@ -456,7 +470,7 @@ helm-install-kind: helm-deps k8s-namespace
 		--namespace $(NAMESPACE) \
 		--create-namespace \
 		-f $(VALUES_FILE) \
-		-f $(KIND_VALUES_FILE) \
+		$(KIND_VALUES_FLAGS) \
 		$(SECRETS_FLAGS) \
 		$(HELM_KIND_IMAGE_SETS) \
 		$(HELM_EXTRA_ARGS) \

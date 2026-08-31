@@ -132,20 +132,20 @@ Stack model ids used by the API follow `<providerKey>/<model.id>` (see `api.mode
 | Path | Gen-sim default | Supply-chain override | Effective |
 |------|-----------------|----------------------|-----------|
 | `global.models.openai.enabled` | `true` | `false` | **`false`** |
-| `global.models.openai.id` | `gpt-4o-mini` | — | `gpt-4o-mini` |
-| `global.models.openai.url` | `https://api.openai.com/v1` | — | `https://api.openai.com/v1` |
-| `global.models.openai.apiToken` | `""` | — | `""` (set in secrets for OpenAI mode) |
-| `global.models.deepseek-r1-distill-qwen-1-5b.enabled` | `false` | `true` | **`true`** |
-| `global.models.deepseek-r1-distill-qwen-1-5b.id` | `deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B` | same | same |
-| `global.models.deepseek-r1-distill-qwen-1-5b.apiToken` | `unused` | `unused` | `unused` |
-| `global.models.external-model.enabled` | *(not in gen-sim defaults)* | `false` | `false` |
+| `global.models.openai.id` | `gpt-4o-mini` | — | unused while disabled |
+| `global.models.openai.url` | `https://api.openai.com/v1` | — | unused while disabled |
+| `global.models.openai.apiToken` | `""` | — | unused while disabled |
+| `global.models.deepseek-r1-distill-qwen-1-5b.enabled` | `false` | `false` | **`false`** |
+| `global.models.deepseek-r1-distill-qwen-1-5b.id` | `deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B` | — | unused while disabled |
+| `global.models.deepseek-r1-distill-qwen-1-5b.apiToken` | `unused` | — | unused while disabled |
+| `global.models.external-model.enabled` | *(not in gen-sim defaults)* | `true` | **`true`** |
 | `global.models.external-model.id` | — | `Qwen3.6-35B-A3B` | `Qwen3.6-35B-A3B` |
 | `global.models.external-model.url` | — | `https://litemaas.rhoai.rh-aiservices-bu.com/v1` | same |
-| `global.models.external-model.apiToken` | — | `""` | Set in `helm/secrets.yaml` for MaaS mode |
+| `global.models.external-model.apiToken` | — | `""` | Set in `helm/secrets.yaml` for MaaS |
 
-**Supply-chain default LLM mode:** in-cluster **local** inference (`llm-service` + `deepseek-r1-distill-qwen-1-5b`), with OpenAI disabled.
+**Supply-chain default LLM mode:** LiteMaaS via Llama Stack (`external-model/Qwen3.6-35B-A3B`). OpenAI and in-cluster DeepSeek providers are disabled.
 
-**MaaS mode:** disable `llm-service`, enable `external-model`, set `apiToken`, and point `api.models.generation` at `external-model/<id>`.
+**Local vLLM mode:** enable `llm-service` + `deepseek-r1-distill-qwen-1-5b`, disable `external-model`, and point `api.models.generation` (and `ingestion.models.generation`) at the DeepSeek stack id.
 
 ---
 
@@ -254,12 +254,12 @@ API and ingestion always call `http://llamastack:8321/v1` — never OpenAI or vL
 
 | Path | Gen-sim default | Supply-chain override | Effective |
 |------|-----------------|----------------------|-----------|
-| `llm-service.enabled` | `false` | `true` | **`true`** |
+| `llm-service.enabled` | `false` | `false` | **`false`** |
 | `llm-service.device` | `gpu` | `cpu` | **`cpu`** |
 | `llm-service.rawDeploymentMode` | `true` | — | `true` |
 | `llm-service.secret.enabled` | `true` | `true` | `true` |
 | `llm-service.secret.hf_token` | `""` | `""` | Set in `helm/secrets.yaml` |
-| `llm-service.models.deepseek-r1-distill-qwen-1-5b.enabled` | `false` | `true` | **`true`** |
+| `llm-service.models.deepseek-r1-distill-qwen-1-5b.enabled` | `false` | `true` | configured, unused while `llm-service.enabled` is false |
 | `llm-service.models.deepseek-r1-distill-qwen-1-5b.id` | `deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B` | same | same |
 | `llm-service.models.deepseek-r1-distill-qwen-1-5b.device` | `gpu` | `gpu` | `gpu` |
 | `llm-service.models.deepseek-r1-distill-qwen-1-5b.resources.limits.cpu` | `"2"` | — | `"2"` |
@@ -295,7 +295,7 @@ Requires OpenShift AI (KServe) when enabled. Per-model `device: gpu` overrides c
 | `api.llm.backend` | `openai` | `openai` | `openai` |
 | `api.llm.baseUrl` | `http://llamastack:8321/v1` | same | same |
 | `api.llm.apiKey` | `unused` | `unused` | `unused` |
-| `api.models.generation` | `openai/gpt-4o-mini` | `deepseek-r1-distill-qwen-1-5b/deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B` | **DeepSeek stack id** |
+| `api.models.generation` | `openai/gpt-4o-mini` | `external-model/Qwen3.6-35B-A3B` | **Qwen stack id** |
 | `api.models.embedding` | `nomic-ai/nomic-embed-text-v1.5` | same | same |
 | `api.models.embeddingDimension` | `"768"` | `"768"` | `"768"` |
 | `api.enabledDomains` | `aviation,shipping` | — | `aviation,shipping` |
@@ -330,12 +330,12 @@ Requires OpenShift AI (KServe) when enabled. Per-model `device: gpu` overrides c
 | `ingestion.neo4j.port` | `7687` | — | `7687` |
 | `ingestion.neo4j.user` | `neo4j` | — | `neo4j` |
 | `ingestion.neo4j.password` | `""` | `password` | **`password`** |
-| `ingestion.llm.baseUrl` | `http://llamastack:8321/v1` | — | same |
-| `ingestion.llm.apiKey` | `unused` | — | `unused` |
-| `ingestion.llm.backend` | `openai` | — | `openai` |
-| `ingestion.models.generation` | `openai/gpt-4o-mini` | — | **`openai/gpt-4o-mini`** |
-| `ingestion.models.embedding` | `nomic-ai/nomic-embed-text-v1.5` | — | same |
-| `ingestion.models.embeddingDimension` | `"768"` | — | `"768"` |
+| `ingestion.llm.baseUrl` | `https://api.openai.com/v1` | `http://llamastack:8321/v1` | **Llama Stack** |
+| `ingestion.llm.apiKey` | `""` | `unused` | `unused` |
+| `ingestion.llm.backend` | `openai` | `openai` | `openai` (SDK, not GPT) |
+| `ingestion.models.generation` | `gpt-4o-mini` | `external-model/Qwen3.6-35B-A3B` | **Qwen stack id** |
+| `ingestion.models.embedding` | `text-embedding-3-small` | `nomic-ai/nomic-embed-text-v1.5` | **nomic** |
+| `ingestion.models.embeddingDimension` | `"1536"` | `"768"` | **`768`** |
 | `ingestion.enabledDomains` | `aviation,shipping` | — | same |
 | `ingestion.adapterId` | `opensky_flights` | — | `opensky_flights` |
 
@@ -425,7 +425,7 @@ flowchart TB
 | Neo4j | on | on | `neo4j.enabled` |
 | Bootstrap | on | on | `bootstrap.enabled` |
 | Llama Stack | on | on | `llama-stack.enabled` |
-| llm-service | off | **on** | `llm-service.enabled` |
+| llm-service | off | **off** | `llm-service.enabled` |
 | API | on | on | `api.enabled` |
 | Ingestion CronJob | on | on | `ingestion.enabled` |
 
@@ -439,22 +439,24 @@ flowchart TB
 --set global.registry=quay.io/my-org --set global.imageTag=v0.2.0
 ```
 
-### Switch to external MaaS (disable in-cluster vLLM)
+### Switch to in-cluster vLLM (disable LiteMaaS)
 
 ```yaml
 general-simulation:
   global:
     models:
-      deepseek-r1-distill-qwen-1-5b:
-        enabled: false
       external-model:
+        enabled: false
+      deepseek-r1-distill-qwen-1-5b:
         enabled: true
-        apiToken: "sk-..."   # helm/secrets.yaml
   llm-service:
-    enabled: false
+    enabled: true
   api:
     models:
-      generation: external-model/Qwen3.6-35B-A3B
+      generation: deepseek-r1-distill-qwen-1-5b/deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B
+  ingestion:
+    models:
+      generation: deepseek-r1-distill-qwen-1-5b/deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B
 ```
 
 ### Kind / CI profile

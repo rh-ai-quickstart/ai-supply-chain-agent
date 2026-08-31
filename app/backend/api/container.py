@@ -28,7 +28,7 @@ from settings import Settings
 
 logger = logging.getLogger(__name__)
 
-_FALLBACK_OPENAI_MODEL = "gpt-4o-mini"
+_FALLBACK_OPENAI_MODEL = "external-model/Qwen3.6-35B-A3B"
 
 
 def _resolve_openai_model(settings: Settings) -> str:

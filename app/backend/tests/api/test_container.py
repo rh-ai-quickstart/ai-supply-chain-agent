@@ -10,7 +10,9 @@ def test_resolve_openai_model_uses_settings_then_fallback():
     assert _resolve_openai_model(Settings(llama_stack_openai_model="external-model/x")) == (
         "external-model/x"
     )
-    assert _resolve_openai_model(Settings(llama_stack_openai_model="")) == "gpt-4o-mini"
+    assert _resolve_openai_model(Settings(llama_stack_openai_model="")) == (
+        "external-model/Qwen3.6-35B-A3B"
+    )
 
 
 def test_build_primary_llama_client_uses_openai_model_for_openai_url():
