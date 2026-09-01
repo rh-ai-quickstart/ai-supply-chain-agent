@@ -7,9 +7,9 @@ REGISTRY        ?= quay.io/rh-ai-quickstart
 BACKEND_IMAGE      ?= $(REGISTRY)/ai-supply-chain-agent-backend
 INGEST_IMAGE       ?= $(REGISTRY)/ai-supply-chain-agent-ingestion
 FRONTEND_IMAGE     ?= $(REGISTRY)/ai-supply-chain-agent-frontend
-BACKEND_TAG        ?= latest
-INGEST_TAG         ?= latest
-FRONTEND_TAG       ?= latest
+BACKEND_TAG        ?= dev
+INGEST_TAG         ?= dev
+FRONTEND_TAG       ?= dev
 GEN_SIM_TAG        ?= $(BACKEND_TAG)
 GEN_SIM_APP_IMAGE  ?= $(REGISTRY)/general-sim-api:$(GEN_SIM_TAG)
 GEN_SIM_POSTGRES_IMAGE ?= $(REGISTRY)/general-sim-postgres:$(GEN_SIM_TAG)
@@ -502,7 +502,7 @@ oc-status:
 
 # Run the ingestion Job as a one-off oc run (no Helm required).
 # Default matches helm/values.yaml ingest.strategy; override to langchain for PGVector.
-INGEST_STRATEGY ?= llamastack
+INGEST_STRATEGY ?= langchain
 
 .PHONY: ingest
 ingest:
