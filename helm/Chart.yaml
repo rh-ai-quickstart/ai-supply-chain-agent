@@ -10,4 +10,4 @@ dependencies:
   # general-simulation 0.0.1 — not sibling dependencies of this umbrella.
   - name: general-simulation
     version: 0.0.1
-    repository: https://robertsandoval.github.io/general-simulation
+    repository: https://rh-ai-quickstart.github.io/general-simulation
