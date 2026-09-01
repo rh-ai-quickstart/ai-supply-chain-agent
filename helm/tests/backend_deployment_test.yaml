@@ -15,8 +15,10 @@ tests:
       backend.env.PG_USER: sim
       backend.env.PG_DB: sim
       backend.env.GENERAL_SIMULATION_BASE_URL: "http://general-sim-api:8000"
+      backend.env.EMBED_MODEL: Nomic-embed-text-v2-moe
+      backend.env.EMBED_BASE_URL: https://litemaas.rhoai.rh-aiservices-bu.com
       general-simulation.api.models.generation: "llama-3-2-3b-instruct/meta-llama/Llama-3.2-3B-Instruct"
-      general-simulation.api.models.embedding: "nomic-ai/nomic-embed-text-v1.5"
+      general-simulation.api.models.embedding: "sentence-transformers/nomic-ai/nomic-embed-text-v1.5"
     asserts:
       - isKind:
           of: Deployment
@@ -42,7 +44,12 @@ tests:
           path: spec.template.spec.containers[0].env
           content:
             name: EMBED_MODEL
-            value: "nomic-ai/nomic-embed-text-v1.5"
+            value: "Nomic-embed-text-v2-moe"
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: EMBED_BASE_URL
+            value: "https://litemaas.rhoai.rh-aiservices-bu.com"
       - contains:
           path: spec.template.spec.containers[0].env
           content:
@@ -82,6 +89,30 @@ tests:
       - equal:
           path: spec.template.spec.securityContext.runAsNonRoot
           value: true
+
+  - it: defaults EMBED_MODEL to gen-sim api.models.embedding when backend override is empty
+    set:
+      backend.enabled: true
+      backend.pgvectorSecretName: pgvector
+      backend.env.LLAMA_STACK_URL: "http://llamastack.example:8321"
+      backend.env.PG_HOST: postgres
+      backend.env.PG_PORT: "5432"
+      backend.env.PG_USER: sim
+      backend.env.PG_DB: sim
+      backend.env.EMBED_MODEL: ""
+      backend.env.EMBED_BASE_URL: ""
+      general-simulation.api.models.generation: "llama-3-2-3b-instruct/meta-llama/Llama-3.2-3B-Instruct"
+      general-simulation.api.models.embedding: "sentence-transformers/nomic-ai/nomic-embed-text-v1.5"
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: EMBED_MODEL
+            value: "sentence-transformers/nomic-ai/nomic-embed-text-v1.5"
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: EMBED_BASE_URL
 
   - it: uses any stack model id configured on gen-sim api
     set:
