@@ -37,6 +37,7 @@ HELM_CHART     ?= ./helm
 HELM_RELEASE   ?= supply-chain-dashboard
 NAMESPACE      ?= supply-chain-dashboard
 VALUES_FILE    ?= $(HELM_CHART)/values.yaml
+KIND_VALUES_FILE ?= $(HELM_CHART)/values-kind.yaml
 
 # --- Podman ---
 BUILD_PLATFORM ?= linux/amd64
