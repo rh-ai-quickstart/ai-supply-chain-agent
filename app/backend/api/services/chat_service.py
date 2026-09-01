@@ -1,4 +1,3 @@
-import logging
 from collections.abc import Iterator
 from dataclasses import dataclass, field
 from typing import Any, Optional
@@ -9,9 +8,10 @@ from services.agent_service import AgentService, ToolResult
 from services.guardrail_policy import GuardrailPolicy
 from services.news_vector_store_service import NewsVectorStoreService
 from services.rag_context_provider import RagContextProvider
-from services.simulation_intent import normalize_scenario_id
+from services.simulation_intent import normalize_scenario_id, scenario_context_block
+from logging_config import getLogger
 
-logger = logging.getLogger(__name__)
+logger = getLogger(__name__)
 
 _TOOL_PRIORITY = ("general_simulation", "fetch_news", "knowledge_base")
 
@@ -24,6 +24,7 @@ class _PreparedChatTurn:
     client: LlamaStackClient
     context: str
     conversation: list[dict[str, str]]
+    scenario_context: str = ""
 
 
 @dataclass
@@ -121,7 +122,9 @@ class ChatService:
         if shortcut is not None:
             return shortcut
 
-        turn = self._prepare_llm_turn(user_input, chat_history, vector_store_id, use_vllm)
+        turn = self._prepare_llm_turn(
+            user_input, chat_history, vector_store_id, use_vllm, scenario_id
+        )
         self._log_llm_routing(turn.client, use_vllm, streaming=False)
         tracker = self._new_tool_tracker(turn.latest, vector_store_id, scenario_id)
         llm_result = turn.client.ask_with_tools(
@@ -130,6 +133,7 @@ class ChatService:
             conversation_messages=turn.conversation,
             tools=self.agent_service.openai_tools(),
             execute_tool=tracker.execute,
+            scenario_context=turn.scenario_context,
         )
         answer = llm_result.get("answer", "")
         logger.info(
@@ -160,7 +164,9 @@ class ChatService:
             yield {"type": "done", **shortcut}
             return
 
-        turn = self._prepare_llm_turn(user_input, chat_history, vector_store_id, use_vllm)
+        turn = self._prepare_llm_turn(
+            user_input, chat_history, vector_store_id, use_vllm, scenario_id
+        )
         self._log_llm_routing(turn.client, use_vllm, streaming=True)
         tracker = self._new_tool_tracker(turn.latest, vector_store_id, scenario_id)
         for event in turn.client.ask_stream_with_tools(
@@ -169,6 +175,7 @@ class ChatService:
             conversation_messages=turn.conversation,
             tools=self.agent_service.openai_tools(),
             execute_tool=tracker.execute,
+            scenario_context=turn.scenario_context,
         ):
             if event.get("type") == "done":
                 yield self._attach_tool_payload({**event}, tracker)
@@ -231,6 +238,7 @@ class ChatService:
         chat_history: Optional[list[dict[str, Any]]],
         vector_store_id: Optional[str],
         use_vllm: bool,
+        scenario_id: Optional[str] = None,
     ) -> _PreparedChatTurn:
         history = chat_history if isinstance(chat_history, list) else []
         latest = self._latest_user_text(history, user_input)
@@ -242,6 +250,7 @@ class ChatService:
             client=client,
             context=context,
             conversation=conversation,
+            scenario_context=scenario_context_block(scenario_id),
         )
 
     @staticmethod

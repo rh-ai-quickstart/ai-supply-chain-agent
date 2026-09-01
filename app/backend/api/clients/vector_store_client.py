@@ -1,10 +1,10 @@
-import logging
-
 from clients.embedding_client import openai_embeddings_kwargs
 from langchain_openai import OpenAIEmbeddings
 from langchain_postgres import PGVector
 
-logger = logging.getLogger(__name__)
+from logging_config import getLogger
+
+logger = getLogger(__name__)
 
 _COLLECTION_NAME = "supply_chain_risks"
 

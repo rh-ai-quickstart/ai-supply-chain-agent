@@ -7,10 +7,11 @@ when no vector store is selected.
 
 from __future__ import annotations
 
-import logging
 from typing import Any, Optional
 
-logger = logging.getLogger(__name__)
+from logging_config import getLogger
+
+logger = getLogger(__name__)
 
 
 class RagContextProvider:

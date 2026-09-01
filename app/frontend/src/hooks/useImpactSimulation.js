@@ -12,7 +12,9 @@ import {
 } from "../services/presetScenarioIds";
 import { buildValueByEntity, diversionKey } from "../utils/impactEntityUtils";
 import { messageFromError } from "../utils/errorMessage";
+import { getLogger } from "../utils/logger.js";
 
+const logger = getLogger(import.meta.url);
 const DEFAULT_GEOJSON_LIMIT = 3000;
 
 function pickScenarioId(list, preferred) {
@@ -76,6 +78,7 @@ export function useImpactSimulation({
   useEffect(() => {
     const controller = new AbortController();
     (async () => {
+      logger.debug("useImpactSimulation: loading scenarios, initial=%s", initialScenarioId);
       setScenariosLoading(true);
       setScenariosError("");
       try {
@@ -85,6 +88,7 @@ export function useImpactSimulation({
         if (scenarioRes.success === false) {
           setScenariosError(scenarioRes.error || "Unable to load scenarios.");
           setScenarios([]);
+          logger.error("useImpactSimulation scenarios error: %s", scenarioRes.error);
         } else {
           const list = Array.isArray(scenarioRes.scenarios) ? scenarioRes.scenarios : [];
           setScenarios(list);
@@ -93,9 +97,11 @@ export function useImpactSimulation({
           if (selected) {
             setQuestion(questionForScenario(selected));
           }
+          logger.debug("useImpactSimulation: loaded %d scenarios", list.length);
         }
       } catch (err) {
         if (err?.name === "AbortError") return;
+        logger.error("useImpactSimulation scenarios error: %s", err.message);
         setScenariosError(messageFromError(err, "Unable to load scenarios."));
         setScenarios([]);
       } finally {
@@ -199,17 +205,21 @@ export function useImpactSimulation({
     async (scenario, prompt) => {
       if (chatLoading) return;
       if (!scenario || !prompt) return;
+      logger.info("useImpactSimulation: runQuery: scenario=%s question=%s", scenario, prompt.slice(0, 80));
       setQueryError("");
       setMapWarning("");
       setQueryLoading(true);
       try {
         const res = await runImpactQuery({ question: prompt, scenarioId: scenario });
         if (res.success === false) {
+          logger.error("useImpactSimulation runQuery error: %s", res.error);
           setQueryError(res.error || "Impact query failed.");
           return;
         }
+        logger.info("useImpactSimulation: runQuery success: scenario=%s", scenario);
         await applySimulationResult(res, scenario);
       } catch (err) {
+        logger.error("useImpactSimulation runQuery error: %s", err.message);
         setQueryError(messageFromError(err, "Impact query failed."));
       } finally {
         setQueryLoading(false);

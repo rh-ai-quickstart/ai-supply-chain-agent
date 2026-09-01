@@ -8,12 +8,11 @@ need to depend on the chat-completion or tool-loop surfaces.
 from __future__ import annotations
 
 import io
-import logging
-from typing import Any
 
+from logging_config import getLogger
 from openai import APIError, OpenAI
 
-logger = logging.getLogger(__name__)
+logger = getLogger(__name__)
 
 
 class LlamaStackVectorStoreAdmin:

@@ -1,4 +1,3 @@
-import logging
 from dataclasses import dataclass
 from typing import Any, Callable, Optional
 
@@ -8,8 +7,9 @@ from clients.news_client import NewsClient
 from services.general_simulation_service import GeneralSimulationService
 from services.news_service import NewsService
 from services.news_vector_store_service import NewsVectorStoreService
+from logging_config import getLogger
 
-logger = logging.getLogger(__name__)
+logger = getLogger(__name__)
 
 _LLM_TOOL_NAMES = ("news_knowledge_base", "knowledge_base", "general_simulation", "fetch_news")
 

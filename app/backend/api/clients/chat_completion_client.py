@@ -8,11 +8,11 @@ store administration lives in ``llama_vector_store_admin.py``.
 
 from __future__ import annotations
 
-import logging
 from collections.abc import Iterator
 from dataclasses import dataclass, field
 from typing import Any
 
+from logging_config import getLogger
 from openai import APIError, OpenAI
 from tenacity import (
     retry,
@@ -22,7 +22,7 @@ from tenacity import (
     wait_exponential,
 )
 
-logger = logging.getLogger(__name__)
+logger = getLogger(__name__)
 
 SYSTEM_PROMPT = (
     "You are an AI assistant for a supply chain command center. "
@@ -32,7 +32,8 @@ SYSTEM_PROMPT = (
     "If asked about unrelated topics, politely redirect to supply chain matters. "
     "You have tools: "
     "general_simulation (what-if / impact analysis for an active scenario), "
-    "knowledge_base (search uploaded documents), "
+    "knowledge_base (search uploaded documents from the selected knowledge base), "
+    "news_knowledge_base (search recent news articles about supply chains and disruptions), "
     "and fetch_news (latest world/business headlines that may affect logistics). "
     "Call a tool when it will improve your answer; otherwise reply directly."
 )
@@ -127,11 +128,14 @@ class LlamaStackChatClient:
         user_input: str,
         context: str = "",
         conversation_messages: list[dict] | None = None,
+        scenario_context: str = "",
     ) -> list[dict]:
         # LiteMaaS / Qwen require a single system message at the start.
         # A second role=system (e.g. RAG context) triggers:
         # "System message must be at the beginning."
         system_parts = [SYSTEM_PROMPT]
+        if scenario_context and str(scenario_context).strip():
+            system_parts.append(str(scenario_context).strip())
         if context and str(context).strip():
             system_parts.append(
                 f"Relevant context from the knowledge base:\n{str(context).strip()}"
@@ -220,6 +224,7 @@ class LlamaStackChatClient:
         user_input: str,
         context: str = "",
         conversation_messages: list[dict] | None = None,
+        scenario_context: str = "",
     ) -> dict[str, Any]:
         """Call the chat completion API.
 
@@ -229,7 +234,9 @@ class LlamaStackChatClient:
         if not self.base_url:
             return {"answer": NO_ENDPOINT_ANSWER, "completion": None}
 
-        messages = self.build_messages(user_input, context, conversation_messages)
+        messages = self.build_messages(
+            user_input, context, conversation_messages, scenario_context
+        )
         self.log_chat_request(streaming=False, message_count=len(messages))
         try:
             completion = self._create_completion(
@@ -258,6 +265,7 @@ class LlamaStackChatClient:
         user_input: str,
         context: str = "",
         conversation_messages: list[dict] | None = None,
+        scenario_context: str = "",
     ) -> Iterator[dict[str, Any]]:
         """Stream chat completion events for SSE relay.
 
@@ -268,7 +276,9 @@ class LlamaStackChatClient:
             yield {"type": "done", "answer": NO_ENDPOINT_ANSWER, "completion": None}
             return
 
-        messages = self.build_messages(user_input, context, conversation_messages)
+        messages = self.build_messages(
+            user_input, context, conversation_messages, scenario_context
+        )
         self.log_chat_request(streaming=True, message_count=len(messages))
         try:
             stream = self._create_completion(

@@ -1,5 +1,8 @@
 import { apiGet, apiPostFormData } from "./apiClient";
 import { getVectorStores } from "./chatService";
+import { getLogger } from "../utils/logger.js";
+
+const logger = getLogger(import.meta.url);
 
 function vectorStoreCreatedAtToIso(createdAt) {
   if (createdAt == null || createdAt === "") {
@@ -58,18 +61,28 @@ function mergeCatalogWithVectorStores(catalog, vectorStores) {
 }
 
 async function fetchKnowledgeBaseCatalog() {
+  logger.debug("fetchKnowledgeBaseCatalog");
   const data = await apiGet("/api/v1/knowledge-bases");
   return Array.isArray(data.knowledge_bases) ? data.knowledge_bases : [];
 }
 
 /** Same vector stores as chat, merged with UI catalog for the Knowledge Bases table. */
 export async function listKnowledgeBases() {
-  const [storesRes, catalog] = await Promise.all([getVectorStores(), fetchKnowledgeBaseCatalog()]);
-  const stores = Array.isArray(storesRes.vector_stores) ? storesRes.vector_stores : [];
-  return mergeCatalogWithVectorStores(catalog, stores);
+  logger.debug("listKnowledgeBases");
+  try {
+    const [storesRes, catalog] = await Promise.all([getVectorStores(), fetchKnowledgeBaseCatalog()]);
+    const stores = Array.isArray(storesRes.vector_stores) ? storesRes.vector_stores : [];
+    const result = mergeCatalogWithVectorStores(catalog, stores);
+    logger.debug("listKnowledgeBases: merged %d bases", result.length);
+    return result;
+  } catch (err) {
+    logger.error("listKnowledgeBases error: %s", err.message);
+    throw err;
+  }
 }
 
 export async function createKnowledgeBase(name, fileList) {
+  logger.info("createKnowledgeBase: name=%s files=%d", name, fileList?.length || 0);
   const formData = new FormData();
   formData.append("name", name);
   if (fileList?.length) {
@@ -77,5 +90,10 @@ export async function createKnowledgeBase(name, fileList) {
       formData.append("files", fileList[i]);
     }
   }
-  return apiPostFormData("/api/v1/knowledge-bases", formData);
+  try {
+    return await apiPostFormData("/api/v1/knowledge-bases", formData);
+  } catch (err) {
+    logger.error("createKnowledgeBase error: %s", err.message);
+    throw err;
+  }
 }

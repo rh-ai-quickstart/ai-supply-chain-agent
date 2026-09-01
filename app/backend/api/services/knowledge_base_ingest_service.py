@@ -2,15 +2,15 @@
 
 from __future__ import annotations
 
-import logging
 import re
 from typing import Any
 
 import openai
+from logging_config import getLogger
 from clients.llama_stack_client import LlamaStackClient
 from repositories.knowledge_base_repository import KnowledgeBaseRepository
 
-logger = logging.getLogger(__name__)
+logger = getLogger(__name__)
 
 _ALLOWED_SUFFIXES = (".txt", ".md", ".markdown", ".pdf")
 _MAX_FILE_BYTES = 15 * 1024 * 1024

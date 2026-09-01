@@ -55,4 +55,21 @@ describe("findVectorStoreNameForScenario", () => {
       "suez_blockage_analysis-ghi11223",
     );
   });
+
+  it("matches a user-uploaded knowledge base to its scenario by descriptive name", () => {
+    const userStores = [{ id: "vs-uk1", name: "UK Flight Data" }];
+    expect(findVectorStoreNameForScenario(userStores, "opensky-uk-closure-001")).toBe(
+      "UK Flight Data",
+    );
+  });
+
+  it("never auto-selects the news vector store", () => {
+    const withNews = [
+      ...stores,
+      { id: "vs-news", name: "supply-chain-news" },
+    ];
+    expect(findVectorStoreNameForScenario(withNews, "supply-chain-port-strike-la")).toBe(
+      "land_risk_port_strike_la-def67890",
+    );
+  });
 });

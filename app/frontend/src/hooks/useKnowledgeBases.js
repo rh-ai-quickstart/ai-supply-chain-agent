@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { createKnowledgeBase, listKnowledgeBases } from "../services/knowledgeBasesService";
+import { getLogger } from "../utils/logger.js";
+
+const logger = getLogger(import.meta.url);
 
 /**
  * Knowledge-base list/create CRUD state, extracted from `KnowledgeBasesPage.jsx`
@@ -17,10 +20,13 @@ export function useKnowledgeBases(onKnowledgeBaseCreated) {
 
   const refresh = useCallback(async () => {
     try {
+      logger.debug("useKnowledgeBases: refreshing");
       setLoadError("");
       const list = await listKnowledgeBases();
       setRows(list);
+      logger.debug("useKnowledgeBases: loaded %d bases", list?.length || 0);
     } catch {
+      logger.error("useKnowledgeBases refresh error");
       setLoadError("Unable to load knowledge bases.");
     } finally {
       setLoading(false);
@@ -37,6 +43,7 @@ export function useKnowledgeBases(onKnowledgeBaseCreated) {
       if (!trimmedName || saving || !files?.length) {
         return false;
       }
+      logger.info("useKnowledgeBases submit: name=%s files=%d", trimmedName, files.length);
       setSubmitError("");
       setWarnings([]);
       setSaving(true);
@@ -46,10 +53,12 @@ export function useKnowledgeBases(onKnowledgeBaseCreated) {
         if (result.warnings?.length) {
           setWarnings(result.warnings);
         }
+        logger.info("useKnowledgeBases submit success: name=%s", trimmedName);
         await refresh();
         onKnowledgeBaseCreated?.();
         return true;
       } catch (err) {
+        logger.error("useKnowledgeBases submit error: %s", err.message);
         setSubmitError(err instanceof Error ? err.message : "Unable to create knowledge base.");
         return false;
       } finally {

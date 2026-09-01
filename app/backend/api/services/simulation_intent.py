@@ -23,6 +23,25 @@ _SCENARIO_CLUES: list[tuple[re.Pattern[str], str]] = [
 
 KNOWN_SCENARIO_IDS: frozenset[str] = frozenset(sid for _, sid in _SCENARIO_CLUES)
 
+# Friendly labels mirroring the frontend ``SCENARIO_LABELS`` so the system
+# prompt can name the active scenario for the model.
+_SCENARIO_LABELS: dict[str, str] = {
+    "opensky-uk-closure-001": "UK Airspace Closure",
+    "supply-chain-port-strike-la": "Port Strike LA",
+    "supply-chain-suez-blockage": "Suez Blockage",
+}
+
+
+def scenario_context_block(scenario_id: str = "") -> str:
+    """Return a system-prompt block naming the active scenario, or ``""``."""
+    sid = (scenario_id or "").strip()
+    if not sid:
+        return ""
+    label = _SCENARIO_LABELS.get(sid)
+    if label:
+        return f"Active scenario: {sid} ({label})."
+    return f"Active scenario: {sid}."
+
 
 def resolve_scenario_id(text: str, preferred: Optional[str] = None) -> str:
     """Prefer explicit/active scenario; otherwise infer from the user text."""

@@ -5,6 +5,9 @@ import {
   findVectorStoreNameForScenario,
 } from "../services/presetScenarioIds";
 import { applyChatStreamEvent } from "../utils/chatStream.js";
+import { getLogger } from "../utils/logger.js";
+
+const logger = getLogger(import.meta.url);
 
 function chatKeyForScenario(scenarioId) {
   return scenarioId || "_default";
@@ -59,6 +62,7 @@ export function useChatSession({ vectorStores, vectorStoresError, activeScenario
         return;
       }
 
+      logger.info("submitChat: scenario=%s question=%s", chatKey, question.slice(0, 80));
       const scenarioKey = chatKey;
       const vectorStoreId = matchedVectorStoreId;
       const humanMessage = { role: "human", content: question };
@@ -85,6 +89,7 @@ export function useChatSession({ vectorStores, vectorStoresError, activeScenario
           (event) => {
             if (controller.signal.aborted) return;
             if (event?.type === "done" && event.simulation) {
+              logger.info("submitChat done with simulation: scenario=%s", chatKey);
               setChatSimulation({
                 ...event.simulation,
                 answer: event.answer || event.simulation.answer,
@@ -101,6 +106,7 @@ export function useChatSession({ vectorStores, vectorStoresError, activeScenario
         );
       } catch (err) {
         if (err?.name === "AbortError") return;
+        logger.error("submitChat error: scenario=%s error=%s", chatKey, err.message);
         setChatErrorByScenario((prev) => ({
           ...prev,
           [scenarioKey]:
@@ -133,6 +139,18 @@ export function useChatSession({ vectorStores, vectorStoresError, activeScenario
     [submitChat],
   );
 
+  const clearChat = useCallback(
+    (scenarioKeyOverride) => {
+      const key = scenarioKeyOverride || chatKey;
+      setChatMessagesByScenario((prev) => ({ ...prev, [key]: [] }));
+      setChatInputByScenario((prev) => ({ ...prev, [key]: "" }));
+      setChatErrorByScenario((prev) => ({ ...prev, [key]: "" }));
+      setChatLoadingByScenario((prev) => ({ ...prev, [key]: false }));
+      setChatSimulation(null);
+    },
+    [chatKey],
+  );
+
   return {
     chatMessages,
     chatInput,
@@ -145,5 +163,6 @@ export function useChatSession({ vectorStores, vectorStoresError, activeScenario
     handleSubmitChat,
     sendPrompt,
     abortActiveStream,
+    clearChat,
   };
 }
