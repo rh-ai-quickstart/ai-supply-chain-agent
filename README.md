@@ -1,14 +1,13 @@
-# Simulate Supply Chain Disruptions with Neo4J
+# Handle Supply Chain Disruptions with agentic AI
 
-<!-- TITLE: Simulate supply chain disruptions with RAG -->
+<!-- TITLE: Handle Supply Chain Disruptions with agentic AI -->
 
-Help supply chain and logistics operators simulate disruptions and query risk documents with a RAG chatbot on OpenShift AI.
+Help logistics operators simulate disruptions and query risk documents with a agentic AI on Red Hat® OpenShift® AI.
 
-<!-- SHORT DESCRIPTION: Help logistics operators simulate disruptions and query risk documents with a RAG chatbot on OpenShift AI. -->
+<!-- SHORT DESCRIPTION: Help logistics operators simulate disruptions and query risk documents with agentic AI on OpenShift AI. -->
 
 ## Table of Contents
 
-- [Overview](#overview)
 - [Detailed description](#detailed-description)
   - [See it in action](#see-it-in-action)
   - [Architecture diagrams](#architecture-diagrams)
@@ -19,41 +18,52 @@ Help supply chain and logistics operators simulate disruptions and query risk do
 - [Deploy](#deploy)
   - [Prerequisites](#prerequisites)
   - [Installation](#installation)
-  - [Validating the deployment](#validating-the-deployment)
+    - [Deploy](#deploy-1)
+    - [Check pods, services, and routes](#check-pods-services-and-routes)
+    - [Open the frontend Route URL](#open-the-frontend-route-url)
+    - [Seed Data](#seed-data)
+    - [Ingest knowledge bases](#ingest-knowledge-bases)
+  - [Exploring the deployment](#exploring-the-deployment)
+    - [Running Simulations](#running-simulations)
+    - [Ask impact questions](#ask-impact-questions)
+    - [Create a new Scenario](#create-a-new-scenario)
+    - [Live News Feed](#live-news-feed)
+    - [Modifying the application](#modifying-the-application)
   - [Delete](#delete)
-- [Repository structure](#repository-structure)
-- [References](#references)
-- [Technical details](#technical-details)
+- [Reference](#reference)
 - [Tags](#tags)
-
-## Overview
-
-This quickstart gives supply chain operators a live impact workspace on OpenShift AI. Teams can run what-if disruption scenarios, inspect affected shipments and diversions on a map, and ask a RAG chatbot questions grounded in curated risk documents. After deploying, you have a browser dashboard plus APIs for simulation, chat, and knowledge-base management.
 
 ## Detailed description
 
-Global supply chains are exposed to port strikes, airspace closures, canal blockages, and similar events. Traditional dashboards can raise alerts, but they do not reason about downstream impact or recommend diversions. Operators still have to piece together reports and expert judgment under time pressure.
+Global supply chains are exposed to port strikes, airspace closures, canal blockages, and similar events. Traditional dashboards can raise alerts, but they do not reason about the downstream impact or recommend diversions. Operators still have to piece together reports and expert judgment under time pressure.
 
-This quickstart deploys an interactive supply chain impact workspace backed by a OGX AI LLM, a PGVector knowledge base, and a general-simulation impact engine. Operators pick a seeded scenario, run a natural-language impact query, review score, value at risk, affected entities, and recommended diversions on a Leaflet map, and chat with a RAG assistant grounded in risk analyses.
+This quickstart deploys an interactive supply chain impact workspace backed by an agent running in OGX, a PGVector knowledge base, and a general-simulation impact engine. Operators pick a seeded scenario, run natural-language impact queries, review scores, values at risk, affected entities, and recommended diversions on a Leaflet map, and chat with a RAG assistant grounded in risk analyses.
 
 Typical use cases include operations centers modeling a Port of Los Angeles strike, a Suez blockage, or a GPS/airspace event before committing to a response. After deployment you can:
 
 - Run seeded disruption scenarios and inspect spatial impact on a map
-- Chat with a RAG assistant that auto-matches a OGX AI vector store by scenario
-- Upload `.txt`, `.md`, or `.pdf` risk documents at runtime (a Helm post-install job also loads bundled analyses)
+- Chat with a RAG assistant that auto-matches an OGX vector store by scenario
+- Upload `.txt`, `.md`, or `.pdf` risk documents at runtime
 - Propose and create new scenarios from natural language
 
 ### See it in action
 
-- [What to expect after deployment](./docs/WHAT_TO_EXPECT.md) — walkthrough of the Simulation, Knowledge bases, and Create scenario screens
-
-For a longer product narrative (audience, problem statement, and demo scenario catalog), see [DETAILED_DESCRIPTION.md](DETAILED_DESCRIPTION.md).
+- TODO: - link to video to be inserted here
 
 ### Architecture diagrams
 
-Operators reach the impact workspace through an OpenShift Route. The Flask backend proxies general-simulation impact queries, RAG chat, and knowledge-base management. OGX AI, PGVector, and the general-simulation subchart provide inference, retrieval, and spatial impact. Flight positions on the map come from OpenSky: the in-cluster CronJob is off by default (hyperscaler IPs are often blocked), so operators typically seed from a laptop with `make seed-opensky-live`.
+The quickstart consists of the following main components:
+* Frontend - React-based UI which allows the user to interact with simulated events and to visualize the impact of these events on the supply chain.
+* Backend application - Flask-based backend for the frontend
+* General Simulation engine - uses domain-specific data (for example flight data) to simulate the impact of events on your supply chain
+* Supply chain agent - agent built with [Langchain](https://github.com/langchain-ai/langchain) and [OGX](https://github.com/ogx-ai/ogx) which consumes uploaded risk documents and data generated from the general simulation engine to reason about and answer questions about supply chain disruptions.
 
-Open [docs/openshift-architecture.html](docs/openshift-architecture.html) in a browser for an OpenShift-oriented layout of Routes, subcharts, request flows, and how chat tools run in Flask.
+Flight positions on the map come from [OpenSky](https://opensky-network.org/).
+As OpenSky often blocks hyperscaler IPs by default, this data is seeded from the user's laptop.
+
+Supply chain impact queries go from the UI through Flask to the general-simulation engine and the supply chain agent. Chat interactions are handled by the Flask backend and flow through a Langchain agent to OGX and then to a locally deployed or external model. External models are often hosted in an OpenShift AI Model-as-a-Service (MaaS) instance.
+
+Tools are provided to the agent so that it can consume event-specific data from uploaded knowledge bases (in PGVector), the general-simulation engine results for the impact queries, and an RSS feed, enabling it to provide in-depth analysis and insight.
 
 ```mermaid
 flowchart TB
@@ -125,21 +135,16 @@ flowchart TB
     style data fill:#f9f9f9,stroke:#151515,stroke-width:1px
 ```
 
-Impact queries go from the UI through Flask to general-simulation. RAG chat streams from Flask through OGX AI to LiteMaaS. Flask advertises function tools on the chat-completions call; OGX AI forwards inference, and the backend runs tool calls (knowledge base, general-simulation, RSS) for up to three rounds. OpenSky flight states are pulled outside the request path and upserted into general-simulation Postgres and Neo4j (laptop seed, or the optional CronJob).
 
 ## Requirements
 
 ### Minimum hardware requirements
 
-**Application (MaaS — no in-cluster LLM):**
-
 - CPU: 4 vCPU
 - Memory: 16 GB
-- GPU: not required
+- GPU: only required if running model locally. Size to model being used. 
 - Storage: 20 GB (PGVector + app)
-- Models: Qwen3.6-35B-A3B, Qwen3.8-27B
-
-`helm/values.yaml` uses LiteMaaS (`global.models.external-model`). GPU is not required.
+- Models: tested with - Qwen3.6-35B-A3B, Qwen3.8-27B
 
 ### Minimum software requirements
 
@@ -150,24 +155,22 @@ Tested with OpenShift AI 3.4+ on OpenShift 4.21+.
 | OpenShift | 4.21+ |
 | OpenShift AI | 3.4+ |
 | Helm | 3.14+ |
-| OGX AI | via `general-simulation` subchart (from [general-simulation](https://github.com/robertsandoval/general-simulation) chart 0.0.1) |
 | Python | 3.12 |
 | Node.js | 22 (frontend builds) |
 | `oc` CLI | Recommended for deploy status and troubleshooting |
+
+These need to be installed before deploying the quickstart.
 
 ### Required user permissions
 
 This quickstart can be deployed by a user with:
 
 - Permission to create projects/namespaces
-- Namespace **admin** on the target project (sufficient to create Routes, Deployments, Services, and a Job)
-- Permission to deploy applications via Helm
-
-No cluster admin access is required for the default MaaS path.
+- Namespace **admin** on the target project (sufficient to create Routes, Deployments, Services, Jobs through helm deployments)
 
 ## Deploy
 
-Defaults used below (overridable on `make`, for example `make helm-install NAMESPACE=my-ns`):
+The quickstart uses these values by default (overridable on `make`, for example `make helm-install NAMESPACE=my-ns`):
 
 | Setting | Default |
 |---------|---------|
@@ -176,7 +179,7 @@ Defaults used below (overridable on `make`, for example `make helm-install NAMES
 | Namespace | `supply-chain-dashboard` |
 | Values file | `helm/values.yaml` |
 
-Run `make help` for the full target list. `make helm-install` creates the project if needed and updates chart dependencies.
+Run `make help` for the full target list.
 
 ### Prerequisites
 
@@ -185,76 +188,65 @@ Before deploying, ensure you have:
 - Access to a Red Hat OpenShift cluster with OpenShift AI 3.4+ installed
 - `oc` CLI installed and authenticated
 - `helm` CLI 3.14+ installed (`make` invokes Helm)
-- API token for your MaaS / LiteMaaS (OpenAI-compatible) model endpoint
-- Network access from the cluster to the model endpoint (and outbound HTTPS if you enable RSS news)
-
-General Simulation uses its **own** OpenAI credentials (`api.llm` / `ingestion.llm` in secrets) — not LiteMaaS.
+- API token for your OpenAI-compatible model endpoint
+- Network access from the cluster to the model endpoint
+- Outbound HTTPS so that the quickstart can access the RSS news feed
 
 ### Installation
 
-1. Clone the repository:
+TODO: - add explanation of how to deploy with local models instead of external
+      models after we test/confirm that.
+
+#### Deploy
+
+1. Clone the repository
 
 ```bash
 git clone https://github.com/rh-ai-quickstart/ai-supply-chain-agent.git
 cd ai-supply-chain-agent
 ```
 
-2. Configure secrets. Set your MaaS / LiteMaaS API token so OGX AI can call `global.models.external-model`. Copy the example file and edit it:
+2. Configure secrets
+
+Start by making a copy of the default secrets file:
 
 ```bash
 cp helm/secrets.example.yaml helm/secrets.yaml
-# Edit helm/secrets.yaml and set general-simulation.llm-service.secret.hf_token
 ```
 
-`make helm-install` applies `helm/secrets.yaml` automatically if it exists. To pass the token without writing it to a file:
+While you can put secrets into the copied file helm/secrets.yaml, we
+suggest you set them in the environment instead:
 
 ```bash
-make helm-install HELM_EXTRA_ARGS='--set global.models.external-model.apiToken=<your-maas-token>'
+export MODEL_ID=<YOUR_MODEL_NAME>
+export MODEL_URL=<YOUR_MODEL_ENDPOINT>
+export API_KEY=<YOUR_API_KEY>
 ```
 
-3. Install using `helm/values.yaml` which enables model in `global.models.external-model`:
+3. Validate model access
 
-```bash
-make helm-install
-```
-
-To upgrade an existing release:
-
-```bash
-make helm-upgrade
-```
-
-If you have an existing model endpoint, pass the model name, URL, and API key:
-
-```bash
-make helm-install HELM_EXTRA_ARGS='--set global.models.external-model.id=YOUR_MODEL_NAME --set global.models.external-model.url=YOUR_MODEL_ENDPOINT --set global.models.external-model.apiToken=YOUR_API_KEY'
-```
-
-> **Note**: `global.models.external-model.url` should be the full URL including protocol and path if needed (for example `https://my-model.example.com/v1`).
-
-The umbrella chart in `helm/` deploys the frontend Route, Flask backend, PGVector, OGX AI (MaaS / Qwen), general-simulation (own Postgres + Neo4j + API), an optional ingest Job, and an optional egress NetworkPolicy. Live OpenSky CronJob is **off** by default. Do not set `general-simulation.api.models.generation` in `helm/secrets.yaml` — that overlay wins over `values.yaml` and will send the wrong model id to OGX AI.
-
-#### Testing model access (before deploying)
-
-You can verify the MaaS endpoint is reachable **before** installing:
+You can verify the model endpoint is reachable **before** installing:
 
 ```bash
 oc run test-model-access --rm -it --restart=Never \
   --image=registry.access.redhat.com/ubi9/ubi-minimal:latest \
   -- /bin/sh -c 'curl -sf --max-time 10 \
-    -H "Authorization: Bearer YOUR_API_KEY" \
+    -H "Authorization: Bearer ${API_KEY}" \
     -H "Content-Type: application/json" \
-    -d "{\"model\": \"YOUR_MODEL_NAME\", \"messages\": [{\"role\": \"user\", \"content\": \"Say hello in one word.\"}], \"max_tokens\": 10}" \
-    "YOUR_MODEL_ENDPOINT/v1/chat/completions" && echo "" && echo "SUCCESS" || echo "FAILED"'
+    -d "{\"model\": \"${MODEL_ID}\", \"messages\": [{\"role\": \"user\", \"content\": \"Say hello in one word.\"}], \"max_tokens\": 10}" \
+    "${MODEL_URL}/v1/chat/completions" && echo "" && echo "SUCCESS" || echo "FAILED"'
 ```
 
-Replace `YOUR_API_KEY`, `YOUR_MODEL_NAME`, and `YOUR_MODEL_ENDPOINT` with your actual values.
+4. Deploy
 
-To build and push images instead of using the default Quay images: `make build` then `make release REGISTRY=quay.io/<your-org>`.
+If using an external model deploy with the following command:
 
-### Validating the deployment
+```bash
+make helm-install HELM_EXTRA_ARGS='--set global.models.external-model.id=${MODEL_ID} --set global.models.external-model.url=${MODEL_URL} --set global.models.external-model.apiToken=${API_KEY} --set general-simulation.llm-service.secret.hf_token=${HF_KEY}'
+```
+> **Note**: `global.models.external-model.url` should be the full URL including protocol and path if needed (for example `https://my-model.example.com/v1`).
 
-#### 1. Check pods, services, and routes:
+#### Check pods, services, and routes
 
 Run the following command.
 
@@ -262,40 +254,47 @@ Run the following command.
 make oc-status
 ```
 
-Wait until backend, frontend, pgvector, OGX (formerly llamastack), and general-simulation pods are **Running** and the ingest job (if enabled) has **Completed**. First startup can take several minutes while OGX AI becomes ready.
+Wait until backend, frontend, pgvector, OGX (formerly llamastack), and general-simulation pods are **Running** and the ingest job (if enabled) has **Completed**. First startup can take several minutes while OGX becomes ready.
 
-#### 2. Open the frontend Route URL:
+#### Open the frontend Route URL
 
-After running the `oc status` command finishes the initial page should look like:
+When the make helm-install completed the URL for the user interface was printed:
 
-![Initial Dashboard](docs/images/initial_page_load.png)
+TODO: - insert screencap or text of what is ouput at the end of the make helm-install
 
-For this demo we still need to seed the full data set.
+Open the url, the initial page should look like:
 
-#### 3. Seeding Data
+![Supply chain dashboard map before flight data has been seeded](/docs/images/initial_page_load.png)
 
-Next is to seed general-simulation map data (required for scenarios and markers). Gen-sim’s in-cluster OpenSky job is disabled by default — OpenSky often blocks hyperscaler IPs. From a laptop with `oc` login and a sibling [general-simulation](https://github.com/robertsandoval/general-simulation) checkout:
+You will not yet see any flight data as we still need to seed flight information for the quickstart.
+
+#### Seed Data
+
+The step seeds default scenarios and the general-simulation map data from OpenSky. Since OpenSky often blocks access from
+hyperscalers, the seed data is pulled on your client system and then populated into the quickstart. 
 
 First seed the scenarios: 
 ```bash
 make seed-gen-sim
 ```
 
-Next install actual flight data from the OpenSky Data API. 
+Next install flight data from the OpenSky Data API. 
 
 ```bash
 make seed-opensky-live GEN_SIM_NAMESPACE=supply-chain-dashboard
 ```
 
-This will fetch 2000 live flights from the API and upsert the records into PGVector and Neo4j giving us data to actually use. This seed script will also assign arbitrary values of cargo to each flight. This mock data is just a place holder you can add more 'metadata' to the graph to store more info. 
+This will fetch 2000 live flights from the API and inserts the records into PGVector and Neo4j giving the engine baseline data for simulations. This seed script will also assign arbitrary values of cargo to each flight that will be used in impact assessments.
 
 Once complete you should see a page like:
 
-![Seeded Dashboard](docs/images/after-seed.png)
+![Supply chain dashboard map showing seeded flights with cargo markers](/docs/images/after-seed.png)
 
 Each icon is a single flight with cargo associated. 
 
-#### 4. Optional — re-run knowledge-base ingestion without a full upgrade:
+#### Ingest knowledge bases
+
+Next ingest the knowledge bases for the predefined scenarios:
 
 ```bash
 make ingest
@@ -303,47 +302,105 @@ make ingest-status
 make ingest-logs
 ```
 
-Go to the Knowledge base page located in the top bar navigation and verify there are three knowledge bases like in the image below. 
+Once ingestion is complete go to the knowledge base page located in the top bar navigation and verify there are three knowledge bases like in the image below. 
 
-![Side Panel](/docs/images/knowledge-bases.png)
+![Knowledge base page listing the three pre-loaded knowledge bases](/docs/images/knowledge-bases.png)
 
-Each vector db is associated to a scenario so context stays relevant.
+Each vector db is associated to a scenario providing relevant context.
 
-#### 5. Running Simulations: 
+### Exploring the deployment
 
-In the left hand panel there are options for scenarios to run. Click `Uk Airspace Closure` in the UI. 
+#### Running Simulations 
 
-![Side Panel](/docs/images/scenario-panel.png)
+In the left hand panel there are options for scenarios to run. Click `UK Airspace Closure` in the UI. 
 
-After the scenrio runs you will notice the map zoom to the location of the event. Once zoomed in in the right panel you will be able to read the result. 
+![Left-hand panel listing selectable disruption scenarios, including UK Airspace Closure](/docs/images/scenario-panel.png)
 
-![After Scenario](/docs/images/scenario-result.png)
-![After Scenario](/docs/images/after-scenario.png)
+After the scenario runs you will notice the map zoom to the location of the event. Once zoomed in in the right panel you will be able to read the result. 
+
+![Map zoomed to the region impacted by the scenario](/docs/images/scenario-result.png)
+![Right-hand panel showing the calculated impact results after running the scenario](/docs/images/after-scenario.png)
 
 You should be able to select flight redirect for each flight which will show as follows on the map: 
 
-![Flight Redirection](/docs/images/flight-redirects.png)
+![Map showing a suggested flight redirect route around the disrupted airspace](/docs/images/flight-redirects.png)
 
-#### 6. After running the scenarios data is injected into the agents memory and you can ask follow up questions about that type of event. 
+TODO: - add step to filter the impact based on a single company, showing how it can be more specific to your company, provided data that tags flights that you have cargo on.
 
-- Verify that the responses stream back and are relevant. 
+#### Ask impact questions
 
-#### 7. Creating a new Scenario. Again in the top bar of the application click the create scenario. The page looks as follows:
+After running the scenarios data is injected into the agents memory and you can ask follow up questions about that type of event. 
 
-![Create Scenario](/docs/images/create-scenario.png)
+TODO: - add screenshot that shows where you ask the questions
+
+TODO: - add at least 2 specific questions to ask, and example of what the response might look like for each one
+
+#### Create a new Scenario
+
+The quickstart includes a number of pre-define scenarios, however, you can extend it with scenarios that may be more relevant
+to your organization.
+
+In the top bar of the application click the create scenario. The page looks as follows:
+
+![Create scenario form for describing a new disruption in natural language](/docs/images/create-scenario.png)
 
 Create a scenario by using natural language like "Simulate what would happen if a volcano erupts in Italy."
 
-The LLM will then populate pre defined fields which you can further refine then run! 
+The LLM will then populate pre defined fields which you can further refine then accept. You will notice
+that the affect box will have been automatically filled in based on the scenario, in our case covering
+Italy.
 
-![After Create Scenario](/docs/images/after-create-scenario.png)
+![Create scenario form auto-populated with fields and an affected bounding box covering Italy](/docs/images/after-create-scenario.png)
 
-Once ran it will bring you back to the home page where you can converse with the agent about said Scenario. 
+Once you select the "Create scenario" button it will save you the scenario and bring you back to the home page.
+You should now see the new scenario in addition to the pre-configured ones:
 
-#### 8. Live News Feed:
-There is a RSS based live news feed which is injected into the context of the agent. The agent is aware of current events and you can converse about how they might effect the process. 
+TODO: - add screenshot showing added scenario
 
-![News Integration](/docs/images/news-integration.png)
+Next select the "Knowledge bases" option, and you should see a screen like:
+
+![Knowledge base page listing the three pre-loaded knowledge bases](/docs/images/knowledge-bases.png)
+
+Next, add a knowledge base which is related to the scenario you just created. Make the display name `italy_volcano_eruptions` and
+select the file `/docs/knowledge-bases/italy_volcano_eruptions.txt` using Choose Files.
+
+Select `Create and injest` and you should see that a knowledge base was added:
+
+TODO: - add knowledge base file -> /docs/knowledge-bases/italy_volcano_eruptions.txt
+
+TODO: - add screenshot showing knowledge base that was added
+
+Now go back to the main page and select the newly added scenario:
+
+TODO - add screenshot showing the new newly added scenario, selected 
+
+You will notice that the impact is centered on italy. You can now go and ask impact questions as shown
+earlier which will be grounded in the simulation for the new scenario and the knowledge base that was updated.
+
+#### Live News Feed
+
+In addition to the simulation results and knowledge bases, there is a RSS based live news feed which is injected into the context of the agent.
+This makes the agent aware of current events and you can converse about how they might effect your supply chain or the scenario you are exploring.
+
+Open the chat window and ask `Is there any news that might affect our supply chain?`. You should see a result like this which is grounded
+in the current news from the newsfeed:
+
+![Chat response citing the live news feed to answer a supply chain question](/docs/images/news-integration.png)
+
+#### Modifying the application
+
+By default the deployment uses images that have been pre-built and pushed to the rh-ai-quickstart organization in quay.io. If you would
+like to modify or build on top of the quickstart you can easily build your modified images and push them to your own namespace by
+setting the REGISTRY environment variable.
+
+To build and push images instead of using the default Quay images run:
+
+```
+make build
+make release REGISTRY=quay.io/<your-org>
+```
+
+You will then need to run `make helm-uninstall` followed by `make helm-install ...` (where ... are the options you used as explained earlier) after having set REGISTRY=quay.io/<your-org> (where ... are the options you used as explained earlier).
 
 ### Delete
 
@@ -359,42 +416,28 @@ Optionally delete the project:
 oc delete project supply-chain-dashboard
 ```
 
-## References
+## Reference
 
 - [What to expect after deployment](./docs/WHAT_TO_EXPECT.md)
-- [OpenShift architecture (HTML)](./docs/openshift-architecture.html)
 - [OGX documentation](https://ogx.readthedocs.io)
 - [LangChain PGVector integration](https://python.langchain.com/docs/integrations/vectorstores/pgvector/)
 - [React Leaflet](https://react-leaflet.js.org/)
 - [OpenShift AI documentation](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed)
 
-## Technical details
-
-The backend exposes `/healthz`, `/readyz`, `/api/v1/version`, general-simulation scenario/query/GeoJSON routes, streaming RAG chat (`POST /api/v1/chat`), vector-store and knowledge-base APIs, scenario propose/create, and RSS news (`GET /api/v1/news`).
-
-Set `global.models.external-model.apiToken` in `helm/secrets.yaml` to a literal token (copy from `secrets.example.yaml`). Do not use `${env.VAR}` — the OGX AI init script will hit bash `bad substitution`.
-
-The backend uses `LLAMA_STACK_URL`, `LLAMA_STACK_MODEL`, `EMBED_MODEL`, PostgreSQL connection settings, `GENERAL_SIMULATION_BASE_URL` (chart default `http://general-sim-api:8000`), and optional `NEWS_FEED_URLS`. The ingest job uses `INGEST_STRATEGY` (`llamastack` by default, or `langchain` for PGVector). The frontend nginx proxy uses `BACKEND_UPSTREAM` at runtime.
-
-Optional Helm overrides include custom image repositories, `frontend.apiProxyUpstream`, `global.models.external-model.id` / `url`, `backend.env.EMBED_MODEL` / `LLAMA_STACK_URL`, `pgvector.secret.*`, `ingest.strategy`, `general-simulation.api.llm.*`, `general-simulation.ingestion.enabled` (keep `false` on hyperscaler clusters), and `networkPolicy.egress.*`.
-
-Frontend: React 19, Vite 7, Leaflet, react-markdown. Backend: Flask, OpenAI-compatible OGX AI client, LangChain + PGVector, psycopg. Local setup and quality gates (`make lint`, `make test`, `make pre-commit`, `make helm-test`) are in [CONTRIBUTING.md](CONTRIBUTING.md).
-
 ## Tags
 
 <!--
-Title: Simulate supply chain disruptions with RAG
-Description: Help logistics operators simulate disruptions and query risk documents with a RAG chatbot on OpenShift AI.
+Title: Handle Supply Chain Disruptions with agentic AI
+Description: Help logistics operators simulate disruptions and query risk documents with agentic AI on OpenShift AI.
 Industry: Manufacturing
 Product: OpenShift AI
 Use case: AI agents, RAG, supply chain intelligence
 Contributor org: Red Hat
 -->
 
-**Title:** Simulate supply chain disruptions with RAG  
-**Description:** Help logistics operators simulate disruptions and query risk documents with a RAG chatbot on OpenShift AI.  
-**Industry:** Manufacturing  
-**Product:** OpenShift AI  
-**Use case:** AI agents, RAG, supply chain intelligence  
-**Partner:** N/A  
-**Contributor org:** Red Hat
+- **Title:** Handle Supply Chain Disruptions with agentic AI
+- **Description:** Help logistics operators simulate disruptions and query risk documents with agentic AI on OpenShift AI.
+- **Industry:** Manufacturing
+- **Product:** OpenShift AI
+- **Use case:** AI agents, RAG, supply chain intelligence
+- **Contributor org:** Red Hat
