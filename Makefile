@@ -49,6 +49,14 @@ MAAS_VALUES_FILE ?= $(HELM_CHART)/values-maas.yaml
 HELM_EXTRA_ARGS ?=
 GENERAL_SIM_CHART_DIR ?= $(CURDIR)/../../general-simulation/deploy/helm/general-simulation
 
+# --- OpenShift CI / nightly ---
+OC_VERSION ?= stable-4.21
+OC_ARCH    ?= x86_64
+export OC = ./bin/oc
+LLM_ID     ?= Qwen2.5-VL-7B-Instruct
+LLM_URL    ?=
+LLM_API_TOKEN ?=
+
 # --- Secrets (auto-applied if helm/secrets.yaml exists) ---
 SECRETS_FILE ?= $(HELM_CHART)/secrets.yaml
 ifeq ($(wildcard $(SECRETS_FILE)),)
@@ -120,6 +128,14 @@ help:
 	@echo "  E2E UI (Playwright):"
 	@echo "    e2e-ui-install       Install pytest-playwright and Chromium"
 	@echo "    e2e-ui               Run browser E2E tests (needs SUPPLY_CHAIN_UI_ENDPOINT)"
+	@echo ""
+	@echo "  OpenShift CI / nightly:"
+	@echo "    oc                   Download oc CLI to ./bin/oc (if missing)"
+	@echo "    version              Print Helm chart version from helm/Chart.yaml"
+	@echo "    helm-install-prod    Deploy on OpenShift with LLM_URL / LLM_API_TOKEN / LLM_ID"
+	@echo "    test-backend-api     API smoke tests against live cluster (port-forward)"
+	@echo "    test-ingestion       Verify ingest Job + vector_stores on live cluster"
+	@echo "    test-openshift-e2e   Playwright UI E2E against live cluster (real LLM)"
 	@echo ""
 	@echo "  Ingest:"
 	@echo "    ingest             Run the knowledge-base ingestion Job on OpenShift"
@@ -449,6 +465,60 @@ e2e-ui-install:
 .PHONY: e2e-ui
 e2e-ui: e2e-ui-install
 	@python -m pytest tests/e2e_ui/ -v --tb=short --browser chromium
+
+.PHONY: helm-install-prod
+helm-install-prod:
+	@export NAMESPACE="$(NAMESPACE)"; \
+	export HELM_RELEASE="$(HELM_RELEASE)"; \
+	export REGISTRY="$(REGISTRY)"; \
+	export BACKEND_TAG="$(BACKEND_TAG)"; \
+	export FRONTEND_TAG="$(FRONTEND_TAG)"; \
+	export INGEST_TAG="$(INGEST_TAG)"; \
+	export LLM_ID="$${LLM_ID:-$(LLM_ID)}"; \
+	export LLM_URL="$${LLM_URL:-$(LLM_URL)}"; \
+	export LLM_API_TOKEN="$${LLM_API_TOKEN:-$(LLM_API_TOKEN)}"; \
+	export HELM_EXTRA_ARGS="$${HELM_EXTRA_ARGS:-$(HELM_EXTRA_ARGS)}"; \
+	bash ./scripts/ci/helm-install-prod.sh
+
+.PHONY: test-backend-api
+test-backend-api:
+	@NAMESPACE="$(NAMESPACE)" \
+	HELM_RELEASE="$(HELM_RELEASE)" \
+	bash ./scripts/ci/openshift-verify-deployment.sh
+
+.PHONY: test-ingestion
+test-ingestion:
+	@NAMESPACE="$(NAMESPACE)" \
+	HELM_RELEASE="$(HELM_RELEASE)" \
+	bash ./scripts/ci/openshift-verify-ingestion.sh
+
+.PHONY: test-openshift-e2e
+test-openshift-e2e: e2e-ui-install
+	@NAMESPACE="$(NAMESPACE)" \
+	HELM_RELEASE="$(HELM_RELEASE)" \
+	RUN_UI_E2E=1 \
+	SKIP_MODEL_TESTS=false \
+	bash ./scripts/ci/openshift-verify-deployment.sh
+
+.PHONY: version
+version:
+	@grep '^version:' $(HELM_CHART)/Chart.yaml | awk '{print $$2}'
+
+.PHONY: oc
+oc: ## Download oc locally if necessary.
+ifeq (,$(wildcard $(OC)))
+ifeq (,$(shell which oc 2>/dev/null))
+	@{ \
+	set -e ;\
+	mkdir -p $(dir $(OC)) ;\
+	curl -sSLo oc.tar.gz https://mirror.openshift.com/pub/openshift-v4/$(OC_ARCH)/clients/ocp/$(OC_VERSION)/openshift-client-linux.tar.gz ;\
+	tar -xf oc.tar.gz -C $(dir $(OC)) oc ;\
+	rm -f oc.tar.gz ;\
+	}
+else
+	@echo ">>> Using system oc: $(shell which oc)"
+endif
+endif
 
 .PHONY: helm-install-kind
 helm-install-kind: helm-deps k8s-namespace
