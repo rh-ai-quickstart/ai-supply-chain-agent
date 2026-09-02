@@ -96,3 +96,90 @@ def test_get_entities_geojson_passes_params():
 def test_sync_spatial_requires_scenario_id():
     client = GeneralSimulationClient(session=MagicMock())
     assert client.sync_spatial("  ") == {"error": "scenario_id is required"}
+
+
+def test_sync_spatial_success():
+    session = MagicMock()
+    session.post.return_value = _json_response(
+        {"status": "synced", "scenario_id": "s1", "total_affected": 3}
+    )
+    client = GeneralSimulationClient(base_url="http://gs", session=session)
+    out = client.sync_spatial("s1")
+    assert out["status"] == "synced"
+    session.post.assert_called_once_with(
+        "http://gs/admin/graph/scenarios/s1/sync-spatial",
+        timeout=120,
+    )
+
+
+def test_sync_spatial_timeout():
+    session = MagicMock()
+    session.post.side_effect = requests.Timeout()
+    client = GeneralSimulationClient(timeout=30, session=session)
+    assert client.sync_spatial("s1") == {"error": "Request timed out after 30s"}
+
+
+def test_create_event_success():
+    session = MagicMock()
+    session.post.return_value = _json_response(
+        {"status": "injected", "event_id": "evt-1", "affected_count": 2}
+    )
+    client = GeneralSimulationClient(base_url="http://gs", session=session)
+    out = client.create_event(
+        event_id="evt-1",
+        scenario_id="s1",
+        description="Runway closure",
+        bbox="-1,50,1,52",
+        attributes={"severity": "high"},
+    )
+    assert out["event_id"] == "evt-1"
+    payload = session.post.call_args.kwargs["json"]
+    assert payload["bbox"] == "-1,50,1,52"
+    assert payload["attributes"] == {"severity": "high"}
+
+
+def test_create_event_http_error():
+    session = MagicMock()
+    session.post.return_value = _json_response({"detail": "bad bbox"}, status=400)
+    client = GeneralSimulationClient(session=session)
+    out = client.create_event(
+        event_id="e",
+        scenario_id="s",
+        description="d",
+        bbox="bad",
+    )
+    assert out["error"].startswith("HTTP 400:")
+
+
+def test_create_event_timeout():
+    session = MagicMock()
+    session.post.side_effect = requests.Timeout()
+    client = GeneralSimulationClient(timeout=5, session=session)
+    out = client.create_event(
+        event_id="e",
+        scenario_id="s",
+        description="d",
+        bbox="-1,50,1,52",
+    )
+    assert out["error"] == "Request timed out after 5s"
+
+
+def test_list_scenarios_timeout():
+    session = MagicMock()
+    session.get.side_effect = requests.Timeout()
+    client = GeneralSimulationClient(session=session)
+    assert client.list_scenarios() == {"error": "Request timed out after 30s"}
+
+
+def test_get_entities_geojson_timeout():
+    session = MagicMock()
+    session.get.side_effect = requests.Timeout()
+    client = GeneralSimulationClient(session=session)
+    assert client.get_entities_geojson() == {"error": "Request timed out after 60s"}
+
+
+def test_get_entities_geojson_unexpected_shape():
+    session = MagicMock()
+    session.get.return_value = _json_response(["not", "a", "dict"])
+    client = GeneralSimulationClient(session=session)
+    assert client.get_entities_geojson() == {"error": "Unexpected geojson response shape"}

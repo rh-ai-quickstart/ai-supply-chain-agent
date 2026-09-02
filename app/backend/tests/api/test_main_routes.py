@@ -320,3 +320,61 @@ def test_post_scenarios_create(flask_client):
     body = rv.get_json()
     assert body["scenario_id"] == "france-closure"
     container.scenario_create_service.create.assert_called_once()
+
+
+def test_post_scenarios_create_upstream_failure(flask_client):
+    client, container = flask_client
+    container.scenario_create_service.create.return_value = {
+        "success": False,
+        "error": "gen-sim unreachable",
+    }
+    rv = client.post("/api/v1/scenarios", json={"scenario_id": "x"})
+    assert rv.status_code == 400
+    assert rv.get_json()["error"] == "gen-sim unreachable"
+
+
+def test_get_general_simulation_entities_geojson_upstream_error(flask_client):
+    client, container = flask_client
+    container.general_simulation_service.get_entities_geojson.return_value = {
+        "success": False,
+        "error": "timeout",
+    }
+    rv = client.get("/api/v1/general-simulation/entities/geojson")
+    assert rv.status_code == 502
+    assert rv.get_json()["error"] == "timeout"
+
+
+def test_post_news_refresh_vector_store_success(flask_client, monkeypatch):
+    client, _ = flask_client
+    monkeypatch.setattr(
+        "routes.news.ingest_news",
+        lambda **kwargs: {
+            "ok": True,
+            "error": None,
+            "ingested": 5,
+            "vector_store_id": "vs-1",
+            "warnings": [],
+        },
+    )
+    rv = client.post("/api/v1/news/refresh-vector-store")
+    assert rv.status_code == 200
+    body = rv.get_json()
+    assert body["ok"] is True
+    assert body["ingested"] == 5
+
+
+def test_post_news_refresh_vector_store_failure(flask_client, monkeypatch):
+    client, _ = flask_client
+    monkeypatch.setattr(
+        "routes.news.ingest_news",
+        lambda **kwargs: {
+            "ok": False,
+            "error": "No headlines available to ingest",
+            "ingested": 0,
+            "vector_store_id": None,
+            "warnings": [],
+        },
+    )
+    rv = client.post("/api/v1/news/refresh-vector-store")
+    assert rv.status_code == 500
+    assert "headlines" in rv.get_json()["error"]

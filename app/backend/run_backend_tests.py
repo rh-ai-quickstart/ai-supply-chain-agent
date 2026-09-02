@@ -24,12 +24,41 @@ _PYTEST = [
     "-p",
     "no:asyncio",
 ]
+_COV_BASE = [
+    "--cov-report=term-missing",
+]
 
 
 def main() -> int:
     extra = sys.argv[1:]
-    r1 = subprocess.call(_PYTEST + [str(_ROOT / "tests" / "api")] + extra)
-    r2 = subprocess.call(_PYTEST + [str(_ROOT / "tests" / "ingestion")] + extra)
+    use_cov = "--no-cov" not in extra
+    if use_cov:
+        extra = [a for a in extra if a != "--no-cov"]
+
+    api_cov = (
+        ["--cov=api", f"--cov-config={_ROOT / 'pytest.ini'}", *_COV_BASE]
+        if use_cov
+        else []
+    )
+    ingestion_cov = (
+        [
+            "--cov=ingestion",
+            f"--cov-config={_ROOT / 'pytest-ingestion.ini'}",
+            *_COV_BASE,
+        ]
+        if use_cov
+        else []
+    )
+
+    r1 = subprocess.call(
+        _PYTEST + api_cov + [str(_ROOT / "tests" / "api")] + extra
+    )
+    r2 = subprocess.call(
+        _PYTEST
+        + ingestion_cov
+        + [str(_ROOT / "tests" / "ingestion"), "-c", str(_ROOT / "pytest-ingestion.ini")]
+        + extra
+    )
     return r1 or r2
 
 

@@ -46,8 +46,10 @@ pytest tests/e2e_ui/ -v --headed --slowmo 500 --browser chromium
 
 | File | Coverage |
 |------|----------|
-| `test_impact_simulation_ui.py` | Header, Simulation / KB nav, Impact Query panel, Create scenario modal, Live Flights default, chat input |
+| `test_impact_simulation_ui.py` | Header, Simulation / KB nav, scenario panel, suggested prompts, Create scenario modal, All Flights default, chat input |
 | `test_chat_ui.py` | Off-topic guardrail |
 | `test_knowledge_bases_ui.py` | Nav + `#/knowledge-bases` hash route |
 
 Current SPA routes: `#/simulation`, `#/knowledge-bases`. Prefer unit tests under `app/frontend/src/**/*.test.*` for map/results deep coverage; this suite is chrome + chat smoke for Kind.
+
+When `RUN_UI_E2E=1`, `scripts/ci/kind-verify-deployment.sh` seeds the three preset demo scenarios directly in Neo4j (`scripts/ci/kind-seed-demo-scenarios.py` via `general-sim-api`) before Playwright runs. This avoids the admin inject API, which requires Llama Stack (disabled on Kind).

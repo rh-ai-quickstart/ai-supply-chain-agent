@@ -170,4 +170,76 @@ describe("useImpactSimulation", () => {
     });
     expect(result.current.question).toBe("Show affected aircraft and recommend diversions.");
   });
+
+  it("sets mapError when geojson load fails", async () => {
+    getImpactEntitiesGeoJson.mockResolvedValue({
+      success: false,
+      error: "geojson unavailable",
+    });
+    const { result } = renderHook(() =>
+      useImpactSimulation({ initialScenarioId: "opensky-uk-closure-001" }),
+    );
+    await waitFor(() => expect(result.current.mapError).toBe("geojson unavailable"));
+  });
+
+  it("clears prior results when scenario changes", async () => {
+    listImpactScenarios.mockResolvedValue({
+      success: true,
+      scenarios: ["opensky-uk-closure-001", "supply-chain-port-strike-la"],
+    });
+    runImpactQuery.mockResolvedValue({
+      success: true,
+      answer: "Impact summary",
+      affected_entities: [],
+      solver: { impact_score: 0.5 },
+      tool_call_trace: [{ tool_name: "get_affected_subgraph" }],
+    });
+    const { result } = renderHook(() =>
+      useImpactSimulation({ initialScenarioId: "opensky-uk-closure-001" }),
+    );
+    await waitFor(() => expect(result.current.scenariosLoading).toBe(false));
+
+    await act(async () => {
+      await result.current.handleRunQuery();
+    });
+    expect(result.current.result).not.toBeNull();
+
+    act(() => result.current.handleChangeScenarioId("supply-chain-port-strike-la"));
+    expect(result.current.result).toBeNull();
+  });
+
+  it("populates solver summary and tool trace from a successful query", async () => {
+    runImpactQuery.mockResolvedValue({
+      success: true,
+      answer: "Twelve flights affected.",
+      affected_entities: ["e1"],
+      solver: { impact_score: 0.8, total_value_at_risk: 1000, currency: "USD" },
+      tool_call_trace: [{ tool_name: "solve_impact", arguments: {}, output: {} }],
+    });
+    getImpactEntitiesGeoJson
+      .mockResolvedValueOnce({
+        success: true,
+        geojson: { type: "FeatureCollection", features: [] },
+      })
+      .mockResolvedValueOnce({
+        success: true,
+        geojson: {
+          type: "FeatureCollection",
+          features: [{ type: "Feature", properties: { id: "e1" } }],
+        },
+      });
+
+    const { result } = renderHook(() =>
+      useImpactSimulation({ initialScenarioId: "opensky-uk-closure-001" }),
+    );
+    await waitFor(() => expect(result.current.scenariosLoading).toBe(false));
+
+    await act(async () => {
+      await result.current.handleRunQuery();
+    });
+
+    expect(result.current.result?.answer).toBe("Twelve flights affected.");
+    expect(result.current.result?.solver?.impact_score).toBe(0.8);
+    expect(result.current.result?.tool_call_trace).toHaveLength(1);
+  });
 });

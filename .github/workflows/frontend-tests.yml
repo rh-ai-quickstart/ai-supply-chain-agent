@@ -36,8 +36,10 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Vitest (React dashboard)
-        run: pnpm test
+      # Vitest discovers all src/**/*.test.{js,jsx} files (including new
+      # generalSimulationService, useImpactSimulation, logger, SectionHeading).
+      - name: Vitest with coverage (React dashboard)
+        run: pnpm test:coverage
 
       - name: ESLint
         run: pnpm run lint
