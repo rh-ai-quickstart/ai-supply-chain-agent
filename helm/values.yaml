@@ -12,8 +12,13 @@ global:
 
 # Platform infra (Postgres, Neo4j, Llama Stack, llm-service, API, ingestion)
 # is deployed via the general-simulation umbrella subchart (chart 0.0.1).
-# Model selection (Llama Stack providers, llm-service, api.models.generation)
-# is owned entirely under general-simulation — supply-chain reads
+#
+# LiteMaaS profile (default):
+#   - Chat: Llama Stack → global.models.external-model → LiteMaaS /v1/chat/completions
+#   - Supply-chain RAG/ingest: backend.env.EMBED_BASE_URL → LiteMaaS /v1/embeddings
+#   - Scenario create (gen-sim inject): api.models.embedding → Llama Stack inline
+#     sentence-transformers (LiteMaaS embed models are not registered on the stack).
+# Model selection for chat is owned under general-simulation — supply-chain reads
 # general-simulation.api.models.generation for LLAMA_STACK_MODEL.
 general-simulation:
   global:
@@ -27,7 +32,7 @@ general-simulation:
         enabled: false
         id: deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B
         apiToken: unused
-      # Optional external MaaS — disable llm-service and set apiToken in secrets.
+      # LiteMaaS chat model — disable llm-service; set apiToken in helm/secrets.yaml.
       external-model:
         enabled: true
         id: Qwen2.5-VL-7B-Instruct
@@ -89,7 +94,8 @@ general-simulation:
     models:
       # Stack model id = <providerKey>/<model.id> (see global.models.external-model above).
       generation: external-model/Qwen2.5-VL-7B-Instruct
-      embedding: nomic-ai/nomic-embed-text-v1.5
+      # Llama Stack inline embedder — full stack model id (see GET /v1/models on llamastack).
+      embedding: sentence-transformers/nomic-ai/nomic-embed-text-v1.5
       embeddingDimension: "768"
     postgres:
       user: sim
@@ -107,6 +113,8 @@ general-simulation:
     enabled: true
     models:
       generation: external-model/Qwen2.5-VL-7B-Instruct
+      embedding: sentence-transformers/nomic-ai/nomic-embed-text-v1.5
+      embeddingDimension: "768"
     postgres:
       user: sim
       password: password
@@ -136,6 +144,10 @@ backend:
     LLAMA_STACK_URL: http://llamastack:8321
     # LLAMA_STACK_MODEL / LLAMA_STACK_OPENAI_MODEL come from general-simulation.api.models.generation.
     LLAMA_STACK_TIMEOUT_SECONDS: "300"
+    # Direct LiteMaaS embeddings for supply-chain RAG + ingest (bypasses Llama Stack).
+    # EMBED_API_KEY in helm/secrets.yaml. Gen-sim scenario inject keeps api.models.embedding above.
+    EMBED_BASE_URL: https://litemaas.rhoai.rh-aiservices-bu.com
+    EMBED_MODEL: Nomic-embed-text-v2-moe
     # PG_ prefix avoids collision with a Kubernetes service-discovery
     # PGVECTOR_PORT=tcp://… var if a Service named pgvector exists.
     GENERAL_SIMULATION_BASE_URL: "http://general-sim-api:8000"
@@ -160,10 +172,10 @@ ingest:
     name: ai-supply-chain-agent-ingestion
     tag: ""
     pullPolicy: Always
-  # "langchain" — client-side chunking/embedding via LangChain + PGVector.
-  # "llamastack" — server-side: uploads files to LlamaStack, which handles
-  #                chunking, embedding, and storage internally.
-  strategy: "llamastack" # LlamaStack is the default strategy
+  # "langchain" — client-side chunking/embedding via LangChain + PGVector (required for
+  # LiteMaaS embeddings; llamastack strategy uses inline sentence-transformers in OGX).
+  # "llamastack" — server-side: uploads files to LlamaStack vector stores API.
+  strategy: "langchain"
   # Path inside the container where .txt files live (baked into the image).
   knowledgeBaseDir: "knowledge_base"
   # File glob relative to knowledgeBaseDir.

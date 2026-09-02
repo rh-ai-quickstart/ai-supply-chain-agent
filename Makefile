@@ -37,6 +37,7 @@ HELM_CHART     ?= ./helm
 HELM_RELEASE   ?= supply-chain-dashboard
 NAMESPACE      ?= supply-chain-dashboard
 VALUES_FILE    ?= $(HELM_CHART)/values.yaml
+KIND_VALUES_FILE ?= $(HELM_CHART)/values-kind.yaml
 
 # --- Podman ---
 BUILD_PLATFORM ?= linux/amd64
@@ -502,7 +503,7 @@ oc-status:
 
 # Run the ingestion Job as a one-off oc run (no Helm required).
 # Default matches helm/values.yaml ingest.strategy; override to langchain for PGVector.
-INGEST_STRATEGY ?= llamastack
+INGEST_STRATEGY ?= langchain
 
 .PHONY: ingest
 ingest:
