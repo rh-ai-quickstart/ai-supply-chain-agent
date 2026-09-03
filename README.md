@@ -199,10 +199,11 @@ TODO: - add explanation of how to deploy with local models instead of external
 
 #### Deploy
 
-1. Clone the repository
+1. Clone the quickstart and general-simulation repositories
 
 ```bash
 git clone https://github.com/rh-ai-quickstart/ai-supply-chain-agent.git
+git clone https://github.com/rh-ai-quickstart/general-simulation.git
 cd ai-supply-chain-agent
 ```
 
@@ -230,11 +231,14 @@ You can verify the model endpoint is reachable **before** installing:
 ```bash
 oc run test-model-access --rm -it --restart=Never \
   --image=registry.access.redhat.com/ubi9/ubi-minimal:latest \
+  --env="API_KEY=${API_KEY}" \
+  --env="MODEL_ID=${MODEL_ID}" \
+  --env="MODEL_URL=${MODEL_URL}" \
   -- /bin/sh -c 'curl -sf --max-time 10 \
     -H "Authorization: Bearer ${API_KEY}" \
     -H "Content-Type: application/json" \
     -d "{\"model\": \"${MODEL_ID}\", \"messages\": [{\"role\": \"user\", \"content\": \"Say hello in one word.\"}], \"max_tokens\": 10}" \
-    "${MODEL_URL}/v1/chat/completions" && echo "" && echo "SUCCESS" || echo "FAILED"'
+    "${MODEL_URL}/chat/completions" && echo "" && echo "SUCCESS" || echo "FAILED"'
 ```
 
 4. Deploy
@@ -242,9 +246,9 @@ oc run test-model-access --rm -it --restart=Never \
 If using an external model deploy with the following command:
 
 ```bash
-make helm-install HELM_EXTRA_ARGS='--set global.models.external-model.id=${MODEL_ID} --set global.models.external-model.url=${MODEL_URL} --set global.models.external-model.apiToken=${API_KEY} --set general-simulation.llm-service.secret.hf_token=${HF_KEY}'
+make helm-install HELM_EXTRA_ARGS='--set general-simulation.global.models.external-model.id=${MODEL_ID} --set general-simulation.global.models.external-model.url=${MODEL_URL} --set general-simulation.global.models.external-model.apiToken=${API_KEY} --set general-simulation.api.models.generation=external-model/${MODEL_ID} --set general-simulation.ingestion.models.generation=external-model/${MODEL_ID}'
 ```
-> **Note**: `global.models.external-model.url` should be the full URL including protocol and path if needed (for example `https://my-model.example.com/v1`).
+> **Note**: `general-simulation.global.models.external-model.url` should be the full URL including protocol and path if needed (for example `https://my-model.example.com/v1`).
 
 #### Open the frontend Route URL
 
@@ -263,7 +267,10 @@ You will not yet see any flight data as we still need to seed flight information
 The step seeds default scenarios and the general-simulation map data from OpenSky. Since OpenSky often blocks access from
 hyperscalers, the seed data is pulled on your client system and then populated into the quickstart. 
 
+If you used a different namesapce by setting NAMESPACE=XXX when you installed the quickstart you must use GENSIM_NAMESPACE=XXX in the command in this section.
+
 First seed the scenarios: 
+
 ```bash
 make seed-gen-sim
 ```
@@ -271,10 +278,10 @@ make seed-gen-sim
 Next install flight data from the OpenSky Data API. 
 
 ```bash
-make seed-opensky-live GEN_SIM_NAMESPACE=supply-chain-dashboard
+make seed-opensky-live GEN_SIM_NAMESPACE=supply-chain-dashboard OPENSKY_MAX=50
 ```
 
-This will fetch 2000 live flights from the API and inserts the records into PGVector and Neo4j giving the engine baseline data for simulations. This seed script will also assign arbitrary values of cargo to each flight that will be used in impact assessments.
+This will fetch 50 live flights (as a representation of flights that your organization has shipments on) from the API and inserts the records into PGVector and Neo4j giving the engine baseline data for simulations. This seed script will also assign arbitrary values of cargo to each flight that will be used in impact assessments.
 
 Once complete you should see a page like:
 
@@ -330,11 +337,15 @@ TODO: - add at least 2 specific questions to ask, and example of what the respon
 The quickstart includes a number of pre-define scenarios, however, you can extend it with scenarios that may be more relevant
 to your organization.
 
-In the top bar of the application click the create scenario. The page looks as follows:
+In the top bar of the application click the create scenario as show in:
+
+TODO: add screenshot highlighting where to click to create a new scenario.
+
+Once you click on the `+` the page looks as follows:
 
 ![Create scenario form for describing a new disruption in natural language](/docs/images/create-scenario.png)
 
-Create a scenario by using natural language like "Simulate what would happen if a volcano erupts in Italy."
+Create a scenario by using natural language like "Vesuvius erupts in Italy closing airspace"
 
 The LLM will then populate pre defined fields which you can further refine then accept. You will notice
 that the affect box will have been automatically filled in based on the scenario, in our case covering
@@ -356,8 +367,6 @@ select the file `/docs/knowledge-bases/italy_volcano_eruptions.txt` using Choose
 
 Select `Create and injest` and you should see that a knowledge base was added:
 
-TODO: - add knowledge base file -> /docs/knowledge-bases/italy_volcano_eruptions.txt
-
 TODO: - add screenshot showing knowledge base that was added
 
 Now go back to the main page and select the newly added scenario:
@@ -376,6 +385,15 @@ Open the chat window and ask `Is there any news that might affect our supply cha
 in the current news from the newsfeed:
 
 ![Chat response citing the live news feed to answer a supply chain question](/docs/images/news-integration.png)
+
+
+You can also create scenarios directly from the news feed which is shown at the top of the workspace:
+
+![Live newsfeed at the top right of the command center workspace](/docs/images/live-newsfeed.png)
+
+When you click one of the headlines in the live newsfeed it will help you create a scenario:
+
+![Creation of scenario from news feed](/docs/images/live-newsfeed-create-scenario.png)
 
 #### Modifying the application
 
