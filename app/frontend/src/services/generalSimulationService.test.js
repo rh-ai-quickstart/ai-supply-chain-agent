@@ -47,4 +47,25 @@ describe("generalSimulationService", () => {
       scenario_id: "opensky-uk-closure-001",
     });
   });
+
+  it("propagates apiPost errors from runImpactQuery", async () => {
+    vi.mocked(apiPost).mockRejectedValue(new Error("network down"));
+    await expect(
+      runImpactQuery({ question: "q", scenarioId: "s1" }),
+    ).rejects.toThrow("network down");
+  });
+
+  it("builds geojson url without params when none provided", async () => {
+    vi.mocked(apiGet).mockResolvedValue({ success: true });
+    await getImpactEntitiesGeoJson();
+    expect(apiGet).toHaveBeenCalledWith(
+      "/api/v1/general-simulation/entities/geojson",
+      { signal: undefined },
+    );
+  });
+
+  it("propagates apiGet errors from listImpactScenarios", async () => {
+    vi.mocked(apiGet).mockRejectedValue(new Error("service unavailable"));
+    await expect(listImpactScenarios()).rejects.toThrow("service unavailable");
+  });
 });

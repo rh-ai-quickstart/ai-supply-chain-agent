@@ -245,7 +245,7 @@ login:
 # ============================================================
 
 BACKEND_TEST ?= python run_backend_tests.py
-FRONTEND_TEST ?= pnpm test
+FRONTEND_TEST ?= pnpm test:coverage
 HELM_TEST ?= make helm-test
 
 .PHONY: test

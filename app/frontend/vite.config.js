@@ -21,5 +21,9 @@ export default defineConfig({
     setupFiles: './src/test/setup.jsx',
     css: true,
     restoreMocks: true,
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'text-summary'],
+    },
   },
 })
