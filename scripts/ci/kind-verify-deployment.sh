@@ -2,6 +2,8 @@
 # Post-deploy checks for Kind + Helm install (used by kind-helm-smoke workflow).
 set -euo pipefail
 
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+
 NAMESPACE="${NAMESPACE:-supply-chain-dashboard}"
 HELM_RELEASE="${HELM_RELEASE:-supply-chain-dashboard}"
 BACKEND_PF_PORT="${BACKEND_PF_PORT:-15001}"
@@ -67,6 +69,25 @@ wait_for_body_contains() {
   return 1
 }
 
+seed_gen_sim_demo() {
+  local seed_script="${ROOT_DIR}/scripts/ci/kind-seed-demo-scenarios.py"
+  log "Seeding general-simulation demo scenarios for UI E2E (Neo4j direct)"
+  kubectl wait -n "${NAMESPACE}" --for=condition=available \
+    deployment/general-sim-api --timeout=120s
+  [[ -f "${seed_script}" ]] || fail "missing seed script: ${seed_script}"
+
+  if ! kubectl exec -i -n "${NAMESPACE}" deploy/general-sim-api -- \
+    python - < "${seed_script}"; then
+    fail "Neo4j scenario seed failed (see general-sim-api logs)"
+  fi
+
+  wait_for_body_contains \
+    "http://127.0.0.1:${BACKEND_PF_PORT}/api/v1/general-simulation/scenarios" \
+    "opensky-uk-closure-001" 30 \
+    || fail "Demo scenarios not visible after seed (expected opensky-uk-closure-001)"
+  log "PASS general-simulation demo scenario seed (opensky-uk-closure-001)"
+}
+
 log "Helm release status"
 helm status "${HELM_RELEASE}" --namespace "${NAMESPACE}"
 
@@ -123,6 +144,7 @@ PROXY_VERSION=$(wait_for_body_contains \
 log "PASS frontend GET /api/v1/version (nginx same-origin proxy)"
 
 if [[ "${RUN_UI_E2E:-}" == "1" || "${RUN_UI_E2E:-}" == "true" ]]; then
+  seed_gen_sim_demo
   log "Running Playwright UI E2E tests"
   if ! python -m pytest --version >/dev/null 2>&1; then
     fail "pytest not found; install with: make e2e-ui-install"

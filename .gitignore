@@ -12,7 +12,7 @@ lerna-debug.log*
 dist-ssr
 coverage
 *.local
-
+*/__pycache__/
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
@@ -24,7 +24,7 @@ coverage
 *.sln
 *.sw?
 *.tgz
-*/__pycache__/
+*/__pycache__/*
 .venv/
 
 # Prefer pnpm lockfile for the frontend (package-lock.json ignored)
