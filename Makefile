@@ -393,6 +393,7 @@ helm-upgrade-install: helm-deps
 	@echo ">>> Installing/upgrading Helm release: $(HELM_RELEASE) in namespace: $(NAMESPACE)"
 	@echo ">>> Registry: $(REGISTRY) (backend=$(BACKEND_TAG) frontend=$(FRONTEND_TAG) ingest=$(INGEST_TAG))"
 	@echo ">>> Secrets file: $(if $(SECRETS_FLAGS),$(SECRETS_FILE) (found),not found - see secrets.example.yaml)"
+	
 	helm upgrade --install $(HELM_RELEASE) $(HELM_CHART) \
 		--namespace $(NAMESPACE) \
 		--create-namespace \
@@ -411,8 +412,29 @@ helm-upgrade-install-maas:
 .PHONY: install
 install: helm-upgrade-install
 
+.PHONY: uninstall-jobs
+uninstall-jobs:
+	@echo ">>> Deleting jobs"
+	oc delete job --all -n $(NAMESPACE)
+
+.PHONY: uninstall-pvc
+uninstall-pvc:
+	@echo ">>> Deleting PVCs"
+	oc delete pvc --all -n $(NAMESPACE)
+
+.PHONY: uninstall-secrets
+uninstall-secrets:
+	@echo ">>> Deleting secrets"
+	oc delete secret --all -n $(NAMESPACE)
+
+.PHONY: uninstall-configmaps
+uninstall-configmaps:
+	@echo ">>> Deleting configmaps"
+	oc delete configmap --all -n $(NAMESPACE)
+
+
 .PHONY: helm-uninstall
-helm-uninstall:
+helm-uninstall: uninstall-jobs uninstall-pvc uninstall-secrets uninstall-configmaps
 	@echo ">>> Uninstalling Helm release: $(HELM_RELEASE) from namespace: $(NAMESPACE)"
 	helm uninstall $(HELM_RELEASE) --namespace $(NAMESPACE)
 
