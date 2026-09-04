@@ -86,12 +86,14 @@ help:
 	@echo "    release-frontend   Build and push the frontend image"
 	@echo ""
 	@echo "  Helm:"
+	@echo "    install            Install or upgrade the release and print Route URLs"
+	@echo "    print-routes       Print OpenShift Route URLs in $(NAMESPACE)"
 	@echo "    helm-deps          Update Helm chart dependencies"
 	@echo "    helm-deps-local    Package general-simulation from sibling checkout (before chart is republished to GitHub Pages)"
 	@echo "    helm-lint          Lint the Helm chart"
 	@echo "    helm-test          Run Helm unit tests (helm-unittest)"
 	@echo "    helm-render        Render chart templates to stdout (dry-run)"
-	@echo "    helm-install       Install the Helm release (OpenShift project)"
+	@echo "    helm-install       Install the Helm release and print Route URLs"
 	@echo "    helm-upgrade-install  helm upgrade --install with REGISTRY / secrets"
 	@echo "    helm-upgrade-install-maas  MaaS profile (VALUES_FILE=helm/values-maas.yaml)"
 	@echo "    helm-upgrade       Upgrade an existing Helm release"
@@ -370,6 +372,7 @@ helm-install: helm-deps
 		$(HELM_EXTRA_ARGS) \
 		--wait \
 		--timeout 10m
+	@$(MAKE) --no-print-directory print-routes
 
 .PHONY: helm-upgrade
 helm-upgrade: helm-deps
@@ -399,10 +402,14 @@ helm-upgrade-install: helm-deps
 		$(HELM_EXTRA_ARGS) \
 		--wait \
 		--timeout 15m
+	@$(MAKE) --no-print-directory print-routes
 
 .PHONY: helm-upgrade-install-maas
 helm-upgrade-install-maas:
 	$(MAKE) helm-upgrade-install VALUES_FILE=$(MAAS_VALUES_FILE)
+
+.PHONY: install
+install: helm-upgrade-install
 
 .PHONY: helm-uninstall
 helm-uninstall:
@@ -467,6 +474,26 @@ helm-install-kind: helm-deps k8s-namespace
 # ============================================================
 # Utilities
 # ============================================================
+.PHONY: print-routes
+print-routes:
+	@echo ""
+	@echo ">>> OpenShift Routes in namespace: $(NAMESPACE)"
+	@echo ">>> Copy a URL below into your browser to get started:"
+	@echo ""
+	@set -eu; \
+	routes=$$(oc get route -n $(NAMESPACE) \
+	  -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}https://{.spec.host}{.spec.path}{"\n"}{end}' 2>/dev/null || true); \
+	if [ -z "$$routes" ]; then \
+	  echo ">>> (no routes found — are you on OpenShift with routes enabled?)"; \
+	else \
+	  printf "  %-40s %s\n" "NAME" "URL"; \
+	  echo "$$routes" | while IFS=$$'\t' read -r name url; do \
+	    [ -n "$$name" ] || continue; \
+	    printf "  %-40s %s\n" "$$name" "$$url"; \
+	  done; \
+	fi
+	@echo ""
+
 .PHONY: llamastack-routes
 llamastack-routes:
 	@echo ">>> Fetching llamastack OpenAPI routes (port-forward must be active)"
@@ -493,9 +520,7 @@ oc-status:
 	@echo ""
 	@echo ">>> InferenceServices:"
 	oc get inferenceservice -n $(NAMESPACE) 2>/dev/null || echo "(no InferenceService CRD found)"
-	@echo ""
-	@echo ">>> Routes:"
-	@oc get route -n $(NAMESPACE) -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{"https://"}{.spec.host}{"\n"}{end}'
+	@$(MAKE) --no-print-directory print-routes
 
 # ============================================================
 # Ingest targets
@@ -508,21 +533,21 @@ INGEST_STRATEGY ?= langchain
 .PHONY: ingest
 ingest:
 	@echo ">>> Running knowledge-base ingestion job in namespace: $(NAMESPACE)"
-	oc run ingest-job \
-		--image=$(INGEST_IMAGE):$(INGEST_TAG) \
-		--restart=Never \
-		--rm \
-		--attach \
-		-n $(NAMESPACE) \
-		--command -- python main.py \
-		--env INGEST_STRATEGY=$(INGEST_STRATEGY) \
-		--env KNOWLEDGE_BASE_DIR=knowledge_base \
-		--env INGEST_DROP_OLD=true \
-		--env LLAMA_STACK_URL=http://llamastack:8321 \
-		--env PG_HOST=postgres \
-		--env PG_PORT=5432 \
-		--env PG_USER=sim \
-		--env PG_DB=sim
+	@set -eu; \
+	helm template $(HELM_RELEASE) $(HELM_CHART) \
+		--namespace $(NAMESPACE) \
+		-f $(VALUES_FILE) \
+		$(SECRETS_FLAGS) \
+		$(HELM_IMAGE_SETS) \
+		--set ingest.enabled=true \
+		--set ingest.strategy=$(INGEST_STRATEGY) \
+		$(HELM_EXTRA_ARGS) \
+		--show-only templates/ingest-job.yaml \
+	| sed 's/name: $(HELM_RELEASE)-ingest/name: ingest-job/; s/post-install,post-upgrade/post-install/; /helm.sh\/hook/d; /helm.sh\/hook-weight/d' \
+	| oc apply -f -; \
+	oc wait --for=condition=complete job/ingest-job -n $(NAMESPACE) --timeout=10m; \
+	oc logs job/ingest-job -n $(NAMESPACE) --all-containers; \
+	oc delete job ingest-job -n $(NAMESPACE) --ignore-not-found
 
 .PHONY: ingest-logs
 ingest-logs:
