@@ -246,21 +246,11 @@ make helm-install HELM_EXTRA_ARGS='--set global.models.external-model.id=${MODEL
 ```
 > **Note**: `global.models.external-model.url` should be the full URL including protocol and path if needed (for example `https://my-model.example.com/v1`).
 
-#### Check pods, services, and routes
-
-Run the following command.
-
-```bash
-make oc-status
-```
-
-Wait until backend, frontend, pgvector, OGX (formerly llamastack), and general-simulation pods are **Running** and the ingest job (if enabled) has **Completed**. First startup can take several minutes while OGX becomes ready.
-
 #### Open the frontend Route URL
 
 When the make helm-install completed the URL for the user interface was printed:
 
-TODO: - insert screencap or text of what is ouput at the end of the make helm-install
+![Routes Printed from make helm-install Command](/docs/images/after-helm-install.png)
 
 Open the url, the initial page should look like:
 
