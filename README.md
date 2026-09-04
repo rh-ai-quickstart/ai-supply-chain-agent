@@ -246,8 +246,6 @@ make helm-install HELM_EXTRA_ARGS='--set global.models.external-model.id=${MODEL
 ```
 > **Note**: `global.models.external-model.url` should be the full URL including protocol and path if needed (for example `https://my-model.example.com/v1`).
 
-The `make helm-install` command will print all routes. 
-
 #### Open the frontend Route URL
 
 When the make helm-install completed the URL for the user interface was printed:
