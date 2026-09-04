@@ -146,8 +146,8 @@ backend:
     LLAMA_STACK_TIMEOUT_SECONDS: "300"
     # Direct LiteMaaS embeddings for supply-chain RAG + ingest (bypasses Llama Stack).
     # EMBED_API_KEY in helm/secrets.yaml. Gen-sim scenario inject keeps api.models.embedding above.
-    EMBED_BASE_URL: https://litemaas.rhoai.rh-aiservices-bu.com
-    EMBED_MODEL: Nomic-embed-text-v2-moe
+    #EMBED_BASE_URL: https://litemaas.rhoai.rh-aiservices-bu.com
+    #EMBED_MODEL: Nomic-embed-text-v2-moe
     # PG_ prefix avoids collision with a Kubernetes service-discovery
     # PGVECTOR_PORT=tcp://… var if a Service named pgvector exists.
     GENERAL_SIMULATION_BASE_URL: "http://general-sim-api:8000"
