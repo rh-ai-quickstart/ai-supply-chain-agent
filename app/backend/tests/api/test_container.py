@@ -49,8 +49,7 @@ def test_settings_from_env_reads_core_overrides(monkeypatch):
     assert settings.git_commit == "abc123"
 
 
-@patch("container.VectorStoreClient", side_effect=RuntimeError("no pg"))
-def test_container_injects_shared_clients_into_chat_agent(_mock_vs):
+def test_container_injects_shared_clients_into_chat_agent():
     settings = Settings(
         llama_stack_url="http://llamastack:8321",
         llama_stack_model="stack-model",
@@ -61,7 +60,6 @@ def test_container_injects_shared_clients_into_chat_agent(_mock_vs):
     )
     container = Container(settings)
 
-    assert container.vector_store_client is None
     assert container.chat_service.agent_service is container.agent_service
     assert container.chat_service.openai_client is container.openai_llama_client
     assert container.agent_service._sim_service._client is container.general_simulation_client

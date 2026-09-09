@@ -54,9 +54,11 @@ general-simulation:
 
 The backend automatically uses `general-simulation.api.models.generation` for chat.
 
-## Optional: external MaaS
+## Optional: external MaaS (chat)
 
 Disable `llm-service`, enable `general-simulation.global.models.external-model`, set `apiToken`, and set `general-simulation.api.models.generation` to `external-model/<id>`.
+
+RAG and ingest use Llama Stack vector stores (server-side chunk + embed via OGX).
 
 ## Install
 

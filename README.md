@@ -61,7 +61,7 @@ The quickstart consists of the following main components:
 Flight positions on the map come from [OpenSky](https://opensky-network.org/).
 As OpenSky often blocks hyperscaler IPs by default, this data is seeded from the user's laptop.
 
-Supply chain impact queries go from the UI through Flask to the general-simulation engine and the supply chain agent. Chat interactions are handled by the Flask backend and flow through a Langchain agent to OGX and then to a locally deployed or external model. External models are often hosted in an OpenShift AI Model-as-a-Service (MaaS) instance.
+Supply chain impact queries go from the UI through Flask to the general-simulation engine and the supply chain agent. Chat interactions are handled by the Flask backend and flow through a Langchain agent to OGX and then to a locally deployed or external model. External models are often hosted in an OpenShift AI Model-as-a-Service (MaaS) instance (https://maas-rhdp-frontend.apps.maas.redhatworkshops.io/).
 
 Tools are provided to the agent so that it can consume event-specific data from uploaded knowledge bases (in PGVector), the general-simulation engine results for the impact queries, and an RSS feed, enabling it to provide in-depth analysis and insight.
 
