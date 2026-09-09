@@ -140,7 +140,7 @@ Stack model ids used by the API follow `<providerKey>/<model.id>` (see `api.mode
 | `global.models.deepseek-r1-distill-qwen-1-5b.apiToken` | `unused` | `unused` | `unused` |
 | `global.models.external-model.enabled` | *(not in gen-sim defaults)* | `false` | `false` |
 | `global.models.external-model.id` | — | `Qwen3.6-35B-A3B` | `Qwen3.6-35B-A3B` |
-| `global.models.external-model.url` | — | `https://litemaas.rhoai.rh-aiservices-bu.com/v1` | same |
+| `global.models.external-model.url` | — | `https://https://maas-rhdp.apps.maas.redhatworkshops.io/v1` | same |
 | `global.models.external-model.apiToken` | — | `""` | Set in `helm/secrets.yaml` for MaaS mode |
 
 **Supply-chain default LLM mode:** in-cluster **local** inference (`llm-service` + `deepseek-r1-distill-qwen-1-5b`), with OpenAI disabled.
