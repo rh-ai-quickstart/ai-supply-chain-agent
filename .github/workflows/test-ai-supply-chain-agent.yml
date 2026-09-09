@@ -1,0 +1,62 @@
+name: Test - AI Supply Chain Agent (reusable)
+
+on:
+  workflow_call:
+    inputs:
+      branch:
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Branch to deploy and test"
+        required: false
+        default: main
+
+concurrency:
+  group: supply-chain-ci-testing
+  cancel-in-progress: false
+
+jobs:
+  test:
+    name: ai-supply-chain-agent (${{ inputs.branch }})
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.8.9"
+          python-version: "3.12"
+
+      # helm ships preinstalled on the ubuntu-latest runner image; the
+      # reference workflow relies on that too rather than an explicit setup step.
+      - uses: ./.github/actions/setup-and-deploy
+        timeout-minutes: 15
+        with:
+          repo_url: https://github.com/${{ github.repository }}
+          ref: ${{ inputs.branch }}
+          namespace: supply-chain-agent-ci-project-1
+          setup_commands: "cp helm/secrets.example.yaml helm/secrets.yaml && git clone https://github.com/rh-ai-quickstart/general-simulation.git ../general-simulation"
+          deploy_command: "make install-full"
+        env:
+          PROD_TOKEN: ${{ secrets.PROD_TOKEN }}
+          PROD_SERVER: ${{ secrets.PROD_SERVER }}
+          MODEL_ID: ${{ vars.MODEL_ID }}
+          MODEL_URL: ${{ vars.MODEL_URL }}
+          API_KEY: ${{ secrets.API_KEY }}
+          # Namespace is pre-provisioned for the CI service account, which
+          # lacks cluster-scoped rights to create Namespace objects.
+          HELM_CREATE_NAMESPACE: ""
+
+      - uses: ./.github/actions/run-quickstart-tests
+        timeout-minutes: 30
+        with:
+          test_command: "make e2e-ui"
+          upload_results: "test-results"
+
+      - uses: ./.github/actions/cleanup
+        if: always()
+        with:
+          cleanup_command: "make helm-uninstall"

@@ -39,7 +39,7 @@ spec:
 
         # 1. Wait for shared Postgres to accept TCP connections on port 5432.
         - name: wait-for-postgres
-          image: busybox:1.36
+          image: quay.io/quay/busybox:latest
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -57,7 +57,7 @@ spec:
 
         # 2. Wait for Llama Stack to return HTTP 200 on /v1/models.
         - name: wait-for-llamastack
-          image: busybox:1.36
+          image: quay.io/quay/busybox:latest
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:

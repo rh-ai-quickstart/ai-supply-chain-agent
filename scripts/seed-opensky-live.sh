@@ -98,6 +98,10 @@ run_seed() {
   cd "${sim_dir}"
   local args=(scripts/seed_opensky_live.py --max "${OPENSKY_MAX}" --timeout "${OPENSKY_TIMEOUT}")
   if command -v uv >/dev/null 2>&1; then
+    # Explicit install works even when python-downloads=manual (e.g. Fedora's
+    # packaged uv) — `uv run` alone would fail there if the pinned
+    # .python-version isn't already present instead of downloading it.
+    uv python install
     uv run python "${args[@]}"
   elif [[ -x "${sim_dir}/.venv/bin/python" ]]; then
     "${sim_dir}/.venv/bin/python" "${args[@]}"

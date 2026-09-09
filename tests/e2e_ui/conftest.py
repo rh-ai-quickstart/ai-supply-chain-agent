@@ -72,6 +72,14 @@ def open_dashboard(page: Page):
             page.get_by_role("heading", name="Supply Chain Command Center").wait_for(
                 state="visible", timeout=TEST_TIMEOUT_MS
             )
+            # Scenario list loads async and auto-selects a default once it
+            # resolves, which switches useChatSession's chat key out from
+            # under anything typed before it settles. Wait for a scenario
+            # button (not the unrelated map-view toggle, which also uses
+            # aria-pressed) to show aria-pressed=true so tests don't race it.
+            page.locator(
+                '[aria-labelledby="impact-scenario-label"] [aria-pressed="true"]'
+            ).first.wait_for(state="visible", timeout=TEST_TIMEOUT_MS)
             break
         except Exception as exc:
             last_exc = exc
