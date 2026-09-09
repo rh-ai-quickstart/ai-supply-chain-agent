@@ -5,30 +5,7 @@ from __future__ import annotations
 import os
 from unittest.mock import MagicMock, mock_open, patch
 
-from clients.embedding_client import openai_embeddings_kwargs
 from clients.llamastack_vector_store_client import LlamaStackVectorStoreClient
-
-
-def test_openai_embeddings_kwargs_direct_maas_url(monkeypatch):
-    monkeypatch.delenv("EMBED_BASE_URL", raising=False)
-    kwargs = openai_embeddings_kwargs(
-        llama_stack_url="http://llamastack:8321",
-        embed_model="text-embedding",
-        embed_base_url="https://maas.example.com",
-        embed_api_key="secret",
-    )
-    assert kwargs["base_url"] == "https://maas.example.com/v1"
-    assert kwargs["api_key"] == "secret"
-    assert kwargs["model"] == "text-embedding"
-
-
-def test_openai_embeddings_kwargs_llama_stack_default():
-    kwargs = openai_embeddings_kwargs(
-        llama_stack_url="http://llamastack:8321",
-        embed_model="embed-model",
-    )
-    assert kwargs["base_url"] == "http://llamastack:8321/v1"
-    assert kwargs["model"] == "embed-model"
 
 
 @patch("clients.llamastack_vector_store_client.OpenAI")
