@@ -265,25 +265,15 @@ def test_kind_overlay_does_not_require_pgvector_or_neo4j_sa() -> None:
     )
 
     neo4j_sa = None
-    backend_secret = None
     gen_sim_images = _collect_gen_sim_images(manifest)
     for doc in docs:
         kind = doc.get("kind")
         name = (doc.get("metadata") or {}).get("name")
         if kind == "StatefulSet" and name == "neo4j":
             neo4j_sa = doc["spec"]["template"]["spec"].get("serviceAccountName")
-        if kind == "Deployment" and str(name).endswith("-backend"):
-            for env in doc["spec"]["template"]["spec"]["containers"][0].get("env") or []:
-                if env.get("name") == "PG_PASSWORD":
-                    backend_secret = ((env.get("valueFrom") or {}).get("secretKeyRef") or {}).get(
-                        "name"
-                    )
 
     assert neo4j_sa == "default", (
         f"Kind Neo4j StatefulSet must use ServiceAccount default, got {neo4j_sa!r}"
-    )
-    assert backend_secret == "postgres-credentials", (
-        "Kind backend must read PG_PASSWORD from postgres-credentials when llama-stack is off"
     )
     assert gen_sim_images, "Kind overlay must render general-sim platform images"
     assert all(image.startswith("quay.io/") for image in gen_sim_images), (

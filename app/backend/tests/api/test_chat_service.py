@@ -10,7 +10,7 @@ from services.guardrail_policy import GUARDRAIL_RESPONSE
 
 @pytest.fixture
 def chat_service(mock_llama_stack_client):
-    return ChatService(mock_llama_stack_client, vector_store_client=None)
+    return ChatService(mock_llama_stack_client)
 
 
 def test_guardrail_blocks_off_topic(chat_service):
@@ -48,7 +48,7 @@ def test_latest_user_text_prefers_history():
     }
     agent = MagicMock()
     agent.openai_tools.return_value = []
-    svc = ChatService(mock_llama, vector_store_client=None, agent_service=agent)
+    svc = ChatService(mock_llama, agent_service=agent)
     history = [
         {"role": "human", "content": "first"},
         {"role": "ai", "content": "mid"},
@@ -72,25 +72,6 @@ def test_map_chat_history_roles():
         {"role": "assistant", "content": "hello"},
     ]
 
-
-def test_retrieve_context_via_pgvector_client_fallback():
-    mock_llama = MagicMock()
-    mock_llama.ask_with_tools.return_value = {
-        "answer": "ok",
-        "completion": None,
-        "tool_calls_made": [],
-    }
-    agent = MagicMock()
-    agent.openai_tools.return_value = []
-    doc = MagicMock()
-    doc.page_content = "doc a"
-    vs = MagicMock()
-    vs.similarity_search.return_value = [doc]
-    svc = ChatService(mock_llama, vector_store_client=vs, agent_service=agent)
-    svc.reply("query text", chat_history=[], vector_store_id=None)
-    vs.similarity_search.assert_called_once_with("query text", k=3)
-    ctx = mock_llama.ask_with_tools.call_args.kwargs["context"]
-    assert ctx == "doc a"
 
 
 def test_reply_stream_guardrail(chat_service):
@@ -139,7 +120,6 @@ def test_llm_tool_calling_runs_general_simulation(mock_llama_stack_client):
     mock_llama_stack_client.ask_with_tools.side_effect = _ask_with_tools
     svc = ChatService(
         mock_llama_stack_client,
-        vector_store_client=None,
         agent_service=agent,
     )
     out = svc.reply(
@@ -333,7 +313,6 @@ def test_retrieve_context_merges_news_vector_store(mock_llama_stack_client):
     news_store.search.return_value = "News: Suez canal traffic delayed by storm."
     svc = ChatService(
         mock_llama_stack_client,
-        vector_store_client=None,
         news_vector_store=news_store,
     )
     ctx = svc._retrieve_context("what is happening at the suez canal?")
@@ -347,7 +326,7 @@ def test_retrieve_context_merges_news_vector_store(mock_llama_stack_client):
 
 def test_reply_keeps_context_when_history_is_empty(mock_llama_stack_client):
     """Cleared chat (empty history) still retrieves KB context."""
-    svc = ChatService(mock_llama_stack_client, vector_store_client=None)
+    svc = ChatService(mock_llama_stack_client)
     svc.reply(
         "Show me the affected routes",
         chat_history=[],
@@ -395,7 +374,6 @@ def test_reply_keeps_scenario_context_when_history_is_empty(mock_llama_stack_cli
     mock_llama_stack_client.ask_with_tools.side_effect = _ask_with_tools
     svc = ChatService(
         mock_llama_stack_client,
-        vector_store_client=None,
         agent_service=agent,
     )
     svc.reply(
@@ -419,7 +397,7 @@ def test_map_chat_history_returns_empty_for_cleared_session():
 
 def test_reply_with_history_retrieves_context(mock_llama_stack_client):
     """Context is retrieved from vector store when history is non-empty."""
-    svc = ChatService(mock_llama_stack_client, vector_store_client=None)
+    svc = ChatService(mock_llama_stack_client)
     history = [
         {"role": "human", "content": "previous question"},
         {"role": "ai", "content": "previous answer"},
@@ -441,7 +419,7 @@ def test_reply_with_history_retrieves_context(mock_llama_stack_client):
 
 def test_reply_injects_active_scenario_context(mock_llama_stack_client):
     """The active scenario is named in the LLM context block (not only the tool)."""
-    svc = ChatService(mock_llama_stack_client, vector_store_client=None)
+    svc = ChatService(mock_llama_stack_client)
     svc.reply(
         "What is the impact?",
         chat_history=[],
@@ -457,14 +435,14 @@ def test_reply_injects_active_scenario_context(mock_llama_stack_client):
 
 def test_reply_leaves_scenario_context_empty_without_scenario(mock_llama_stack_client):
     """Without an active scenario, no scenario context block is sent."""
-    svc = ChatService(mock_llama_stack_client, vector_store_client=None)
+    svc = ChatService(mock_llama_stack_client)
     svc.reply("What is the impact?", chat_history=[], scenario_id="")
     call_kw = mock_llama_stack_client.ask_with_tools.call_args.kwargs
     assert call_kw["scenario_context"] == ""
 
 
 def test_reply_stream_injects_active_scenario_context(mock_llama_stack_client):
-    svc = ChatService(mock_llama_stack_client, vector_store_client=None)
+    svc = ChatService(mock_llama_stack_client)
     list(svc.reply_stream("What is the impact?", chat_history=[], scenario_id="opensky-uk-closure-001"))
     call_kw = mock_llama_stack_client.ask_stream_with_tools.call_args.kwargs
     assert call_kw["scenario_context"] == (

@@ -10,6 +10,8 @@ tests:
       frontend.enabled: true
       backend.service.port: 5001
       frontend.apiProxyUpstream: ""
+      global.registry: quay.io/rh-ai-quickstart
+      global.imageTag: latest
     asserts:
       - isKind:
           of: Deployment

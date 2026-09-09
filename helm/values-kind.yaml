@@ -23,14 +23,8 @@ backend:
     enabled: false
   image:
     pullPolicy: IfNotPresent
-  # llama-stack is off, so gen-sim does not render Secret/pgvector.
-  pgvectorSecretName: postgres-credentials
   env:
-    # Unused while gen-sim llama-stack is off; backend probes /healthz (liveness-only).
     LLAMA_STACK_URL: http://llamastack:8321
-    PG_HOST: postgres
-    PG_USER: sim
-    PG_DB: sim
 
 frontend:
   route:
