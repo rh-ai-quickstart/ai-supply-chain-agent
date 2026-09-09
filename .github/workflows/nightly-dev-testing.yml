@@ -1,0 +1,198 @@
+# Nightly OpenShift deploy + test workflow
+#
+# Required repository secrets (Settings → Secrets and variables → Actions):
+#   PROD_TOKEN      — OpenShift service-account token (namespace admin)
+#   PROD_SERVER     — API server URL (e.g. https://api.cluster.example.com:6443)
+#   LLM_API_TOKEN   — LiteMaaS / external model API key
+#
+# Required repository variables:
+#   LLM_URL         — e.g. https://litemaas.example.com/v1
+#   LLM_ID          — e.g. Qwen2.5-VL-7B-Instruct
+#
+# Prerequisite: publish-images workflow must have pushed :dev tags to quay.io.
+
+name: (dev) Prod deploy - Nightly Running Tests
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 7 * * *'  # Run daily at 7 AM UTC
+
+concurrency:
+  group: 'prod-deploy-shared-namespace'
+  cancel-in-progress: false
+
+env:
+  PYTHON_VERSION: "3.12"
+  NAMESPACE: ai-supply-chain-agent-project-1
+  HELM_RELEASE: supply-chain-dashboard
+  IMAGE_TAG: dev
+
+jobs:
+  e2e-tests:
+    name: Run e2e tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate LLM_API_TOKEN secret
+        shell: bash
+        env:
+          LLM_API_TOKEN: ${{ secrets.LLM_API_TOKEN }}
+        run: |
+          if [ -z "${LLM_API_TOKEN}" ]; then
+            echo "LLM_API_TOKEN secret is missing or empty. Set it in repository or organization secrets."
+            exit 1
+          fi
+
+      - name: Validate PROD_TOKEN and PROD_SERVER secrets
+        shell: bash
+        env:
+          PROD_TOKEN: ${{ secrets.PROD_TOKEN }}
+          PROD_SERVER: ${{ secrets.PROD_SERVER }}
+        run: |
+          if [ -z "${PROD_TOKEN}" ]; then
+            echo "PROD_TOKEN secret is missing or empty. Set it in repository or organization secrets."
+            exit 1
+          fi
+          if [ -z "${PROD_SERVER}" ]; then
+            echo "PROD_SERVER secret is missing or empty. Set it in repository or organization secrets."
+            exit 1
+          fi
+
+      - name: Validate LLM_URL and LLM_ID variables
+        shell: bash
+        env:
+          LLM_URL: ${{ vars.LLM_URL }}
+          LLM_ID: ${{ vars.LLM_ID }}
+        run: |
+          if [ -z "${LLM_URL}" ]; then
+            echo "LLM_URL variable is missing or empty. Set it in repository or organization variables."
+            exit 1
+          fi
+          if [ -z "${LLM_ID}" ]; then
+            echo "LLM_ID variable is missing or empty. Set it in repository or organization variables."
+            exit 1
+          fi
+
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          ref: development
+
+      - name: Checkout general-simulation (seed scripts)
+        uses: actions/checkout@v5
+        with:
+          repository: rh-ai-quickstart/general-simulation
+          ref: chart-v0.0.1
+          path: general-simulation
+
+      - name: Prepare Runner
+        uses: ./.github/actions/prepare-runner
+        with:
+          swap-storage: 'false'
+
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.19.4
+
+      - name: Install Local Dependencies
+        shell: bash
+        run: |
+          make oc
+          echo "$GITHUB_WORKSPACE/bin" >> $GITHUB_PATH
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Playwright UI test dependencies
+        run: make e2e-ui-install
+
+      - name: Log into the cluster
+        shell: bash
+        run: |
+          oc login --token=$PROD_TOKEN --server=$PROD_SERVER
+        env:
+          PROD_TOKEN: ${{ secrets.PROD_TOKEN }}
+          PROD_SERVER: ${{ secrets.PROD_SERVER }}
+
+      - name: Make sure there are no pods running in the namespace
+        continue-on-error: true
+        shell: bash
+        run: |
+          make helm-uninstall NAMESPACE=${{ env.NAMESPACE }} HELM_RELEASE=${{ env.HELM_RELEASE }}
+
+      - name: Extract version from Makefile
+        id: version
+        run: |
+          BASE_VERSION=$(make version)
+          COMMIT_SHA=$(git rev-parse HEAD)
+          VERSION_WITH_COMMIT="${BASE_VERSION}-${COMMIT_SHA}"
+          echo "version=${VERSION_WITH_COMMIT}" >> $GITHUB_OUTPUT
+          echo "Base version: ${BASE_VERSION}"
+          echo "Commit SHA: ${COMMIT_SHA}"
+          echo "Version with commit: ${VERSION_WITH_COMMIT}"
+
+      - name: Install the quickstart
+        shell: bash
+        run: |
+          make helm-install-prod \
+            NAMESPACE=${{ env.NAMESPACE }} \
+            HELM_RELEASE=${{ env.HELM_RELEASE }} \
+            BACKEND_TAG=${{ env.IMAGE_TAG }} \
+            FRONTEND_TAG=${{ env.IMAGE_TAG }} \
+            INGEST_TAG=${{ env.IMAGE_TAG }}
+        env:
+          LLM_URL: ${{ vars.LLM_URL }}
+          LLM_API_TOKEN: ${{ secrets.LLM_API_TOKEN }}
+          LLM_ID: ${{ vars.LLM_ID }}
+
+      - name: Show deployment status
+        continue-on-error: true
+        run: make oc-status NAMESPACE=${{ env.NAMESPACE }}
+
+      - name: Seed gen-sim demo data
+        run: |
+          make seed-gen-sim \
+            NAMESPACE=${{ env.NAMESPACE }} \
+            GENERAL_SIM_DIR="${{ github.workspace }}/general-simulation"
+
+      - name: Run API smoke tests
+        shell: bash
+        run: make test-backend-api
+        env:
+          NAMESPACE: ${{ env.NAMESPACE }}
+          HELM_RELEASE: ${{ env.HELM_RELEASE }}
+
+      - name: Run ingestion tests
+        shell: bash
+        run: make test-ingestion
+        env:
+          NAMESPACE: ${{ env.NAMESPACE }}
+          HELM_RELEASE: ${{ env.HELM_RELEASE }}
+
+      - name: Run Playwright UI E2E tests
+        shell: bash
+        run: make test-openshift-e2e
+        env:
+          NAMESPACE: ${{ env.NAMESPACE }}
+          HELM_RELEASE: ${{ env.HELM_RELEASE }}
+          SKIP_MODEL_TESTS: "false"
+          E2E_CHAT_TIMEOUT_MS: "180000"
+
+      - name: Upload Playwright test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-test-results-${{ github.run_id }}
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: Stop the quickstart
+        if: success()
+        shell: bash
+        run: |
+          make helm-uninstall NAMESPACE=${{ env.NAMESPACE }} HELM_RELEASE=${{ env.HELM_RELEASE }}
