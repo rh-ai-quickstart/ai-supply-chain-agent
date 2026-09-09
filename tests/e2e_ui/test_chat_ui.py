@@ -17,6 +17,10 @@ def _send_chat_message(page: Page, message: str) -> None:
     chat_input = page.get_by_label("Chat input")
     expect(chat_input).to_be_visible(timeout=TEST_TIMEOUT)
     chat_input.fill(message)
+    # Chat input is a React-controlled input; wait for the DOM value to reflect
+    # the committed state before pressing Enter, or handleSend() can read a
+    # stale (empty) closure and silently no-op.
+    expect(chat_input).to_have_value(message, timeout=TEST_TIMEOUT)
     chat_input.press("Enter")
     expect(page.get_by_role("heading", name="AI Assistant")).to_be_visible(
         timeout=TEST_TIMEOUT

@@ -97,6 +97,10 @@ run_seed() {
   local sim_dir="$1"
   cd "${sim_dir}"
   if command -v uv >/dev/null 2>&1; then
+    # Explicit install works even when python-downloads=manual (e.g. Fedora's
+    # packaged uv) — `uv run` alone would fail there if the pinned
+    # .python-version isn't already present instead of downloading it.
+    uv python install
     uv run python scripts/seed_demo.py
   elif [[ -x "${sim_dir}/.venv/bin/python" ]]; then
     "${sim_dir}/.venv/bin/python" scripts/seed_demo.py

@@ -153,7 +153,7 @@ if [[ "${RUN_UI_E2E:-}" == "1" || "${RUN_UI_E2E:-}" == "true" ]]; then
   export BACKEND_HEALTH_URL="http://127.0.0.1:${BACKEND_PF_PORT}/healthz"
   # Kind values disable Llama Stack; guardrail/route UI tests do not need the LLM.
   export SKIP_MODEL_TESTS="${SKIP_MODEL_TESTS:-true}"
-  python -m pytest tests/e2e_ui/ -v --tb=short --browser chromium \
+  python -m pytest tests/e2e_ui/ -v --tb=short --browser chromium --screenshot=only-on-failure --tracing=retain-on-failure \
     || fail "Playwright UI E2E tests failed"
   log "PASS Playwright UI E2E"
 fi
