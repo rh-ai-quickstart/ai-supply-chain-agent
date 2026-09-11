@@ -2,7 +2,7 @@
 
 Reference for consumers of the **general-simulation** Helm subchart when it is installed via the **supply-chain-agent** umbrella chart (`helm/`).
 
-This document maps every value defined in [general-simulation `values.yaml`](https://github.com/robertsandoval/general-simulation/blob/main/deploy/helm/general-simulation/values.yaml) (chart **0.0.1**) to how it is set—or left at its default—when deploying supply-chain. Use it to understand what to override, where credentials must stay in sync, and how supply-chain app pods read gen-sim configuration.
+This document maps every value defined in [general-simulation `values.yaml`](https://github.com/rh-ai-quickstart/general-simulation/blob/main/deploy/helm/general-simulation/values.yaml) (chart **0.0.1**) to how it is set—or left at its default—when deploying supply-chain. Use it to understand what to override, where credentials must stay in sync, and how supply-chain app pods read gen-sim configuration.
 
 ---
 
@@ -471,7 +471,7 @@ See `helm/values-kind.yaml` — disables Routes, llama-stack, llm-service, inges
 | `helm/values-kind.yaml` | Kind/Kubernetes CI overrides |
 | `helm/secrets.example.yaml` | Secrets overlay template |
 | `helm/README.md` | Install and model configuration |
-| [gen-sim chart README](https://github.com/robertsandoval/general-simulation/blob/main/deploy/helm/general-simulation/README.md) | Standalone gen-sim install |
+| [gen-sim chart README](https://github.com/rh-ai-quickstart/general-simulation/blob/main/deploy/helm/general-simulation/README.md) | Standalone gen-sim install |
 
 ---
 

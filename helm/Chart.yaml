@@ -12,5 +12,5 @@ dependencies:
   # Published chart: https://rh-ai-quickstart.github.io/general-simulation
   # Local dev override: make helm-deps-local (packages sibling checkout into charts/)
   - name: general-simulation
-    version: 1.0.0
+    version: 1.0.1
     repository: https://rh-ai-quickstart.github.io/general-simulation
