@@ -1,0 +1,4 @@
+[submodule "vendor/general-simulation"]
+	path = vendor/general-simulation
+	url = https://github.com/rh-ai-quickstart/general-simulation.git
+	branch = development

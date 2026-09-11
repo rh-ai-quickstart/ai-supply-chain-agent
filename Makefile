@@ -47,7 +47,7 @@ PUSH_EXTRA_ARGS ?=
 MAAS_VALUES_FILE ?= $(HELM_CHART)/values-maas.yaml
 
 HELM_EXTRA_ARGS ?=
-GENERAL_SIM_CHART_DIR ?= $(CURDIR)/../../general-simulation/deploy/helm/general-simulation
+GENERAL_SIM_CHART_DIR ?= $(CURDIR)/vendor/general-simulation/deploy/helm
 
 # --create-namespace always issues a namespaces create call (checked by RBAC
 # before Kubernetes checks whether it already exists), so an installer scoped
@@ -94,8 +94,8 @@ help:
 	@echo "  Helm:"
 	@echo "    install            Install or upgrade the release and print Route URLs"
 	@echo "    print-routes       Print OpenShift Route URLs in $(NAMESPACE)"
-	@echo "    helm-deps          Update Helm chart dependencies"
-	@echo "    helm-deps-local    Package general-simulation from sibling checkout (before chart is republished to GitHub Pages)"
+	@echo "    helm-deps          Update Helm chart dependencies (from vendor/general-simulation submodule)"
+	@echo "    submodule-init     Initialize git submodules (required before helm-deps)"
 	@echo "    helm-lint          Lint the Helm chart"
 	@echo "    helm-test          Run Helm unit tests (helm-unittest)"
 	@echo "    helm-render        Render chart templates to stdout (dry-run)"
@@ -336,7 +336,9 @@ lint-helm:
 # ============================================================
 .PHONY: helm-deps
 helm-deps:
-	@echo ">>> Updating Helm dependencies in $(HELM_CHART)"
+	@echo ">>> Updating Helm dependencies in $(HELM_CHART) (from submodule)"
+	@test -f "$(GENERAL_SIM_CHART_DIR)/Chart.yaml" || \
+	  { echo ">>> ERROR: submodule chart not found at $(GENERAL_SIM_CHART_DIR). Run: make submodule-init"; exit 1; }
 	helm dependency update $(HELM_CHART)
 	@$(MAKE) --no-print-directory helm-patch-scc
 
@@ -354,7 +356,7 @@ helm-patch-scc:
 	TGZ=$$(ls $(HELM_CHART)/charts/general-simulation-*.tgz 2>/dev/null | head -1); \
 	if [ -z "$$TGZ" ]; then echo "  (no general-simulation chart found — skipping)"; exit 0; fi; \
 	TMPDIR=$$(mktemp -d); \
-	tar xzf "$$TGZ" -C "$$TMPDIR"; \
+	COPYFILE_DISABLE=1 tar xzf "$$TGZ" -C "$$TMPDIR"; \
 	FOUND=0; \
 	for f in $$(find "$$TMPDIR/general-simulation/templates" -name 'scc-binding.yaml' -type f | sort); do \
 	  FOUND=1; \
@@ -363,17 +365,12 @@ helm-patch-scc:
 	  echo "  patched $$f"; \
 	done; \
 	if [ "$$FOUND" -eq 0 ]; then echo "ERROR: no scc-binding.yaml templates found under general-simulation (chart layout changed?)"; rm -rf "$$TMPDIR"; exit 1; fi; \
-	tar czf "$$TGZ" -C "$$TMPDIR" general-simulation; \
+	COPYFILE_DISABLE=1 tar czf "$$TGZ" -C "$$TMPDIR" general-simulation; \
 	rm -rf "$$TMPDIR"
 
 .PHONY: helm-deps-local
-helm-deps-local:
-	@echo ">>> Packaging general-simulation from $(GENERAL_SIM_CHART_DIR) into $(HELM_CHART)/charts"
-	@test -f "$(GENERAL_SIM_CHART_DIR)/Chart.yaml" || \
-	  { echo ">>> ERROR: chart not found. Set GENERAL_SIM_CHART_DIR or clone general-simulation."; exit 1; }
-	helm dependency update "$(GENERAL_SIM_CHART_DIR)"
-	helm package "$(GENERAL_SIM_CHART_DIR)" -d "$(HELM_CHART)/charts"
-	@$(MAKE) --no-print-directory helm-patch-scc
+helm-deps-local: helm-deps
+	@echo ">>> helm-deps-local is an alias for helm-deps (uses vendor/general-simulation submodule)"
 
 .PHONY: helm-lint
 helm-lint: helm-deps
@@ -658,9 +655,9 @@ ingest-status:
 # ============================================================
 # Gen-sim demo seed (laptop → OpenShift Neo4j + Postgres)
 # ============================================================
-# Requires a local checkout of general-simulation (sibling by default) and oc
-# login. Pulls neo4j-auth + postgres-credentials from the cluster.
-GENERAL_SIM_DIR ?= $(CURDIR)/../general-simulation
+# Requires vendor/general-simulation submodule and oc login. Pulls neo4j-auth +
+# postgres-credentials from the cluster.
+GENERAL_SIM_DIR ?= $(CURDIR)/vendor/general-simulation
 GEN_SIM_NAMESPACE ?=
 OPENSKY_MAX ?= 2000
 
@@ -684,6 +681,11 @@ seed-opensky-live:
 .PHONY: seed
 seed: seed-gen-sim seed-opensky-live
 	@echo ">>> seed complete (demo scenarios/maritime + live OpenSky flights)"
+
+.PHONY: submodule-init
+submodule-init:
+	@echo ">>> Initializing git submodules (general-simulation @ development)"
+	git submodule update --init --recursive
 
 # ============================================================
 # Full deploy (install + ingest + seed)

@@ -21,7 +21,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OC="${OC:-oc}"
 LOCAL_NEO4J_PORT="${LOCAL_NEO4J_PORT:-7687}"
 LOCAL_PG_PORT="${LOCAL_PG_PORT:-5433}"
-GENERAL_SIM_DIR="${GENERAL_SIM_DIR:-${ROOT}/../general-simulation}"
+GENERAL_SIM_DIR="${GENERAL_SIM_DIR:-${ROOT}/vendor/general-simulation}"
 
 log() { echo ">>> $*"; }
 fail() { echo "ERROR: $*" >&2; exit 1; }

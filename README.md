@@ -199,13 +199,14 @@ TODO: - add explanation of how to deploy with local models instead of external
 
 #### Deploy
 
-1. Clone the quickstart and general-simulation repositories
+1. Clone the quickstart (general-simulation is included as a git submodule)
 
 ```bash
-git clone https://github.com/rh-ai-quickstart/ai-supply-chain-agent.git
-git clone https://github.com/rh-ai-quickstart/general-simulation.git
+git clone --recurse-submodules https://github.com/rh-ai-quickstart/ai-supply-chain-agent.git
 cd ai-supply-chain-agent
 ```
+
+> **Already cloned without `--recurse-submodules`?** Run `make submodule-init` to pull the submodule.
 
 2. Configure secrets
 
