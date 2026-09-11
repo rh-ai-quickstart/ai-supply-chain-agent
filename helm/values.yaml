@@ -52,6 +52,7 @@ general-simulation:
   pgvector:
     enabled: false
   neo4j:
+    enabled: true
     fullnameOverride: neo4j
     disableLookups: true
   bootstrap:

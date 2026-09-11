@@ -339,6 +339,8 @@ helm-deps:
 	@echo ">>> Updating Helm dependencies in $(HELM_CHART) (from submodule)"
 	@test -f "$(GENERAL_SIM_CHART_DIR)/Chart.yaml" || \
 	  { echo ">>> ERROR: submodule chart not found at $(GENERAL_SIM_CHART_DIR). Run: make submodule-init"; exit 1; }
+	@echo ">>> Fetching general-simulation subchart dependencies (neo4j, llama-stack, …)"
+	helm dependency update "$(GENERAL_SIM_CHART_DIR)"
 	helm dependency update $(HELM_CHART)
 	@$(MAKE) --no-print-directory helm-patch-scc
 
