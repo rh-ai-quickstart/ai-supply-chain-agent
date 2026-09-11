@@ -37,8 +37,9 @@ jobs:
         with:
           repo_url: https://github.com/${{ github.repository }}
           ref: ${{ inputs.branch }}
+          submodules: "true"
           namespace: supply-chain-agent-ci-project-1
-          setup_commands: "cp helm/secrets.example.yaml helm/secrets.yaml && git clone https://github.com/rh-ai-quickstart/general-simulation.git ../general-simulation"
+          setup_commands: "cp helm/secrets.example.yaml helm/secrets.yaml"
           deploy_command: "make install-full"
         env:
           PROD_TOKEN: ${{ secrets.PROD_TOKEN }}

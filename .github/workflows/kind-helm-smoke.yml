@@ -10,6 +10,8 @@ on:
       - "app/backend/**"
       - "app/frontend/**"
       - "helm/**"
+      - "vendor/general-simulation/**"
+      - ".gitmodules"
       - "scripts/ci/**"
       - "tests/e2e_ui/**"
       - "Makefile"
@@ -21,6 +23,8 @@ on:
       - "app/backend/**"
       - "app/frontend/**"
       - "helm/**"
+      - "vendor/general-simulation/**"
+      - ".gitmodules"
       - "scripts/ci/**"
       - "tests/e2e_ui/**"
       - "Makefile"
@@ -41,6 +45,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - uses: azure/setup-helm@v4
         with:
