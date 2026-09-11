@@ -7,7 +7,10 @@ appVersion: "0.1.0"
 
 dependencies:
   # Postgres, Neo4j, Llama Stack, llm-service, API, and ingestion are owned by
-  # general-simulation 0.0.1 — not sibling dependencies of this umbrella.
+  # general-simulation — not sibling dependencies of this umbrella.
+  #
+  # Published chart: https://rh-ai-quickstart.github.io/general-simulation
+  # Local dev override: make helm-deps-local (packages sibling checkout into charts/)
   - name: general-simulation
-    version: 0.0.1
+    version: 1.0.1
     repository: https://rh-ai-quickstart.github.io/general-simulation

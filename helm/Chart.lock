@@ -1,6 +1,6 @@
 dependencies:
 - name: general-simulation
   repository: https://rh-ai-quickstart.github.io/general-simulation
-  version: 0.0.1
-digest: sha256:e9b42e8ebdfd0ae9bab19bbbf717a2ccd486a1bac1e0dcd5aa15f02df834a3e4
-generated: "2026-09-01T15:06:14.7998-04:00"
+  version: 1.0.1
+digest: sha256:e7adefd601359ef4e75ac2bf2c3b2aa0153746f6c7bbbf756c157a683efc6696
+generated: "2026-09-11T15:39:51.571731-04:00"

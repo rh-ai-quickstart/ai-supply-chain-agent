@@ -141,14 +141,14 @@ tests:
     set:
       backend.enabled: true
       backend.pgvectorSecretName: pgvector
-      global.registry: quay.io/robertsandoval
+      global.registry: quay.io/rh-ai-quickstart
       global.imageTag: v1
       backend.image.name: ai-supply-chain-agent-backend
       general-simulation.api.models.generation: "llama-3-2-3b-instruct/meta-llama/Llama-3.2-3B-Instruct"
     asserts:
       - equal:
           path: spec.template.spec.containers[0].image
-          value: quay.io/robertsandoval/ai-supply-chain-agent-backend:v1
+          value: quay.io/rh-ai-quickstart/ai-supply-chain-agent-backend:v1
 
   - it: does not render when backend is disabled
     set:

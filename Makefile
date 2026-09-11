@@ -355,13 +355,14 @@ helm-patch-scc:
 	if [ -z "$$TGZ" ]; then echo "  (no general-simulation chart found — skipping)"; exit 0; fi; \
 	TMPDIR=$$(mktemp -d); \
 	tar xzf "$$TGZ" -C "$$TMPDIR"; \
-	for f in "$$TMPDIR/general-simulation/templates/neo4j-scc-binding.yaml" \
-	         "$$TMPDIR/general-simulation/charts/postgres/templates/scc-binding.yaml"; do \
-	  [ -f "$$f" ] || { echo "ERROR: expected file not found: $$f (chart layout changed?)"; rm -rf "$$TMPDIR"; exit 1; }; \
+	FOUND=0; \
+	for f in $$(find "$$TMPDIR/general-simulation/templates" -name 'scc-binding.yaml' -type f | sort); do \
+	  FOUND=1; \
 	  grep -q '^kind: ClusterRoleBinding$$' "$$f" || { echo "ERROR: 'kind: ClusterRoleBinding' not found in $$f (chart content changed — patch needs updating)"; rm -rf "$$TMPDIR"; exit 1; }; \
-	  sed -i 's/^kind: ClusterRoleBinding$$/kind: RoleBinding/' "$$f"; \
+	  sed -i '' 's/^kind: ClusterRoleBinding$$/kind: RoleBinding/' "$$f" 2>/dev/null || sed -i 's/^kind: ClusterRoleBinding$$/kind: RoleBinding/' "$$f"; \
 	  echo "  patched $$f"; \
 	done; \
+	if [ "$$FOUND" -eq 0 ]; then echo "ERROR: no scc-binding.yaml templates found under general-simulation (chart layout changed?)"; rm -rf "$$TMPDIR"; exit 1; fi; \
 	tar czf "$$TGZ" -C "$$TMPDIR" general-simulation; \
 	rm -rf "$$TMPDIR"
 
@@ -372,6 +373,7 @@ helm-deps-local:
 	  { echo ">>> ERROR: chart not found. Set GENERAL_SIM_CHART_DIR or clone general-simulation."; exit 1; }
 	helm dependency update "$(GENERAL_SIM_CHART_DIR)"
 	helm package "$(GENERAL_SIM_CHART_DIR)" -d "$(HELM_CHART)/charts"
+	@$(MAKE) --no-print-directory helm-patch-scc
 
 .PHONY: helm-lint
 helm-lint: helm-deps

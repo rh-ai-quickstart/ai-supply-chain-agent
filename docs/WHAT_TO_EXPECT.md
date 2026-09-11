@@ -50,7 +50,7 @@ make seed-opensky-live GEN_SIM_NAMESPACE=supply-chain-dashboard
 make seed
 ```
 
-Requires a local checkout of [general-simulation](https://github.com/robertsandoval/general-simulation) (sibling directory by default: `../general-simulation`) and `oc` login.
+Requires a local checkout of [general-simulation](https://github.com/rh-ai-quickstart/general-simulation) (sibling directory by default: `../general-simulation`) and `oc` login.
 
 ---
 
