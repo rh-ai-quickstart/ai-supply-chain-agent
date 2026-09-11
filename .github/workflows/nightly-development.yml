@@ -1,0 +1,20 @@
+name: Nightly - AI Supply Chain Agent (development)
+
+on:
+  workflow_dispatch:
+  schedule:
+    # 2am EDT (UTC-4). Cron has no timezone support, so during EST (UTC-5,
+    # roughly Nov-Mar) this fires at 1am ET instead of 2am. Offset an hour
+    # after nightly-main so they don't collide on the shared CI namespace.
+    - cron: "0 6 * * *"
+
+concurrency:
+  group: supply-chain-ci-testing
+  cancel-in-progress: false
+
+jobs:
+  test:
+    uses: ./.github/workflows/test-ai-supply-chain-agent.yml
+    with:
+      branch: development
+    secrets: inherit
