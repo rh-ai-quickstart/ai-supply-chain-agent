@@ -49,6 +49,12 @@ MAAS_VALUES_FILE ?= $(HELM_CHART)/values-maas.yaml
 HELM_EXTRA_ARGS ?=
 GENERAL_SIM_CHART_DIR ?= $(CURDIR)/../../general-simulation/deploy/helm/general-simulation
 
+# --create-namespace always issues a namespaces create call (checked by RBAC
+# before Kubernetes checks whether it already exists), so an installer scoped
+# to namespace-admin on a pre-provisioned namespace needs this cleared, e.g.
+# make install-full HELM_CREATE_NAMESPACE=
+HELM_CREATE_NAMESPACE ?= --create-namespace
+
 # --- Secrets (auto-applied if helm/secrets.yaml exists) ---
 SECRETS_FILE ?= $(HELM_CHART)/secrets.yaml
 ifeq ($(wildcard $(SECRETS_FILE)),)
@@ -133,6 +139,9 @@ help:
 	@echo "    seed-gen-sim       Port-forward Neo4j+Postgres, pull secrets, run seed_demo.py"
 	@echo "    seed-opensky-live  Pull live OpenSky on laptop → upsert into cluster PG+Neo4j"
 	@echo ""
+	@echo "  Full install:"
+	@echo "    install-full       install + ingest + seed (NAMESPACE, MODEL_ID, MODEL_URL, API_KEY)"
+	@echo ""
 	@echo "  Utilities:"
 	@echo "    login              Log in to the container registry via podman"
 	@echo "    oc-status          Show deployed pod and service status"
@@ -150,6 +159,9 @@ help:
 	@echo "    OPENSKY_MAX        $(OPENSKY_MAX)  (seed-opensky-live cap; 0=unlimited)"
 	@echo "    HELM_RELEASE       $(HELM_RELEASE)"
 	@echo "    VALUES_FILE        $(VALUES_FILE)  (set secrets in helm/secrets.yaml — see secrets.example.yaml)"
+	@echo "    MODEL_ID           $(MODEL_ID)  (install-full: external-model id)"
+	@echo "    MODEL_URL          $(MODEL_URL)  (install-full: external-model url)"
+	@echo "    API_KEY            (install-full: external-model apiToken)"
 	@echo ""
 
 # ============================================================
@@ -423,7 +435,7 @@ helm-upgrade-install: helm-deps
 	@echo ">>> Secrets file: $(if $(SECRETS_FLAGS),$(SECRETS_FILE) (found),not found - see secrets.example.yaml)"
 	helm upgrade --install $(HELM_RELEASE) $(HELM_CHART) \
 		--namespace $(NAMESPACE) \
-		--create-namespace \
+		$(HELM_CREATE_NAMESPACE) \
 		-f $(VALUES_FILE) \
 		$(SECRETS_FLAGS) \
 		$(HELM_IMAGE_SETS) \
@@ -442,7 +454,23 @@ install: helm-upgrade-install
 .PHONY: helm-uninstall
 helm-uninstall:
 	@echo ">>> Uninstalling Helm release: $(HELM_RELEASE) from namespace: $(NAMESPACE)"
-	helm uninstall $(HELM_RELEASE) --namespace $(NAMESPACE)
+	helm uninstall $(HELM_RELEASE) --namespace $(NAMESPACE) --wait --timeout 5m 2>/dev/null || echo ">>> Release $(HELM_RELEASE) not found in $(NAMESPACE) (already uninstalled?) — continuing with cleanup"
+	@echo ">>> Deleting PVCs left behind by general-simulation (postgres, neo4j, llama-stack)"
+	oc delete pvc postgres-data-postgres-0 data-neo4j-0 llama-stack-data -n $(NAMESPACE) --ignore-not-found
+	@echo ">>> Deleting ingest Job (post-install/post-upgrade Helm hook — not removed by helm uninstall)"
+	oc delete job $(HELM_RELEASE)-ingest -n $(NAMESPACE) --ignore-not-found
+	@echo ">>> Waiting for pods to finish terminating in namespace $(NAMESPACE)"
+	@for i in $$(seq 1 60); do \
+		remaining=$$(oc get pods -n $(NAMESPACE) --no-headers 2>/dev/null | wc -l); \
+		if [ "$$remaining" -eq 0 ]; then \
+			echo ">>> All pods terminated"; \
+			break; \
+		fi; \
+		echo ">>> $$remaining pod(s) still terminating, waiting... ($$i/60)"; \
+		sleep 5; \
+	done
+	@echo ">>> Resources remaining in namespace $(NAMESPACE):"
+	oc get deploy,sts,svc,route,job,cronjob,pod,pvc -n $(NAMESPACE)
 
 .PHONY: helm-status
 helm-status:
@@ -475,22 +503,56 @@ kind-verify-e2e: e2e-ui-install
 local-kind-smoke-test:
 	@bash ./scripts/local-kind-smoke-test.sh $(LOCAL_KIND_SMOKE_ARGS)
 
+# If uv is on PATH, use it to pin the interpreter (avoids building greenlet
+# against whatever Python happens to be on PATH, e.g. a too-new system Python).
+# Falls back to plain pip/python if uv is not installed.
+E2E_UI_PYTHON ?= 3.12
+UV := $(shell command -v uv 2>/dev/null)
+
+ifdef UV
+# Explicit install works even when python-downloads=manual (e.g. Fedora's
+# packaged uv) — `uv run --python` alone would fail there if the version
+# isn't already present instead of auto-downloading it.
+E2E_UI_INSTALL_CMD = uv python install $(E2E_UI_PYTHON) && uv run --python $(E2E_UI_PYTHON) --with-requirements tests/e2e_ui/requirements.txt -- playwright install chromium
+E2E_UI_TEST_CMD    = uv run --python $(E2E_UI_PYTHON) --with-requirements tests/e2e_ui/requirements.txt -- python -m pytest tests/e2e_ui/ -v --tb=short --browser chromium --screenshot=only-on-failure --tracing=retain-on-failure
+else
+E2E_UI_INSTALL_CMD = pip install -r tests/e2e_ui/requirements.txt && playwright install chromium
+E2E_UI_TEST_CMD    = python -m pytest tests/e2e_ui/ -v --tb=short --browser chromium --screenshot=only-on-failure --tracing=retain-on-failure
+endif
+
 .PHONY: e2e-ui-install
 e2e-ui-install:
-	@echo ">>> Installing Playwright UI test dependencies"
-	pip install -r tests/e2e_ui/requirements.txt
-	playwright install chromium
+	@echo ">>> Installing Playwright UI test dependencies ($(if $(UV),Python $(E2E_UI_PYTHON) via uv,pip + system python))"
+	$(E2E_UI_INSTALL_CMD)
 
 .PHONY: e2e-ui
 e2e-ui: e2e-ui-install
-	@python -m pytest tests/e2e_ui/ -v --tb=short --browser chromium
+	@if [ -z "$${SUPPLY_CHAIN_UI_ENDPOINT:-}" ]; then \
+		ROUTE_HOST=$$(oc get route $(HELM_RELEASE)-frontend -n $(NAMESPACE) -o jsonpath='{.spec.host}' 2>/dev/null); \
+		if [ -n "$$ROUTE_HOST" ]; then \
+			echo ">>> Using OpenShift Route for SUPPLY_CHAIN_UI_ENDPOINT: https://$$ROUTE_HOST"; \
+			export SUPPLY_CHAIN_UI_ENDPOINT="https://$$ROUTE_HOST"; \
+		else \
+			echo ">>> No OpenShift Route found for $(HELM_RELEASE)-frontend in namespace $(NAMESPACE); falling back to http://127.0.0.1:18080 (needs kubectl port-forward, or pass NAMESPACE/HELM_RELEASE matching your deployment)"; \
+		fi; \
+	fi; \
+	if [ -z "$${BACKEND_HEALTH_URL:-}" ]; then \
+		BACKEND_ROUTE_HOST=$$(oc get route $(HELM_RELEASE)-backend -n $(NAMESPACE) -o jsonpath='{.spec.host}' 2>/dev/null); \
+		if [ -n "$$BACKEND_ROUTE_HOST" ]; then \
+			echo ">>> Using OpenShift Route for BACKEND_HEALTH_URL: https://$$BACKEND_ROUTE_HOST/healthz"; \
+			export BACKEND_HEALTH_URL="https://$$BACKEND_ROUTE_HOST/healthz"; \
+		else \
+			echo ">>> No OpenShift Route found for $(HELM_RELEASE)-backend in namespace $(NAMESPACE); falling back to http://127.0.0.1:15001/healthz (needs kubectl port-forward, or pass NAMESPACE/HELM_RELEASE matching your deployment)"; \
+		fi; \
+	fi; \
+	$(E2E_UI_TEST_CMD)
 
 .PHONY: helm-install-kind
 helm-install-kind: helm-deps k8s-namespace
 	@echo ">>> Installing $(HELM_RELEASE) on Kind/Kubernetes (namespace: $(NAMESPACE), registry: $(REGISTRY))"
 	helm upgrade --install $(HELM_RELEASE) $(HELM_CHART) \
 		--namespace $(NAMESPACE) \
-		--create-namespace \
+		$(HELM_CREATE_NAMESPACE) \
 		-f $(VALUES_FILE) \
 		-f $(KIND_VALUES_FILE) \
 		$(SECRETS_FLAGS) \
@@ -622,6 +684,29 @@ seed-opensky-live:
 .PHONY: seed
 seed: seed-gen-sim seed-opensky-live
 	@echo ">>> seed complete (demo scenarios/maritime + live OpenSky flights)"
+
+# ============================================================
+# Full deploy (install + ingest + seed)
+# ============================================================
+# External model wiring for general-simulation (MaaS-style external model).
+MODEL_ID  ?=
+MODEL_URL ?=
+API_KEY   ?=
+
+INSTALL_FULL_EXTRA_ARGS = \
+	--set general-simulation.global.models.external-model.id=$(MODEL_ID) \
+	--set general-simulation.global.models.external-model.url=$(MODEL_URL) \
+	--set general-simulation.global.models.external-model.apiToken=$(API_KEY) \
+	--set general-simulation.api.models.generation=external-model/$(MODEL_ID) \
+	--set general-simulation.ingestion.models.generation=external-model/$(MODEL_ID)
+
+.PHONY: install-full
+install-full:
+	@echo ">>> Full install: install + ingest + seed (namespace: $(NAMESPACE))"
+	$(MAKE) install HELM_EXTRA_ARGS='$(INSTALL_FULL_EXTRA_ARGS)'
+	$(MAKE) seed OPENSKY_MAX=50
+	$(MAKE) ingest
+	@echo ">>> install-full complete (install + ingest + seed)"
 
 # ============================================================
 # Quality gate
