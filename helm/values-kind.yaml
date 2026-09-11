@@ -79,6 +79,8 @@ general-simulation:
     enabled: false
   llm-service:
     enabled: false
+  pgvector:
+    enabled: false
   postgres:
     postgres:
       password: kind-demo-password

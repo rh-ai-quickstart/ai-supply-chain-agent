@@ -1,6 +1,6 @@
 # Supply Chain Dashboard — Helm chart
 
-Umbrella chart for the AI Supply Chain Agent quickstart. It deploys the application tier (backend, frontend, ingest job) and the [general-simulation](https://github.com/robertsandoval/general-simulation) **0.0.1** platform subchart (Postgres, Neo4j, Llama Stack, llm-service, API, ingestion).
+Umbrella chart for the AI Supply Chain Agent quickstart. It deploys the application tier (backend, frontend, ingest job) and the [general-simulation](https://github.com/rh-ai-quickstart/general-simulation) **0.0.1** platform subchart (Postgres, Neo4j, Llama Stack, llm-service, API, ingestion).
 
 ## What it deploys
 

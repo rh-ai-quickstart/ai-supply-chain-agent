@@ -11,7 +11,7 @@ global:
     postgres: general-sim-postgres
 
 # Platform infra (Postgres, Neo4j, Llama Stack, llm-service, API, ingestion)
-# is deployed via the general-simulation umbrella subchart (chart 0.0.1).
+# is deployed via the general-simulation umbrella subchart (chart 0.1.0).
 #
 # LiteMaaS profile (default):
 #   - Chat: Llama Stack → global.models.external-model → LiteMaaS /v1/chat/completions
@@ -23,16 +23,12 @@ global:
 general-simulation:
   global:
     models:
-      # Disable gen-sim default OpenAI provider (enabled: true in the subchart).
+      # Disable gen-sim chart defaults (deep merge leaves them on unless set false).
       openai:
         enabled: false
-        id: gpt-4o-mini          # or gpt-4o, etc.
-        url: https://api.openai.com/v1
-      deepseek-r1-distill-qwen-1-5b:
+      llama-3-1-8b-instruct-fp8-dynamic:
         enabled: false
-        id: deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B
-        apiToken: unused
-      # LiteMaaS chat model — disable llm-service; set apiToken in helm/secrets.yaml.
+      # LiteMaaS chat — set apiToken in helm/secrets.yaml.
       external-model:
         enabled: true
         id: Qwen2.5-VL-7B-Instruct
@@ -42,7 +38,10 @@ general-simulation:
     neo4j:
       scc:
         enabled: true
+  # Gen-sim custom Postgres (pgvector + PostGIS + AGE). Do not enable the
+  # ai-architecture-charts pgvector subchart — it deploys a second Postgres STS.
   postgres:
+    enabled: true
     postgres:
       username: sim
       # Demo default — override via helm/secrets.yaml (keep in sync across
@@ -50,6 +49,8 @@ general-simulation:
       # gen-sim Postgres PVC (POSTGRES_PASSWORD applies only on init).
       password: password
       database: sim
+  pgvector:
+    enabled: false
   neo4j:
     fullnameOverride: neo4j
     disableLookups: true
@@ -68,7 +69,7 @@ general-simulation:
   llama-stack:
     enabled: true
     rawDeploymentMode: true
-    # Secret/pgvector is created by gen-sim (points Llama Stack at Postgres).
+    # Llama Stack vector_io provider + Secret/pgvector bridge (host=postgres Service).
     pgvector:
       enabled: true
   llm-service:
@@ -110,7 +111,9 @@ general-simulation:
   # Seed offline demo data with general-simulation scripts/seed_demo.py instead.
   # To use live data: egress via a non-hyperscaler proxy, or swap the adapter.
   ingestion:
-    enabled: true
+    enabled: false
+    runOnDeploy:
+      enabled: false
     models:
       generation: external-model/Qwen2.5-VL-7B-Instruct
       embedding: sentence-transformers/nomic-ai/nomic-embed-text-v1.5
@@ -138,7 +141,7 @@ backend:
     enabled: true
     host: ""
     timeout: 5m
-  # Secret/pgvector (created by general-simulation for Llama Stack) — key "password".
+  # Secret/pgvector (gen-sim bridge to Postgres Service `postgres`) — key "password".
   pgvectorSecretName: pgvector
   env:
     LLAMA_STACK_URL: http://llamastack:8321
