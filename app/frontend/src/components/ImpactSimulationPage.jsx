@@ -3,7 +3,9 @@ import { useCallback } from "react";
 import { ImpactMapPanel } from "./ImpactMapPanel";
 import { ImpactQueryPanel } from "./ImpactQueryPanel";
 import { ImpactResultsPanel } from "./ImpactResultsPanel";
+import { SupplyChainKpiBar } from "./SupplyChainKpiBar";
 import { useImpactSimulation } from "../hooks/useImpactSimulation";
+import { useSupplyChainKpis } from "../hooks/useSupplyChainKpis";
 
 export function ImpactSimulationPage({
   initialScenarioId = "",
@@ -17,6 +19,11 @@ export function ImpactSimulationPage({
     initialScenarioId,
     onScenarioChange,
     chatSimulation,
+    chatLoading,
+  });
+  const kpiState = useSupplyChainKpis({
+    scenarioId: sim.scenarioId,
+    impactResult: sim.result,
     chatLoading,
   });
 
@@ -37,7 +44,8 @@ export function ImpactSimulationPage({
   }, [onOpenCreateScenario]);
 
   return (
-    <main className="dashboard-grid impact-simulation-grid">
+    <div className="simulation-stack">
+      <main className="dashboard-grid impact-simulation-grid">
       <ImpactQueryPanel
         scenarios={sim.scenarios}
         scenariosLoading={sim.scenariosLoading}
@@ -79,7 +87,14 @@ export function ImpactSimulationPage({
         onFocusDiversion={sim.handleFocusDiversion}
         focusedDiversionKey={sim.selectedDiversionKey}
       />
-    </main>
+      </main>
+
+      <SupplyChainKpiBar
+        kpis={kpiState.kpis}
+        loading={kpiState.loading}
+        error={kpiState.error}
+      />
+    </div>
   );
 }
 

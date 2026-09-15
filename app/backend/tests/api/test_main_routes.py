@@ -32,6 +32,25 @@ def flask_client(monkeypatch, mock_llama_stack_client):
         "success": True,
         "geojson": {"type": "FeatureCollection", "features": []},
     }
+    sim.list_entities.return_value = {
+        "success": True,
+        "items": [],
+        "total": 0,
+    }
+
+    kpi = MagicMock()
+    kpi.get_kpis.return_value = {
+        "success": True,
+        "scenario_id": "",
+        "kpis": {"inStock": {"value": "92%", "numeric": 92}},
+        "data_quality": {"mode": "default"},
+    }
+    kpi.compute_kpis.return_value = {
+        "success": True,
+        "scenario_id": "opensky-uk-closure-001",
+        "kpis": {"inStock": {"value": "83%", "numeric": 83}},
+        "data_quality": {"mode": "simulation_backed", "has_solver": True},
+    }
 
     chat = ChatService(mock_llama_stack_client, vector_store_client=None)
     scenario_svc = MagicMock()
@@ -56,6 +75,7 @@ def flask_client(monkeypatch, mock_llama_stack_client):
     }
 
     monkeypatch.setattr(container, "general_simulation_service", sim)
+    monkeypatch.setattr(container, "kpi_service", kpi)
     monkeypatch.setattr(container, "chat_service", chat)
     monkeypatch.setattr(container, "scenario_create_service", scenario_svc)
     app_main.app.config["TESTING"] = True
@@ -275,6 +295,55 @@ def test_get_general_simulation_entities_geojson(flask_client):
         ids=["a", "b"],
         limit=10,
     )
+
+
+def test_get_kpis(flask_client):
+    client, container = flask_client
+    rv = client.get(
+        "/api/v1/kpis",
+        query_string={"scenario_id": "opensky-uk-closure-001", "bbox": "-15,35,40,62"},
+    )
+    assert rv.status_code == 200
+    body = rv.get_json()
+    assert body["success"] is True
+    assert body["kpis"]["inStock"]["value"] == "92%"
+    container.kpi_service.get_kpis.assert_called_once_with(
+        scenario_id="opensky-uk-closure-001",
+        bbox="-15,35,40,62",
+    )
+
+
+def test_post_kpis_with_solver_snapshot(flask_client):
+    client, container = flask_client
+    rv = client.post(
+        "/api/v1/kpis",
+        json={
+            "scenario_id": "opensky-uk-closure-001",
+            "bbox": "-15,35,40,62",
+            "solver": {"impact_score": 0.65, "total_value_at_risk": 1234567},
+            "affected_entities": ["opensky-407290"],
+        },
+    )
+    assert rv.status_code == 200
+    body = rv.get_json()
+    assert body["success"] is True
+    assert body["kpis"]["inStock"]["value"] == "83%"
+    container.kpi_service.compute_kpis.assert_called_once_with(
+        scenario_id="opensky-uk-closure-001",
+        bbox="-15,35,40,62",
+        solver={"impact_score": 0.65, "total_value_at_risk": 1234567},
+        affected_entities=["opensky-407290"],
+    )
+
+
+def test_get_kpis_upstream_error(flask_client):
+    client, container = flask_client
+    container.kpi_service.get_kpis.return_value = {
+        "success": False,
+        "error": "unreachable",
+    }
+    rv = client.get("/api/v1/kpis")
+    assert rv.status_code == 502
 
 
 def test_get_general_simulation_entities_geojson_bad_limit(flask_client):

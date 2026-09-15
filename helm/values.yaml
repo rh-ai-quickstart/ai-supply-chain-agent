@@ -2,6 +2,8 @@
 # Propagates to supply-chain app images and the general-simulation subchart.
 global:
   registry: quay.io/rh-ai-quickstart
+  # Platform default (general-simulation postgres, api, bootstrap, …).
+  # Supply-chain app images set explicit tags below.
   imageTag: latest
   images:
     backend: ai-supply-chain-agent-backend
@@ -31,7 +33,7 @@ general-simulation:
       # LiteMaaS chat — set apiToken in helm/secrets.yaml.
       external-model:
         enabled: true
-        id: Qwen2.5-VL-7B-Instruct
+        id: Qwen3.6-35B-A3B
         url: https://litemaas.rhoai.rh-aiservices-bu.com/v1
         apiToken: ""
   openshift:
@@ -110,7 +112,7 @@ general-simulation:
       apiKey: unused
     models:
       # Stack model id = <providerKey>/<model.id> (see global.models.external-model above).
-      generation: external-model/Qwen2.5-VL-7B-Instruct
+      generation: external-model/Qwen3.6-35B-A3B
       # Llama Stack inline embedder — full stack model id (see GET /v1/models on llamastack).
       embedding: sentence-transformers/nomic-ai/nomic-embed-text-v1.5
       embeddingDimension: "768"
@@ -121,7 +123,7 @@ general-simulation:
       host: postgres
     neo4j:
       password: password
-  # Live OpenSky CronJob (opensky-network.org). Keep disabled on AWS/hyperscaler
+  # Live OpenSky CronJob (opensky-network.org). Keep disabled on AWS/hyper-scaler
   # clusters: OpenSky drops those source IPs at TCP (documented; they refuse AI
   # dashboard allowlists). Cluster NetworkPolicy / EgressFirewall cannot fix it.
   # Seed offline demo data with general-simulation scripts/seed_demo.py instead.
