@@ -7,10 +7,6 @@ on:
     # roughly Nov-Mar) this fires at midnight ET instead of 1am.
     - cron: "0 5 * * *"
 
-concurrency:
-  group: supply-chain-ci-testing
-  cancel-in-progress: false
-
 jobs:
   test:
     uses: ./.github/workflows/test-ai-supply-chain-agent.yml
