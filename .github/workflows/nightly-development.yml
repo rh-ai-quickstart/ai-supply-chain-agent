@@ -8,10 +8,6 @@ on:
     # after nightly-main so they don't collide on the shared CI namespace.
     - cron: "0 6 * * *"
 
-concurrency:
-  group: supply-chain-ci-testing
-  cancel-in-progress: false
-
 jobs:
   test:
     uses: ./.github/workflows/test-ai-supply-chain-agent.yml
