@@ -7,17 +7,17 @@ REGISTRY        ?= quay.io/rh-ai-quickstart
 BACKEND_IMAGE      ?= $(REGISTRY)/ai-supply-chain-agent-backend
 INGEST_IMAGE       ?= $(REGISTRY)/ai-supply-chain-agent-ingestion
 FRONTEND_IMAGE     ?= $(REGISTRY)/ai-supply-chain-agent-frontend
-BACKEND_TAG        ?= dev-ryan
-INGEST_TAG         ?= dev-ryan
-FRONTEND_TAG       ?= dev-ryan
-GEN_SIM_TAG        ?= dev
+BACKEND_TAG        ?= latest
+INGEST_TAG         ?= latest
+FRONTEND_TAG       ?= latest
+GEN_SIM_TAG        ?= $(BACKEND_TAG)
 GEN_SIM_APP_IMAGE  ?= $(REGISTRY)/general-sim-api:$(GEN_SIM_TAG)
 GEN_SIM_POSTGRES_IMAGE ?= $(REGISTRY)/general-sim-postgres:$(GEN_SIM_TAG)
 
 # Helm --set flags for container images (supply-chain chart).
 HELM_IMAGE_SETS = \
 	--set global.registry=$(REGISTRY) \
-	--set global.imageTag=$(GEN_SIM_TAG) \
+	--set global.imageTag=$(BACKEND_TAG) \
 	--set backend.image.tag=$(BACKEND_TAG) \
 	--set frontend.image.tag=$(FRONTEND_TAG) \
 	--set ingest.image.tag=$(INGEST_TAG)

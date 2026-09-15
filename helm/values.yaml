@@ -4,7 +4,7 @@ global:
   registry: quay.io/rh-ai-quickstart
   # Platform default (general-simulation postgres, api, bootstrap, …).
   # Supply-chain app images set explicit tags below.
-  imageTag: dev
+  imageTag: latest
   images:
     backend: ai-supply-chain-agent-backend
     frontend: ai-supply-chain-agent-frontend
@@ -127,7 +127,7 @@ general-simulation:
   # clusters: OpenSky drops those source IPs at TCP (documented; they refuse AI
   # dashboard allowlists). Cluster NetworkPolicy / EgressFirewall cannot fix it.
   # Seed offline demo data with general-simulation scripts/seed_demo.py instead.
-  # To use live data: egress via a non-hyper-scaler proxy, or swap the adapter.
+  # To use live data: egress via a non-hyperscaler proxy, or swap the adapter.
   ingestion:
     enabled: false
     runOnDeploy:
