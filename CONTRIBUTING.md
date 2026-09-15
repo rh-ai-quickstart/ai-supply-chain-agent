@@ -7,7 +7,7 @@
 - [Helm](https://helm.sh/) 3.14+
 - [pnpm](https://pnpm.io/) for the frontend
 - Python 3.12+ for the backend / ingestion
-- For Helm installs with general-simulation: a sibling checkout of [general-simulation](https://github.com/rh-ai-quickstart/general-simulation) at `../general-simulation` (see [helm/README.md](helm/README.md))
+- For Helm installs with general-simulation: initialize the git submodule with `make submodule-init` (see [helm/README.md](helm/README.md))
 
 ## Local development
 

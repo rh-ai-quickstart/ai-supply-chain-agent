@@ -1,6 +1,6 @@
 # Supply Chain Dashboard — Helm chart
 
-Umbrella chart for the AI Supply Chain Agent quickstart. It deploys the application tier (backend, frontend, ingest job) and the [general-simulation](https://github.com/rh-ai-quickstart/general-simulation) **0.0.1** platform subchart (Postgres, Neo4j, Llama Stack, llm-service, API, ingestion).
+Umbrella chart for the AI Supply Chain Agent quickstart. It deploys the application tier (backend, frontend, ingest job) and the [general-simulation](https://github.com/rh-ai-quickstart/general-simulation) **1.0.1** platform subchart (Postgres, Neo4j, Llama Stack, llm-service, API, ingestion), vendored via git submodule at `vendor/general-simulation`.
 
 ## What it deploys
 
@@ -17,6 +17,7 @@ For a full visual map of every gen-sim value (defaults, supply-chain overrides, 
 
 - Helm 3.14+
 - OpenShift CLI (`oc`) for cluster deploys
+- `make submodule-init` (or clone with `--recurse-submodules`) so `vendor/general-simulation` is present
 - OpenShift AI 3.4+ (KServe) for default `llm-service`
 - Hugging Face token: `general-simulation.llm-service.secret.hf_token` in `helm/secrets.yaml`
 
