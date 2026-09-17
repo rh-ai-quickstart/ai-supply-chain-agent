@@ -2,7 +2,7 @@
 # Propagates to supply-chain app images and the general-simulation subchart.
 global:
   registry: quay.io/rh-ai-quickstart
-  imageTag: dev
+  imageTag: latest
   images:
     backend: ai-supply-chain-agent-backend
     frontend: ai-supply-chain-agent-frontend
