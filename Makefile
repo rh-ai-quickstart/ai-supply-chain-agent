@@ -616,8 +616,8 @@ oc-status:
 # ============================================================
 
 # Run the ingestion Job as a one-off oc run (no Helm required).
-# Default matches helm/values.yaml ingest.strategy; override to langchain for PGVector.
-INGEST_STRATEGY ?= langchain
+# Default matches helm/values.yaml ingest.strategy; override to langchain for PGVector-only ingest.
+INGEST_STRATEGY ?= llamastack
 
 .PHONY: ingest
 ingest:

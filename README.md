@@ -286,7 +286,7 @@ This will fetch 50 live flights (as a representation of flights that your organi
 
 Once complete you should see a page like:
 
-![Supply chain dashboard map showing seeded flights with cargo markers](/docs/images/after-seed.png)
+![Supply chain dashboard map showing seeded flights with cargo markers](/docs/images/all-flights.png)
 
 Each icon is a single flight with cargo associated. 
 
@@ -321,7 +321,7 @@ After the scenario runs you will notice the map zoom to the location of the even
 
 You should be able to select flight redirect for each flight which will show as follows on the map: 
 
-![Map showing a suggested flight redirect route around the disrupted airspace](/docs/images/flight-redirects.png)
+![Map showing a suggested flight redirect route around the disrupted airspace](/docs/images/recomended-diversions.png)
 
 TODO: - add step to filter the impact based on a single company, showing how it can be more specific to your company, provided data that tags flights that you have cargo on.
 
@@ -329,9 +329,9 @@ TODO: - add step to filter the impact based on a single company, showing how it 
 
 After running the scenarios data is injected into the agents memory and you can ask follow up questions about that type of event. 
 
-TODO: - add screenshot that shows where you ask the questions
+![Example Question 1](/docs/images/ai-chat.png)
 
-TODO: - add at least 2 specific questions to ask, and example of what the response might look like for each one
+![Example Question 2](/docs/images/second-chat-message.png)
 
 #### Create a new Scenario
 
@@ -340,7 +340,7 @@ to your organization.
 
 In the top bar of the application click the create scenario as show in:
 
-TODO: add screenshot highlighting where to click to create a new scenario.
+![Click Scenario](/docs/images/new-scenario.png)
 
 Once you click on the `+` the page looks as follows:
 
@@ -357,7 +357,7 @@ Italy.
 Once you select the "Create scenario" button it will save you the scenario and bring you back to the home page.
 You should now see the new scenario in addition to the pre-configured ones:
 
-TODO: - add screenshot showing added scenario
+![New Scenario In Menu](/docs/images/new-scenario-in-menu.png)
 
 Next select the "Knowledge bases" option, and you should see a screen like:
 
@@ -368,11 +368,11 @@ select the file `/docs/knowledge-bases/italy_volcano_eruptions.txt` using Choose
 
 Select `Create and injest` and you should see that a knowledge base was added:
 
-TODO: - add screenshot showing knowledge base that was added
+![New Knowledge Base Added](/docs/images/before-ingest.png)
 
 Now go back to the main page and select the newly added scenario:
 
-TODO - add screenshot showing the new newly added scenario, selected 
+![New Knowledge Base Added](/docs/images/after-ingest.png)
 
 You will notice that the impact is centered on italy. You can now go and ask impact questions as shown
 earlier which will be grounded in the simulation for the new scenario and the knowledge base that was updated.
