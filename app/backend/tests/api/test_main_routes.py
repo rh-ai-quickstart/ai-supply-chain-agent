@@ -33,7 +33,7 @@ def flask_client(monkeypatch, mock_llama_stack_client):
         "geojson": {"type": "FeatureCollection", "features": []},
     }
 
-    chat = ChatService(mock_llama_stack_client, vector_store_client=None)
+    chat = ChatService(mock_llama_stack_client)
     scenario_svc = MagicMock()
     scenario_svc.propose.return_value = {
         "success": True,
