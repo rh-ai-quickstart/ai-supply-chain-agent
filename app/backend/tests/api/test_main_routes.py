@@ -287,6 +287,30 @@ def test_get_general_simulation_entities_geojson_bad_limit(flask_client):
     assert "limit" in rv.get_json()["error"]
 
 
+def test_get_general_simulation_entities(flask_client):
+    client, container = flask_client
+    container.general_simulation_service.list_entities.return_value = {
+        "success": True,
+        "items": [{"id": "cargo-1", "type": "cargo_item", "attributes": {}}],
+        "total": 1,
+        "limit": 500,
+        "offset": 0,
+    }
+    rv = client.get(
+        "/api/v1/general-simulation/entities",
+        query_string={"type": "cargo_item", "limit": "100", "offset": "0"},
+    )
+    assert rv.status_code == 200
+    body = rv.get_json()
+    assert body["success"] is True
+    assert body["items"][0]["id"] == "cargo-1"
+    container.general_simulation_service.list_entities.assert_called_once_with(
+        entity_type="cargo_item",
+        limit=100,
+        offset=0,
+    )
+
+
 def test_post_scenarios_propose(flask_client):
     client, container = flask_client
     rv = client.post("/api/v1/scenarios/propose", json={"prompt": "Close French airspace"})

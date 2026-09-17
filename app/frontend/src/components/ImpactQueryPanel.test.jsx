@@ -122,6 +122,27 @@ describe("ImpactQueryPanel", () => {
     expect(actions).toContainElement(screen.getByText(/Running Scenario/i));
   });
 
+  it("renders a company filter when company options are provided", async () => {
+    const onChangeCompanyId = vi.fn();
+    render(
+      <ImpactQueryPanel
+        scenarios={["opensky-uk-closure-001"]}
+        scenarioId="opensky-uk-closure-001"
+        onChangeScenarioId={vi.fn()}
+        companyOptions={[
+          { id: "company-1", label: "Acme Air" },
+          { id: "company-2", label: "Beta Freight" },
+        ]}
+        companyId=""
+        onChangeCompanyId={onChangeCompanyId}
+      />,
+    );
+    const select = screen.getByLabelText("Company");
+    expect(select).toHaveValue("");
+    await userEvent.selectOptions(select, "company-1");
+    expect(onChangeCompanyId).toHaveBeenCalledWith("company-1");
+  });
+
   it("does not render suggested prompts for an unknown scenario", () => {
     render(
       <ImpactQueryPanel

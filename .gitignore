@@ -45,3 +45,5 @@ helm/secrets.yaml
 .cursor/
 venv/
 app/backend/venv/
+
+data/supply-chain-network.example.yaml
