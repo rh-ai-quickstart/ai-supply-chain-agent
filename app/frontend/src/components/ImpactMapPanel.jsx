@@ -4,9 +4,8 @@ import L from "leaflet";
 import { renderToStaticMarkup } from "react-dom/server";
 import { Building2, PlaneTakeoff, Anchor } from "lucide-react";
 import { CircleMarker, MapContainer, Marker, Polyline, Popup, TileLayer, useMap } from "react-leaflet";
+import { FlightEntityPopup } from "./FlightEntityPopup.jsx";
 import {
-  aircraftValueUsd,
-  cargoCostForAircraft,
   diversionKey,
   diversionRoutePositions,
   featureLatLng,
@@ -204,26 +203,13 @@ function EntityMarker({
   isHighlighted,
   isFocused,
   focusNonce,
-  focusedEntityId,
   valueByEntity,
   affectedIds,
   currency,
+  supplyChainIndexes,
 }) {
   const markerRef = useRef(null);
   const info = flightInfoFromFeature(feature);
-  const flightValue = aircraftValueUsd(info.id, valueByEntity, info);
-  const cargoOnBoard = cargoCostForAircraft(info.id, valueByEntity, affectedIds);
-  const focusedCargoValue =
-    focusedEntityId?.startsWith("cargo-") &&
-    (focusedEntityId === `cargo-${info.id}` ||
-      focusedEntityId.startsWith(`cargo-${info.id}-`))
-      ? valueByEntity.get(focusedEntityId)
-      : null;
-  const totalAtRisk =
-    (Number.isFinite(flightValue) ? flightValue : 0) +
-    (Number.isFinite(cargoOnBoard) ? cargoOnBoard : 0);
-  const showTotal =
-    Number.isFinite(flightValue) && Number.isFinite(cargoOnBoard) && totalAtRisk > 0;
 
   useEffect(() => {
     if (!isFocused || !markerRef.current) return;
@@ -239,6 +225,7 @@ function EntityMarker({
     : isHighlighted
       ? MAP_COLORS.affected
       : KIND_COLORS[kind] || MAP_COLORS.flight;
+  const isFlight = kind === "flight";
 
   return (
     <Marker
@@ -246,70 +233,39 @@ function EntityMarker({
       position={coords}
       icon={entityIcon(kind, markerColor, isHighlighted || isFocused)}
     >
-      <Popup>
-        <div className="impact-map-popup">
-          <strong>{info.callSign || info.id}</strong>
-          {info.callSign && info.id !== info.callSign ? (
-            <>
-              <br />
-              <span className="muted">ID: {info.id}</span>
-            </>
-          ) : null}
-          {info.type ? (
-            <>
-              <br />
-              Type: {info.type}
-            </>
-          ) : null}
-          {info.status ? (
-            <>
-              <br />
-              Status: {info.status}
-            </>
-          ) : null}
-          {info.route ? (
-            <>
-              <br />
-              Route: {info.route}
-            </>
-          ) : null}
-          {info.originCountry ? (
-            <>
-              <br />
-              Origin: {info.originCountry}
-            </>
-          ) : null}
-          {Number.isFinite(flightValue) ? (
-            <>
-              <br />
-              Flight value: {formatCurrency(flightValue, currency)}
-            </>
-          ) : null}
-          {Number.isFinite(cargoOnBoard) ? (
-            <>
-              <br />
-              Cargo on board: {formatCurrency(cargoOnBoard, currency)}
-            </>
-          ) : null}
-          {Number.isFinite(focusedCargoValue) ? (
-            <>
-              <br />
-              Selected cargo ({focusedEntityId}): {formatCurrency(focusedCargoValue, currency)}
-            </>
-          ) : null}
-          {showTotal ? (
-            <>
-              <br />
-              <strong>Total at risk: {formatCurrency(totalAtRisk, currency)}</strong>
-            </>
-          ) : null}
-          {isHighlighted ? (
-            <>
-              <br />
-              Affected by scenario
-            </>
-          ) : null}
-        </div>
+      <Popup className="flight-popup-leaflet" maxWidth={360} minWidth={280}>
+        {isFlight ? (
+          <FlightEntityPopup
+            info={info}
+            valueByEntity={valueByEntity}
+            affectedIds={affectedIds}
+            currency={currency}
+            supplyChainIndexes={supplyChainIndexes}
+            isHighlighted={isHighlighted}
+          />
+        ) : (
+          <div className="impact-map-popup">
+            <strong>{info.callSign || info.id}</strong>
+            {info.type ? (
+              <>
+                <br />
+                Type: {info.type}
+              </>
+            ) : null}
+            {info.status ? (
+              <>
+                <br />
+                Status: {info.status}
+              </>
+            ) : null}
+            {isHighlighted ? (
+              <>
+                <br />
+                Affected by scenario
+              </>
+            ) : null}
+          </div>
+        )}
       </Popup>
     </Marker>
   );
@@ -317,10 +273,13 @@ function EntityMarker({
 
 EntityMarker.propTypes = {
   feature: PropTypes.object.isRequired,
+  supplyChainIndexes: PropTypes.shape({
+    cargoByCarrier: PropTypes.instanceOf(Map),
+    skusByCarrier: PropTypes.instanceOf(Map),
+  }),
   isHighlighted: PropTypes.bool,
   isFocused: PropTypes.bool,
   focusNonce: PropTypes.number,
-  focusedEntityId: PropTypes.string,
   valueByEntity: PropTypes.instanceOf(Map),
   affectedIds: PropTypes.arrayOf(PropTypes.string),
   currency: PropTypes.string,
@@ -393,6 +352,7 @@ export const ImpactMapPanel = memo(function ImpactMapPanel({
   selectedDiversionKey = "",
   diversionFocusNonce = 0,
   valueByEntity = new Map(),
+  supplyChainIndexes = null,
   currency = "USD",
   loading = false,
   error = "",
@@ -471,10 +431,10 @@ export const ImpactMapPanel = memo(function ImpactMapPanel({
                 isHighlighted={highlighted.has(id)}
                 isFocused={Boolean(focusedMapId) && focusedMapId === id}
                 focusNonce={focusNonce}
-                focusedEntityId={focusedEntityId}
                 valueByEntity={valueByEntity}
                 affectedIds={highlightedIds}
                 currency={currency}
+                supplyChainIndexes={supplyChainIndexes}
               />
             );
           })}
@@ -553,6 +513,10 @@ ImpactMapPanel.propTypes = {
   selectedDiversionKey: PropTypes.string,
   diversionFocusNonce: PropTypes.number,
   valueByEntity: PropTypes.instanceOf(Map),
+  supplyChainIndexes: PropTypes.shape({
+    cargoByCarrier: PropTypes.instanceOf(Map),
+    skusByCarrier: PropTypes.instanceOf(Map),
+  }),
   currency: PropTypes.string,
   loading: PropTypes.bool,
   error: PropTypes.string,

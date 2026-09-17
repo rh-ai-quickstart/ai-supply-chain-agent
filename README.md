@@ -276,6 +276,14 @@ First seed the scenarios:
 make seed-gen-sim
 ```
 
+Optionally merge custom airports, ports, flights, cargo, and SKU inventory from YAML (overlays the base demo; same entity ids upsert, new ids add). Edit [`data/supply-chain-network.yaml`](data/supply-chain-network.yaml) or point `NETWORK_YAML` at your file. Schema reference: `general-simulation/tests/fixtures/supply_chain_network.example.yaml`.
+
+```bash
+make seed-network-overlay
+# Use a workspace fork instead of the submodule:
+GENERAL_SIM_DIR=../general-simulation make seed-network-overlay
+```
+
 Next install flight data from the OpenSky Data API. 
 
 ```bash
