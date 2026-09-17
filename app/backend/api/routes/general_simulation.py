@@ -24,6 +24,24 @@ def create_blueprint(container: Container) -> Blueprint:
         status = 200 if result.get("success") else 502
         return jsonify(result), status
 
+    @bp.route("/api/v1/general-simulation/entities", methods=["GET"])
+    def get_general_simulation_entities():
+        entity_type = request.args.get("type") or None
+        limit_raw = request.args.get("limit", "500")
+        offset_raw = request.args.get("offset", "0")
+        try:
+            limit = int(limit_raw)
+            offset = int(offset_raw)
+        except (TypeError, ValueError):
+            return jsonify({"success": False, "error": "limit and offset must be integers"}), 400
+        result = container.general_simulation_service.list_entities(
+            entity_type=entity_type,
+            limit=limit,
+            offset=offset,
+        )
+        status = 200 if result.get("success") else 502
+        return jsonify(result), status
+
     @bp.route("/api/v1/general-simulation/entities/geojson", methods=["GET"])
     def get_general_simulation_entities_geojson():
         bbox = request.args.get("bbox") or None

@@ -44,6 +44,9 @@ export function ImpactSimulationPage({
         scenariosError={sim.scenariosError}
         scenarioId={sim.scenarioId}
         onChangeScenarioId={sim.handleChangeScenarioId}
+        companyOptions={sim.companyOptions}
+        companyId={sim.companyId}
+        onChangeCompanyId={sim.handleChangeCompanyId}
         mapMode={sim.mapMode}
         onChangeMapMode={sim.handleMapModeChange}
         onRunSuggestedPrompt={handleRunSuggestedPrompt}
@@ -65,6 +68,7 @@ export function ImpactSimulationPage({
           selectedDiversionKey={sim.selectedDiversionKey}
           diversionFocusNonce={sim.diversionFocusNonce}
           valueByEntity={sim.valueByEntity}
+          supplyChainIndexes={sim.supplyChainIndexes}
           currency={sim.currency}
           loading={sim.mapLoading}
           error={sim.mapError}

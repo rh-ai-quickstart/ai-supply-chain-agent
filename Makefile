@@ -7,10 +7,10 @@ REGISTRY        ?= quay.io/rh-ai-quickstart
 BACKEND_IMAGE      ?= $(REGISTRY)/ai-supply-chain-agent-backend
 INGEST_IMAGE       ?= $(REGISTRY)/ai-supply-chain-agent-ingestion
 FRONTEND_IMAGE     ?= $(REGISTRY)/ai-supply-chain-agent-frontend
-BACKEND_TAG        ?= latest
-INGEST_TAG         ?= latest
-FRONTEND_TAG       ?= latest
-GEN_SIM_TAG        ?= $(BACKEND_TAG)
+BACKEND_TAG        ?= dev
+INGEST_TAG         ?= dev
+FRONTEND_TAG       ?= dev
+GEN_SIM_TAG        ?= dev
 GEN_SIM_APP_IMAGE  ?= $(REGISTRY)/general-sim-api:$(GEN_SIM_TAG)
 GEN_SIM_POSTGRES_IMAGE ?= $(REGISTRY)/general-sim-postgres:$(GEN_SIM_TAG)
 
@@ -135,8 +135,9 @@ help:
 	@echo "    ingest-status      Show the status of the ingest Job"
 	@echo ""
 	@echo "  Gen-sim demo data:"
-	@echo "    seed               Demo seed then live OpenSky (seed-gen-sim + seed-opensky-live)"
+	@echo "    seed               Demo seed, YAML overlay, then live OpenSky"
 	@echo "    seed-gen-sim       Port-forward Neo4j+Postgres, pull secrets, run seed_demo.py"
+	@echo "    seed-network-overlay  Merge data/supply-chain-network.yaml onto base demo"
 	@echo "    seed-opensky-live  Pull live OpenSky on laptop → upsert into cluster PG+Neo4j"
 	@echo ""
 	@echo "  Full install:"
@@ -680,9 +681,20 @@ seed-opensky-live:
 	OPENSKY_MAX=$(OPENSKY_MAX) \
 	./scripts/seed-opensky-live.sh
 
+NETWORK_YAML ?= $(CURDIR)/data/supply-chain-network.yaml
+
+.PHONY: seed-network-overlay
+seed-network-overlay:
+	@echo ">>> Merging supply-chain network YAML overlay (run seed-gen-sim first)"
+	NAMESPACE=$(NAMESPACE) \
+	GEN_SIM_NAMESPACE=$(GEN_SIM_NAMESPACE) \
+	GENERAL_SIM_DIR=$(GENERAL_SIM_DIR) \
+	NETWORK_YAML=$(NETWORK_YAML) \
+	./scripts/seed-network-overlay.sh
+
 .PHONY: seed
-seed: seed-gen-sim seed-opensky-live
-	@echo ">>> seed complete (demo scenarios/maritime + live OpenSky flights)"
+seed: seed-gen-sim seed-network-overlay seed-opensky-live
+	@echo ">>> seed complete (demo + YAML overlay + live OpenSky flights)"
 
 .PHONY: submodule-init
 submodule-init:

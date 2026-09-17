@@ -1,12 +1,22 @@
 import { describe, expect, it } from "vitest";
 import {
   aircraftValueUsd,
+  buildCompanyFilterContext,
+  buildCompanyOptions,
+  buildSupplyChainIndexes,
   buildValueByEntity,
   cargoCostForAircraft,
+  cargoLineValue,
   dedupeImpactAnswer,
   diversionKey,
   diversionRoutePositions,
+  entityBelongsToCompany,
+  filterImpactResultByCompany,
+  filterMapFeaturesByCompany,
+  flightInfoFromFeature,
+  getFlightSupplyChain,
   resolveMapEntityId,
+  skuInventoryValue,
 } from "./impactEntityUtils";
 
 describe("impactEntityUtils", () => {
@@ -107,5 +117,126 @@ describe("impactEntityUtils", () => {
   it("keeps diversion prose when no structured reroutes are present", () => {
     const answer = "Recommended Diversions\nEZY8742 → Paris CDG";
     expect(dedupeImpactAnswer(answer, { hasReroutes: false })).toContain("Paris CDG");
+  });
+
+  it("indexes cargo and SKUs by carrier flight id", () => {
+    const indexes = buildSupplyChainIndexes([
+      {
+        id: "cargo-1",
+        type: "cargo_item",
+        attributes: { carrier_id: "flight-a", commodity: "pharma", quantity: 2, unit_price_usd: 100 },
+      },
+      {
+        id: "sku-1",
+        type: "inventory_sku",
+        attributes: { sku: "SKU-1", linked_carrier_ids: ["flight-a"], on_hand_qty: 5, unit_price_usd: 50 },
+      },
+    ]);
+    const chain = getFlightSupplyChain("flight-a", indexes);
+    expect(chain.cargo).toHaveLength(1);
+    expect(chain.skus).toHaveLength(1);
+    expect(cargoLineValue(chain.cargo[0].attributes)).toBe(200);
+    expect(skuInventoryValue(chain.skus[0].attributes)).toBe(250);
+  });
+
+  it("reads company_id from flight feature attributes", () => {
+    const info = flightInfoFromFeature({
+      properties: {
+        id: "flight-a",
+        type: "moving_entity",
+        attributes: { call_sign: "BAW1", company_id: "company-1", company_name: "Acme Air" },
+      },
+    });
+    expect(info.companyId).toBe("company-1");
+    expect(info.companyName).toBe("Acme Air");
+  });
+
+  it("builds company options and filters map features by company", () => {
+    const features = [
+      {
+        type: "Feature",
+        properties: {
+          id: "flight-a",
+          type: "moving_entity",
+          attributes: { company_id: "company-1", company_name: "Acme Air" },
+        },
+      },
+      {
+        type: "Feature",
+        properties: {
+          id: "flight-b",
+          type: "moving_entity",
+          attributes: { company_id: "company-2", company_name: "Beta Freight" },
+        },
+      },
+      {
+        type: "Feature",
+        properties: { id: "PORT001", type: "facility" },
+      },
+    ];
+    expect(buildCompanyOptions(features)).toEqual([
+      { id: "company-1", label: "Acme Air" },
+      { id: "company-2", label: "Beta Freight" },
+    ]);
+    const filtered = filterMapFeaturesByCompany(features, "company-1");
+    expect(filtered.map((feature) => feature.properties.id)).toEqual(["flight-a", "PORT001"]);
+  });
+
+  it("filters scenario results to the selected company flights and cargo", () => {
+    const features = [
+      {
+        type: "Feature",
+        properties: {
+          id: "flight-a",
+          type: "moving_entity",
+          attributes: { company_id: "company-1" },
+        },
+      },
+      {
+        type: "Feature",
+        properties: {
+          id: "flight-b",
+          type: "moving_entity",
+          attributes: { company_id: "company-2" },
+        },
+      },
+    ];
+    const indexes = buildSupplyChainIndexes([
+      {
+        id: "cargo-flight-a-1",
+        type: "cargo_item",
+        attributes: { carrier_id: "flight-a", value_usd: 100 },
+      },
+    ]);
+    const context = buildCompanyFilterContext(features, indexes);
+    expect(entityBelongsToCompany("flight-a", "company-1", context)).toBe(true);
+    expect(entityBelongsToCompany("cargo-flight-a-1", "company-1", context)).toBe(true);
+    expect(entityBelongsToCompany("flight-b", "company-1", context)).toBe(false);
+
+    const filtered = filterImpactResultByCompany(
+      {
+        affected_entities: ["flight-a", "flight-b", "cargo-flight-a-1"],
+        solver: {
+          value_breakdown: [
+            { entity_id: "flight-a", value_usd: 50 },
+            { entity_id: "flight-b", value_usd: 200 },
+            { entity_id: "cargo-flight-a-1", value_usd: 100 },
+          ],
+          recommended_reroutes: [
+            { entity_id: "flight-a", target_id: "EIDW" },
+            { entity_id: "flight-b", target_id: "LFPG" },
+          ],
+        },
+      },
+      "company-1",
+      context,
+    );
+    expect(filtered.affected_entities).toEqual(["flight-a", "cargo-flight-a-1"]);
+    expect(filtered.solver.value_breakdown).toHaveLength(2);
+    expect(filtered.solver.recommended_reroutes).toEqual([
+      { entity_id: "flight-a", target_id: "EIDW" },
+    ]);
+    expect(filtered.solver.total_value_at_risk).toBe(150);
+    expect(filtered.solver.affected_count).toBe(2);
   });
 });

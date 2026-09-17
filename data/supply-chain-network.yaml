@@ -1,0 +1,799 @@
+# Supply-chain network overlay — merges onto base seed_demo.py data.
+# Run: make seed-gen-sim && make seed-network-overlay
+#
+# Schema reference: general-simulation/tests/fixtures/supply_chain_network.example.yaml
+
+version: "1"
+dataset_id: "supply-chain-dashboard-overlay"
+company_id: "company-1"
+
+airports:
+  - id: airport-lhr
+    name: "London Heathrow Airport"
+    iata: LHR
+    icao: EGLL
+    region: eu_west
+    lon: -0.45
+    lat: 51.47
+
+  - id: airport-jfk
+    name: "John F. Kennedy International Airport"
+    iata: JFK
+    icao: KJFK
+    region: us_east
+    lon: -73.78
+    lat: 40.64
+
+  - id: airport-cdg
+    name: "Paris Charles de Gaulle Airport"
+    iata: CDG
+    icao: LFPG
+    region: eu_west
+    lon: 2.55
+    lat: 49.01
+
+  - id: airport-den
+    name: "Denver International Airport"
+    iata: DEN
+    icao: KDEN
+    region: us_west
+    lon: -104.67
+    lat: 39.86
+
+  - id: airport-ord
+    name: "Chicago O'Hare International Airport"
+    iata: ORD
+    icao: KORD
+    region: us_midwest
+    lon: -87.90
+    lat: 41.97
+
+  - id: airport-scl
+    name: "Arturo Merino Benítez International Airport"
+    iata: SCL
+    icao: SCEL
+    region: sa_west
+    lon: -70.79
+    lat: -33.39
+
+  - id: airport-lim
+    name: "Jorge Chávez International Airport"
+    iata: LIM
+    icao: SPJC
+    region: sa_west
+    lon: -77.11
+    lat: -12.02
+
+  - id: airport-blr
+    name: "Kempegowda International Airport"
+    iata: BLR
+    icao: VOBL
+    region: asia_south
+    lon: 77.71
+    lat: 13.20
+
+  - id: airport-fra
+    name: "Frankfurt Airport"
+    iata: FRA
+    icao: EDDF
+    region: eu_central
+    lon: 8.57
+    lat: 50.03
+
+  - id: airport-ewr
+    name: "Newark Liberty International Airport"
+    iata: EWR
+    icao: KEWR
+    region: us_east
+    lon: -74.17
+    lat: 40.69
+
+  - id: airport-mda
+    name: "Málaga–Costa del Sol Airport"
+    iata: AGP
+    icao: LEMG
+    region: eu_south
+    lon: -4.50
+    lat: 36.67
+
+  - id: airport-del
+    name: "Indira Gandhi International Airport"
+    iata: DEL
+    icao: VIDP
+    region: asia_south
+    lon: 77.10
+    lat: 28.56
+
+  - id: airport-pmi
+    name: "Palma de Mallorca Airport"
+    iata: PMI
+    icao: LEPA
+    region: eu_south
+    lon: 2.74
+    lat: 39.55
+
+  - id: airport-bog
+    name: "El Dorado International Airport"
+    iata: BOG
+    icao: SKBO
+    region: sa_north
+    lon: -74.15
+    lat: 4.70
+
+  - id: airport-fco
+    name: "Leonardo da Vinci–Fiumicino Airport"
+    iata: FCO
+    icao: LIRF
+    region: eu_south
+    lon: 12.24
+    lat: 41.80
+
+  - id: airport-sea
+    name: "Seattle–Tacoma International Airport"
+    iata: SEA
+    icao: KSEA
+    region: us_west
+    lon: -122.31
+    lat: 47.45
+
+  - id: airport-bom
+    name: "Chhatrapati Shivaji Maharaj International Airport"
+    iata: BOM
+    icao: VABB
+    region: asia_south
+    lon: 72.87
+    lat: 19.09
+
+  - id: airport-yyz
+    name: "Toronto Pearson International Airport"
+    iata: YYZ
+    icao: CYYZ
+    region: ca_east
+    lon: -79.63
+    lat: 43.68
+
+  - id: airport-lax
+    name: "Los Angeles International Airport"
+    iata: LAX
+    icao: KLAX
+    region: us_west
+    lon: -118.41
+    lat: 33.94
+
+  - id: airport-dfw
+    name: "Dallas/Fort Worth International Airport"
+    iata: DFW
+    icao: KDFW
+    region: us_south
+    lon: -97.04
+    lat: 32.90
+
+  - id: airport-lgw
+    name: "London Gatwick Airport"
+    iata: LGW
+    icao: EGKK
+    region: eu_west
+    lon: -0.19
+    lat: 51.15
+
+  - id: airport-hnd
+    name: "Tokyo Haneda Airport"
+    iata: HND
+    icao: RJTT
+    region: asia_east
+    lon: 139.78
+    lat: 35.55
+
+flights:
+  - id: flight-tvf8603
+    callsign: TVF8603
+    route: CDG-FCO
+    origin: "France"
+    status: airborne
+    lon: 8.2339
+    lat: 44.1018
+    revenue_usd: 540000
+    operating_cost_usd: 310000
+    depends_on_port: port-los-angeles
+    eta_utc: "2026-09-17T18:00:00Z"
+
+  - id: flight-rty484
+    callsign: RTY484
+    route: DEN-ORD
+    origin: "United States"
+    status: airborne
+    lon: -104.6301
+    lat: 40.425
+    revenue_usd: 320000
+    operating_cost_usd: 180000
+    depends_on_port: port-los-angeles
+    eta_utc: "2026-09-17T16:45:00Z"
+
+  - id: flight-ual528
+    callsign: UAL528
+    route: ORD-EWR
+    origin: "United States"
+    status: airborne
+    lon: -88.5205
+    lat: 41.8684
+    revenue_usd: 610000
+    operating_cost_usd: 390000
+    depends_on_port: port-los-angeles
+    eta_utc: "2026-09-17T19:15:00Z"
+
+  - id: flight-axb865
+    callsign: AXB865
+    route: BLR-DEL
+    origin: "India"
+    status: airborne
+    lon: 77.682
+    lat: 13.2115
+    revenue_usd: 480000
+    operating_cost_usd: 290000
+    depends_on_port: port-los-angeles
+    eta_utc: "2026-09-17T17:30:00Z"
+
+  - id: flight-ual919
+    callsign: UAL919
+    route: EWR-LHR
+    origin: "United States"
+    status: airborne
+    lon: -75.0073
+    lat: 40.2865
+    revenue_usd: 890000
+    operating_cost_usd: 520000
+    depends_on_port: port-los-angeles
+    eta_utc: "2026-09-18T04:10:00Z"
+
+  - id: flight-eju51hx
+    callsign: EJU51HX
+    route: AGP-PMI
+    origin: "Austria"
+    status: airborne
+    lon: 12.6387
+    lat: 38.5183
+    revenue_usd: 270000
+    operating_cost_usd: 150000
+    depends_on_port: port-los-angeles
+    eta_utc: "2026-09-17T16:00:00Z"
+
+  - id: flight-are4148
+    callsign: ARE4148
+    route: BOG-SCL
+    origin: "Chile"
+    status: airborne
+    lon: -74.0007
+    lat: 4.9763
+    revenue_usd: 430000
+    operating_cost_usd: 260000
+    depends_on_port: port-los-angeles
+    eta_utc: "2026-09-17T21:20:00Z"
+
+  - id: flight-bo366
+    callsign: BOE366
+    route: SEA-ORD
+    origin: "United States"
+    status: airborne
+    lon: -123.0107
+    lat: 48.06
+    revenue_usd: 510000
+    operating_cost_usd: 310000
+    depends_on_port: port-los-angeles
+    eta_utc: "2026-09-17T22:00:00Z"
+
+  - id: flight-aic3zm
+    callsign: AIC3ZM
+    route: BOM-DEL
+    origin: "India"
+    status: airborne
+    lon: 72.7431
+    lat: 19.2407
+    revenue_usd: 380000
+    operating_cost_usd: 210000
+    depends_on_port: port-los-angeles
+    eta_utc: "2026-09-17T18:30:00Z"
+
+  - id: flight-cgbfa
+    callsign: CGBFA
+    route: YYZ-JFK
+    origin: "Canada"
+    status: airborne
+    lon: -79.8508
+    lat: 43.7385
+    revenue_usd: 290000
+    operating_cost_usd: 160000
+    depends_on_port: port-los-angeles
+    eta_utc: "2026-09-17T15:50:00Z"
+
+  - id: flight-nsz3519
+    callsign: NSZ3519
+    route: LGW-CDG
+    origin: "Sweden"
+    status: airborne
+    lon: -0.3067
+    lat: 51.1432
+    revenue_usd: 340000
+    operating_cost_usd: 190000
+    depends_on_port: port-los-angeles
+    eta_utc: "2026-09-17T16:15:00Z"
+
+  - id: flight-eju38ab
+    callsign: EJU38AB
+    route: FRA-CDG
+    origin: "Austria"
+    status: airborne
+    lon: 8.0695
+    lat: 50.2952
+    revenue_usd: 450000
+    operating_cost_usd: 270000
+    depends_on_port: port-los-angeles
+    eta_utc: "2026-09-17T17:05:00Z"
+
+  - id: flight-lpe2031
+    callsign: LP2031
+    route: LIM-SCL
+    origin: "Chile"
+    status: airborne
+    lon: -77.229
+    lat: -11.8143
+    revenue_usd: 410000
+    operating_cost_usd: 230000
+    depends_on_port: port-los-angeles
+    eta_utc: "2026-09-17T20:45:00Z"
+
+  - id: flight-aal2082
+    callsign: AAL2082
+    route: ORD-LAX
+    origin: "United States"
+    status: airborne
+    lon: -89.1174
+    lat: 41.1541
+    revenue_usd: 720000
+    operating_cost_usd: 440000
+    depends_on_port: port-los-angeles
+    eta_utc: "2026-09-17T21:00:00Z"
+
+  - id: flight-aal398
+    callsign: AAL398
+    route: DFW-ORD
+    origin: "United States"
+    status: airborne
+    lon: -95.079
+    lat: 30.1273
+    revenue_usd: 580000
+    operating_cost_usd: 350000
+    depends_on_port: port-los-angeles
+    eta_utc: "2026-09-17T18:40:00Z"
+
+  - id: flight-dlh752
+    callsign: DLH752
+    route: FRA-DEL
+    origin: "Germany"
+    status: airborne
+    lon: 78.0114
+    lat: 24.8773
+    revenue_usd: 950000
+    operating_cost_usd: 580000
+    depends_on_port: port-los-angeles
+    eta_utc: "2026-09-18T01:30:00Z"
+
+  - id: flight-amx090
+    callsign: AMX090
+    route: HND-LAX
+    origin: "Mexico"
+    status: airborne
+    lon: 131.2117
+    lat: 35.888
+    revenue_usd: 1100000
+    operating_cost_usd: 670000
+    depends_on_port: port-los-angeles
+    eta_utc: "2026-09-18T06:20:00Z"
+
+  - id: flight-aal123
+    callsign: AAL123
+    route: LAX-JFK
+    origin: "United States"
+    status: airborne
+    lon: -114.9441
+    lat: 36.0313
+    revenue_usd: 810000
+    operating_cost_usd: 490000
+    depends_on_port: port-los-angeles
+    eta_utc: "2026-09-17T23:10:00Z"
+
+  - id: flight-baw63vp
+    callsign: BAW63VP
+    route: LHR-Gatwick
+    origin: "United Kingdom"
+    status: airborne
+    lon: 0.1214
+    lat: 51.275
+    revenue_usd: 210000
+    operating_cost_usd: 110000
+    depends_on_port: port-los-angeles
+    eta_utc: "2026-09-17T15:35:00Z"
+
+  - id: flight-dal1035
+    callsign: DAL1035
+    route: JFK-ORD
+    origin: "United States"
+    status: airborne
+    lon: -75.3096
+    lat: 38.1943
+    revenue_usd: 490000
+    operating_cost_usd: 290000
+    depends_on_port: port-los-angeles
+    eta_utc: "2026-09-17T17:50:00Z"
+
+cargo:
+  - id: cargo-flight-tvf8603-pharma
+    carrier_id: flight-tvf8603
+    sku_ref: sku-overlay-pharma-01
+    commodity: pharmaceuticals
+    quantity: 12
+    unit_price_usd: 8500
+
+  - id: cargo-flight-rty484-elec
+    carrier_id: flight-rty484
+    sku_ref: sku-overlay-elec-01
+    commodity: electronics
+    quantity: 45
+    unit_price_usd: 1200
+
+  - id: cargo-flight-ual528-mach
+    carrier_id: flight-ual528
+    sku_ref: sku-overlay-mach-01
+    commodity: machinery_parts
+    quantity: 6
+    unit_price_usd: 14500
+
+  - id: cargo-flight-axb865-text
+    carrier_id: flight-axb865
+    sku_ref: sku-overlay-text-01
+    commodity: textiles
+    quantity: 150
+    unit_price_usd: 350
+
+  - id: cargo-flight-ual919-pharma
+    carrier_id: flight-ual919
+    sku_ref: sku-overlay-pharma-02
+    commodity: pharmaceuticals
+    quantity: 20
+    unit_price_usd: 9200
+
+  - id: cargo-flight-eju51hx-food
+    carrier_id: flight-eju51hx
+    sku_ref: sku-overlay-food-01
+    commodity: perishable_goods
+    quantity: 80
+    unit_price_usd: 450
+
+  - id: cargo-flight-are4148-agri
+    carrier_id: flight-are4148
+    sku_ref: sku-overlay-agri-01
+    commodity: agriculture
+    quantity: 110
+    unit_price_usd: 280
+
+  - id: cargo-flight-bo366-aero
+    carrier_id: flight-bo366
+    sku_ref: sku-overlay-aero-01
+    commodity: aerospace_parts
+    quantity: 4
+    unit_price_usd: 32000
+
+  - id: cargo-flight-aic3zm-pharma
+    carrier_id: flight-aic3zm
+    sku_ref: sku-overlay-pharma-01
+    commodity: pharmaceuticals
+    quantity: 18
+    unit_price_usd: 8500
+
+  - id: cargo-flight-cgbfa-auto
+    carrier_id: flight-cgbfa
+    sku_ref: sku-overlay-auto-01
+    commodity: automotive_parts
+    quantity: 35
+    unit_price_usd: 2100
+
+  - id: cargo-flight-nsz3519-fashion
+    carrier_id: flight-nsz3519
+    sku_ref: sku-overlay-text-01
+    commodity: textiles
+    quantity: 90
+    unit_price_usd: 350
+
+  - id: cargo-flight-eju38ab-elec
+    carrier_id: flight-eju38ab
+    sku_ref: sku-overlay-elec-01
+    commodity: electronics
+    quantity: 60
+    unit_price_usd: 1200
+
+  - id: cargo-flight-lpe2031-copper
+    carrier_id: flight-lpe2031
+    sku_ref: sku-overlay-mach-01
+    commodity: machinery_parts
+    quantity: 10
+    unit_price_usd: 14500
+
+  - id: cargo-flight-aal2082-elec
+    carrier_id: flight-aal2082
+    sku_ref: sku-overlay-elec-02
+    commodity: consumer_electronics
+    quantity: 100
+    unit_price_usd: 850
+
+  - id: cargo-flight-aal398-energy
+    carrier_id: flight-aal398
+    sku_ref: sku-overlay-mach-01
+    commodity: machinery_parts
+    quantity: 8
+    unit_price_usd: 14500
+
+  - id: cargo-flight-dlh752-pharma
+    carrier_id: flight-dlh752
+    sku_ref: sku-overlay-pharma-02
+    commodity: pharmaceuticals
+    quantity: 25
+    unit_price_usd: 9200
+
+  - id: cargo-flight-amx090-elec
+    carrier_id: flight-amx090
+    sku_ref: sku-overlay-elec-02
+    commodity: consumer_electronics
+    quantity: 120
+    unit_price_usd: 850
+
+  - id: cargo-flight-aal123-aero
+    carrier_id: flight-aal123
+    sku_ref: sku-overlay-aero-01
+    commodity: aerospace_parts
+    quantity: 3
+    unit_price_usd: 32000
+
+  - id: cargo-flight-baw63vp-mail
+    carrier_id: flight-baw63vp
+    sku_ref: sku-overlay-text-01
+    commodity: textiles
+    quantity: 40
+    unit_price_usd: 350
+
+  - id: cargo-flight-dal1035-auto
+    carrier_id: flight-dal1035
+    sku_ref: sku-overlay-auto-01
+    commodity: automotive_parts
+    quantity: 50
+    unit_price_usd: 2100
+
+inventory_skus:
+  - id: sku-overlay-pharma-01
+    sku: OVERLAY-PHARMA-01
+    commodity: pharmaceuticals
+    warehouse_id: warehouse-inland-empire
+    on_hand_qty: 50
+    safety_stock: 15
+    reorder_point: 20
+    unit_price_usd: 8500
+    avg_daily_sales_30d: 2.1
+    linked_carrier_ids:
+      - flight-tvf8603
+      - flight-aic3zm
+
+  - id: sku-overlay-elec-01
+    sku: OVERLAY-ELEC-01
+    commodity: electronics
+    warehouse_id: warehouse-chicago-hub
+    on_hand_qty: 300
+    safety_stock: 50
+    reorder_point: 75
+    unit_price_usd: 1200
+    avg_daily_sales_30d: 12.5
+    linked_carrier_ids:
+      - flight-rty484
+      - flight-eju38ab
+
+  - id: sku-overlay-mach-01
+    sku: OVERLAY-MACH-01
+    commodity: machinery_parts
+    warehouse_id: warehouse-dallas-dist
+    on_hand_qty: 40
+    safety_stock: 10
+    reorder_point: 15
+    unit_price_usd: 14500
+    avg_daily_sales_30d: 1.2
+    linked_carrier_ids:
+      - flight-ual528
+      - flight-lpe2031
+      - flight-aal398
+
+  - id: sku-overlay-text-01
+    sku: OVERLAY-TEXT-01
+    commodity: textiles
+    warehouse_id: warehouse-london-gateway
+    on_hand_qty: 1200
+    safety_stock: 200
+    reorder_point: 300
+    unit_price_usd: 350
+    avg_daily_sales_30d: 45.0
+    linked_carrier_ids:
+      - flight-axb865
+      - flight-nsz3519
+      - flight-baw63vp
+
+  - id: sku-overlay-pharma-02
+    sku: OVERLAY-PHARMA-02
+    commodity: pharmaceuticals
+    warehouse_id: warehouse-frankfurt-logistics
+    on_hand_qty: 85
+    safety_stock: 20
+    reorder_point: 30
+    unit_price_usd: 9200
+    avg_daily_sales_30d: 3.4
+    linked_carrier_ids:
+      - flight-ual919
+      - flight-dlh752
+
+  - id: sku-overlay-food-01
+    sku: OVERLAY-FOOD-01
+    commodity: perishable_goods
+    warehouse_id: warehouse-madrid-cold
+    on_hand_qty: 500
+    safety_stock: 100
+    reorder_point: 150
+    unit_price_usd: 450
+    avg_daily_sales_30d: 28.0
+    linked_carrier_ids:
+      - flight-eju51hx
+
+  - id: sku-overlay-agri-01
+    sku: OVERLAY-AGRI-01
+    commodity: agriculture
+    warehouse_id: warehouse-santiago-cargo
+    on_hand_qty: 800
+    safety_stock: 150
+    reorder_point: 200
+    unit_price_usd: 280
+    avg_daily_sales_30d: 35.0
+    linked_carrier_ids:
+      - flight-are4148
+
+  - id: sku-overlay-aero-01
+    sku: OVERLAY-AERO-01
+    commodity: aerospace_parts
+    warehouse_id: warehouse-seattle-depot
+    on_hand_qty: 18
+    safety_stock: 5
+    reorder_point: 8
+    unit_price_usd: 32000
+    avg_daily_sales_30d: 0.5
+    linked_carrier_ids:
+      - flight-bo366
+      - flight-aal123
+
+  - id: sku-overlay-auto-01
+    sku: OVERLAY-AUTO-01
+    commodity: automotive_parts
+    warehouse_id: warehouse-toronto-east
+    on_hand_qty: 210
+    safety_stock: 40
+    reorder_point: 60
+    unit_price_usd: 2100
+    avg_daily_sales_30d: 8.7
+    linked_carrier_ids:
+      - flight-cgbfa
+      - flight-dal1035
+
+  - id: sku-overlay-elec-02
+    sku: OVERLAY-ELEC-02
+    commodity: consumer_electronics
+    warehouse_id: warehouse-tokyo-port
+    on_hand_qty: 650
+    safety_stock: 120
+    reorder_point: 180
+    unit_price_usd: 850
+    avg_daily_sales_30d: 22.0
+    linked_carrier_ids:
+      - flight-aal2082
+      - flight-amx090
+
+dependencies:
+  - from: flight-tvf8603
+    to: airport-fco
+  - from: flight-tvf8603
+    to: warehouse-inland-empire
+
+  - from: flight-rty484
+    to: airport-ord
+  - from: flight-rty484
+    to: warehouse-chicago-hub
+
+  - from: flight-ual528
+    to: airport-ewr
+  - from: flight-ual528
+    to: warehouse-dallas-dist
+
+  - from: flight-axb865
+    to: airport-del
+  - from: flight-axb865
+    to: warehouse-london-gateway
+
+  - from: flight-ual919
+    to: airport-lhr
+  - from: flight-ual919
+    to: warehouse-frankfurt-logistics
+
+  - from: flight-eju51hx
+    to: airport-pmi
+  - from: flight-eju51hx
+    to: warehouse-madrid-cold
+
+  - from: flight-are4148
+    to: airport-scl
+  - from: flight-are4148
+    to: warehouse-santiago-cargo
+
+  - from: flight-bo366
+    to: airport-ord
+  - from: flight-bo366
+    to: warehouse-seattle-depot
+
+  - from: flight-aic3zm
+    to: airport-del
+  - from: flight-aic3zm
+    to: warehouse-inland-empire
+
+  - from: flight-cgbfa
+    to: airport-jfk
+  - from: flight-cgbfa
+    to: warehouse-toronto-east
+
+  - from: flight-nsz3519
+    to: airport-cdg
+  - from: flight-nsz3519
+    to: warehouse-london-gateway
+
+  - from: flight-eju38ab
+    to: airport-cdg
+  - from: flight-eju38ab
+    to: warehouse-chicago-hub
+
+  - from: flight-lpe2031
+    to: airport-scl
+  - from: flight-lpe2031
+    to: warehouse-dallas-dist
+
+  - from: flight-aal2082
+    to: airport-lax
+  - from: flight-aal2082
+    to: warehouse-tokyo-port
+
+  - from: flight-aal398
+    to: airport-ord
+  - from: flight-aal398
+    to: warehouse-dallas-dist
+
+  - from: flight-dlh752
+    to: airport-del
+  - from: flight-dlh752
+    to: warehouse-frankfurt-logistics
+
+  - from: flight-amx090
+    to: airport-lax
+  - from: flight-amx090
+    to: warehouse-tokyo-port
+
+  - from: flight-aal123
+    to: airport-jfk
+  - from: flight-aal123
+    to: warehouse-seattle-depot
+
+  - from: flight-baw63vp
+    to: airport-lgw
+  - from: flight-baw63vp
+    to: warehouse-london-gateway
+
+  - from: flight-dal1035
+    to: airport-ord
+  - from: flight-dal1035
+    to: warehouse-toronto-east

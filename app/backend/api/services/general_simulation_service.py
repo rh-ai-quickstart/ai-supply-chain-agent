@@ -47,6 +47,28 @@ class GeneralSimulationService:
             "scenarios": result.get("scenarios", []),
         }
 
+    def list_entities(
+        self,
+        *,
+        entity_type: str | None = None,
+        limit: int = 500,
+        offset: int = 0,
+    ) -> dict[str, Any]:
+        result = self._client.list_entities(
+            entity_type=entity_type,
+            limit=limit,
+            offset=offset,
+        )
+        if "error" in result:
+            return {"success": False, "error": result["error"], "items": [], "total": 0}
+        return {
+            "success": True,
+            "items": result.get("items", []),
+            "total": result.get("total", 0),
+            "limit": result.get("limit", limit),
+            "offset": result.get("offset", offset),
+        }
+
     def get_entities_geojson(
         self,
         *,
