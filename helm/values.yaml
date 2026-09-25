@@ -23,7 +23,7 @@ general-simulation:
     models:
       external-model:
         enabled: true
-        id: gpt-oss-120b
+        id: llama-scout-17b
         url: https://maas-rhdp.apps.maas.redhatworkshops.io/v1
         apiToken: ""
   openshift:
@@ -89,7 +89,7 @@ general-simulation:
     models:
       gpt-oss-120b:
         enabled: true
-        id: gpt-oss-120b
+        id: llama-scout-17b
         device: gpu
   api:
     waitFor:
@@ -102,7 +102,7 @@ general-simulation:
       apiKey: unused
     models:
       # Stack model id = <providerKey>/<model.id> (see global.models.external-model above).
-      generation: external-model/gpt-oss-120b
+      generation: external-model/llama-scout-17b
       # Llama Stack inline embedder — full stack model id (see GET /v1/models on llamastack).
       embedding: sentence-transformers/nomic-ai/nomic-embed-text-v1.5
       embeddingDimension: "768"
@@ -123,7 +123,7 @@ general-simulation:
     runOnDeploy:
       enabled: false
     models:
-      generation: external-model/gpt-oss-120b
+      generation: external-model/llama-scout-17b
       embedding: sentence-transformers/nomic-ai/nomic-embed-text-v1.5
       embeddingDimension: "768"
     postgres:
