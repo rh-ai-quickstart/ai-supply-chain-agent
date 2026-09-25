@@ -137,7 +137,7 @@ help:
 	@echo "  Gen-sim demo data:"
 	@echo "    seed               Demo seed, YAML overlay, then live OpenSky"
 	@echo "    seed-gen-sim       Port-forward Neo4j+Postgres, pull secrets, run seed_demo.py"
-	@echo "    seed-network-overlay  Merge data/supply-chain-network.yaml onto base demo"
+	@echo "    seed-network-overlay  Merge network YAML (local or .example) onto base demo"
 	@echo "    seed-opensky-live  Pull live OpenSky on laptop → upsert into cluster PG+Neo4j"
 	@echo ""
 	@echo "  Full install:"
@@ -677,7 +677,9 @@ seed-opensky-live:
 	OPENSKY_MAX=$(OPENSKY_MAX) \
 	./scripts/seed-opensky-live.sh
 
-NETWORK_YAML ?= $(CURDIR)/data/supply-chain-network.yaml
+# Optional override. When unset, seed-network-overlay.sh uses
+# data/supply-chain-network.yaml if present, else the committed .example.yaml.
+NETWORK_YAML ?=
 
 .PHONY: seed-network-overlay
 seed-network-overlay:
@@ -685,7 +687,7 @@ seed-network-overlay:
 	NAMESPACE=$(NAMESPACE) \
 	GEN_SIM_NAMESPACE=$(GEN_SIM_NAMESPACE) \
 	GENERAL_SIM_DIR=$(GENERAL_SIM_DIR) \
-	NETWORK_YAML=$(NETWORK_YAML) \
+	$(if $(NETWORK_YAML),NETWORK_YAML=$(NETWORK_YAML)) \
 	./scripts/seed-network-overlay.sh
 
 .PHONY: seed

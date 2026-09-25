@@ -268,7 +268,7 @@ You will not yet see any flight data as we still need to seed flight information
 The step seeds default scenarios and the general-simulation map data from OpenSky. Since OpenSky often blocks access from
 hyperscalers, the seed data is pulled on your client system and then populated into the quickstart. 
 
-If you used a different namesapce by setting NAMESPACE=XXX when you installed the quickstart you must use GENSIM_NAMESPACE=XXX in the command in this section.
+If you used a different namespace by setting NAMESPACE=XXX when you installed the quickstart you must use GEN_SIM_NAMESPACE=XXX in the command in this section.
 
 First seed the scenarios: 
 
@@ -276,13 +276,17 @@ First seed the scenarios:
 make seed-gen-sim
 ```
 
-Optionally merge custom airports, ports, flights, cargo, and SKU inventory from YAML (overlays the base demo; same entity ids upsert, new ids add). Edit [`data/supply-chain-network.yaml`](data/supply-chain-network.yaml) or point `NETWORK_YAML` at your file. Schema reference: `general-simulation/tests/fixtures/supply_chain_network.example.yaml`.
+Optionally merge custom airports, ports, flights, cargo, and SKU inventory from YAML (overlays the base demo; same entity ids upsert, new ids add). Copy the example, edit your local file (gitignored), or point `NETWORK_YAML` at another path. Schema reference: `general-simulation/tests/fixtures/supply_chain_network.example.yaml`.
 
 ```bash
+cp data/supply-chain-network.example.yaml data/supply-chain-network.yaml
+# Edit data/supply-chain-network.yaml as needed, then:
 make seed-network-overlay
 # Use a workspace fork instead of the submodule:
 GENERAL_SIM_DIR=../general-simulation make seed-network-overlay
 ```
+
+If `data/supply-chain-network.yaml` is missing, `make seed-network-overlay` falls back to the committed example automatically.
 
 Next install flight data from the OpenSky Data API. 
 
