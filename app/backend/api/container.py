@@ -9,12 +9,9 @@ Inversion move referenced throughout the refactor plan.
 
 from __future__ import annotations
 
-from typing import Optional
-
 from clients.general_simulation_client import GeneralSimulationClient
 from clients.llama_stack_client import LlamaStackClient
 from clients.news_client import NewsClient
-from clients.vector_store_client import VectorStoreClient
 from logging_config import getLogger
 from repositories.knowledge_base_repository import KnowledgeBaseRepository
 from services.agent_service import AgentService
@@ -66,30 +63,6 @@ def _build_primary_llama_client(settings: Settings, openai_model: str) -> LlamaS
     )
 
 
-def _build_vector_store_client(settings: Settings) -> Optional[VectorStoreClient]:
-    try:
-        client = VectorStoreClient(
-            host=settings.pg_host,
-            port=settings.pg_port,
-            user=settings.pg_user,
-            password=settings.pg_password,
-            database=settings.pg_database,
-            llama_stack_url=settings.llama_stack_url,
-            embed_model=settings.embed_model,
-            embed_base_url=settings.embed_base_url,
-            embed_api_key=settings.embed_api_key,
-        )
-        logger.info("VectorStoreClient initialized successfully.")
-        return client
-    # Broad catch: best-effort init; external libs may raise varied errors, proceed without RAG context.
-    except Exception as exc:
-        logger.warning(
-            "VectorStoreClient could not be initialized (%s). Chat will proceed without RAG context.",
-            exc,
-        )
-        return None
-
-
 class Container:
     """Holds every constructed client/service for the API process."""
 
@@ -109,8 +82,6 @@ class Container:
         self.general_simulation_service = GeneralSimulationService(
             client=self.general_simulation_client
         )
-
-        self.vector_store_client = _build_vector_store_client(settings)
 
         openai_model = _resolve_openai_model(settings)
         self.primary_llama_client = _build_primary_llama_client(settings, openai_model)
@@ -135,7 +106,6 @@ class Container:
         )
         self.chat_service = ChatService(
             self.primary_llama_client,
-            vector_store_client=self.vector_store_client,
             openai_client=self.openai_llama_client,
             agent_service=self.agent_service,
             news_vector_store=self.news_vector_store_service,
@@ -150,5 +120,4 @@ class Container:
         self.readiness_service = ReadinessService(
             self.primary_llama_client,
             self.general_simulation_client,
-            self.vector_store_client,
         )

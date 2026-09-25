@@ -3,7 +3,6 @@ from dataclasses import dataclass, field
 from typing import Any, Optional
 
 from clients.llama_stack_client import LlamaStackClient
-from clients.vector_store_client import VectorStoreClient
 from services.agent_service import AgentService, ToolResult
 from services.guardrail_policy import GuardrailPolicy
 from services.news_vector_store_service import NewsVectorStoreService
@@ -97,18 +96,16 @@ class ChatService:
     def __init__(
         self,
         llama_stack_client: LlamaStackClient,
-        vector_store_client: Optional[VectorStoreClient] = None,
         openai_client: Optional[LlamaStackClient] = None,
         agent_service: Optional[AgentService] = None,
         news_vector_store: Optional[NewsVectorStoreService] = None,
     ):
         self.llama_stack_client = llama_stack_client
         self.openai_client: LlamaStackClient = openai_client or llama_stack_client
-        self.vector_store_client = vector_store_client
         self.agent_service = agent_service or AgentService(llama_stack_client)
         self.news_vector_store = news_vector_store
         self._guardrails = GuardrailPolicy()
-        self._rag = RagContextProvider(llama_stack_client, vector_store_client)
+        self._rag = RagContextProvider(llama_stack_client)
 
     def reply(
         self,
