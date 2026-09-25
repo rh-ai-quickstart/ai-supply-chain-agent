@@ -56,16 +56,6 @@ spec:
               value: {{ $stackModel | quote }}
             - name: LLAMA_STACK_TIMEOUT_SECONDS
               value: {{ .Values.backend.env.LLAMA_STACK_TIMEOUT_SECONDS | default "300" | quote }}
-            - name: EMBED_MODEL
-              value: {{ .Values.backend.env.EMBED_MODEL | default $genSim.api.models.embedding | quote }}
-            {{- with .Values.backend.env.EMBED_BASE_URL }}
-            - name: EMBED_BASE_URL
-              value: {{ . | quote }}
-            {{- end }}
-            {{- with .Values.backend.env.EMBED_API_KEY }}
-            - name: EMBED_API_KEY
-              value: {{ . | quote }}
-            {{- end }}
             - name: LLAMA_STACK_OPENAI_MODEL
               value: {{ $stackModel | quote }}
             - name: GENERAL_SIMULATION_BASE_URL
@@ -75,19 +65,6 @@ spec:
             # Empty uses built-in BBC + Guardian feeds (requires HTTPS egress).
             - name: NEWS_FEED_URLS
               value: {{ .Values.backend.env.NEWS_FEED_URLS | default "" | quote }}
-            # PG_ prefix avoids collision with the Kubernetes-injected
-            # PGVECTOR_PORT=tcp://ip:port service-discovery variable.
-            - name: PG_HOST
-              value: {{ .Values.backend.env.PG_HOST | quote }}
-            - name: PG_PORT
-              value: {{ .Values.backend.env.PG_PORT | quote }}
-            - name: PG_USER
-              value: {{ .Values.backend.env.PG_USER | quote }}
-            - name: PG_DB
-              value: {{ .Values.backend.env.PG_DB | quote }}
-            - name: PG_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.backend.pgvectorSecretName }}
-                  key: password
+            - name: VECTOR_STORE_PROVIDER
+              value: {{ .Values.backend.env.VECTOR_STORE_PROVIDER | default "pgvector" | quote }}
 {{- end }}

@@ -617,9 +617,6 @@ oc-status:
 # ============================================================
 
 # Run the ingestion Job as a one-off oc run (no Helm required).
-# Default matches helm/values.yaml ingest.strategy; override to langchain for PGVector.
-INGEST_STRATEGY ?= langchain
-
 .PHONY: ingest
 ingest:
 	@echo ">>> Running knowledge-base ingestion job in namespace: $(NAMESPACE)"
@@ -630,7 +627,6 @@ ingest:
 		$(SECRETS_FLAGS) \
 		$(HELM_IMAGE_SETS) \
 		--set ingest.enabled=true \
-		--set ingest.strategy=$(INGEST_STRATEGY) \
 		$(HELM_EXTRA_ARGS) \
 		--show-only templates/ingest-job.yaml \
 	| sed 's/name: $(HELM_RELEASE)-ingest/name: ingest-job/; s/post-install,post-upgrade/post-install/; /helm.sh\/hook/d; /helm.sh\/hook-weight/d' \
