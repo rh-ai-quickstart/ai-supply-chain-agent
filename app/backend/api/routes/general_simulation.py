@@ -1,4 +1,4 @@
-"""General-simulation query/scenarios/entities-geojson proxy routes."""
+"""General-simulation query, scenarios, entities list, and entities-geojson proxy routes."""
 
 from __future__ import annotations
 
