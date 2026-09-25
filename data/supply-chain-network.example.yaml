@@ -1,11 +1,16 @@
 # Supply-chain network overlay — merges onto base seed_demo.py data.
-# Run: make seed-gen-sim && make seed-network-overlay
+# Setup:
+#   cp data/supply-chain-network.example.yaml data/supply-chain-network.yaml
+#   make seed-gen-sim && make seed-network-overlay
 #
+# Edit data/supply-chain-network.yaml for local customizations (gitignored).
 # Schema reference: general-simulation/tests/fixtures/supply_chain_network.example.yaml
+#
+# Flights are tagged with company_id/company_name so the Impact Simulation
+# company filter can demo multi-tenant views (Spindrift Logistics vs Acme Air Cargo).
 
 version: "1"
 dataset_id: "supply-chain-dashboard-overlay"
-company_id: "company-1"
 
 airports:
   - id: airport-lhr
@@ -186,6 +191,8 @@ airports:
 
 flights:
   - id: flight-tvf8603
+    company_id: company-spindrift
+    company_name: "Spindrift Logistics"
     callsign: TVF8603
     route: CDG-FCO
     origin: "France"
@@ -198,6 +205,8 @@ flights:
     eta_utc: "2026-09-17T18:00:00Z"
 
   - id: flight-rty484
+    company_id: company-acme
+    company_name: "Acme Air Cargo"
     callsign: RTY484
     route: DEN-ORD
     origin: "United States"
@@ -210,6 +219,8 @@ flights:
     eta_utc: "2026-09-17T16:45:00Z"
 
   - id: flight-ual528
+    company_id: company-spindrift
+    company_name: "Spindrift Logistics"
     callsign: UAL528
     route: ORD-EWR
     origin: "United States"
@@ -222,6 +233,8 @@ flights:
     eta_utc: "2026-09-17T19:15:00Z"
 
   - id: flight-axb865
+    company_id: company-acme
+    company_name: "Acme Air Cargo"
     callsign: AXB865
     route: BLR-DEL
     origin: "India"
@@ -234,6 +247,8 @@ flights:
     eta_utc: "2026-09-17T17:30:00Z"
 
   - id: flight-ual919
+    company_id: company-spindrift
+    company_name: "Spindrift Logistics"
     callsign: UAL919
     route: EWR-LHR
     origin: "United States"
@@ -246,6 +261,8 @@ flights:
     eta_utc: "2026-09-18T04:10:00Z"
 
   - id: flight-eju51hx
+    company_id: company-acme
+    company_name: "Acme Air Cargo"
     callsign: EJU51HX
     route: AGP-PMI
     origin: "Austria"
@@ -258,6 +275,8 @@ flights:
     eta_utc: "2026-09-17T16:00:00Z"
 
   - id: flight-are4148
+    company_id: company-spindrift
+    company_name: "Spindrift Logistics"
     callsign: ARE4148
     route: BOG-SCL
     origin: "Chile"
@@ -270,6 +289,8 @@ flights:
     eta_utc: "2026-09-17T21:20:00Z"
 
   - id: flight-bo366
+    company_id: company-acme
+    company_name: "Acme Air Cargo"
     callsign: BOE366
     route: SEA-ORD
     origin: "United States"
@@ -282,6 +303,8 @@ flights:
     eta_utc: "2026-09-17T22:00:00Z"
 
   - id: flight-aic3zm
+    company_id: company-spindrift
+    company_name: "Spindrift Logistics"
     callsign: AIC3ZM
     route: BOM-DEL
     origin: "India"
@@ -294,6 +317,8 @@ flights:
     eta_utc: "2026-09-17T18:30:00Z"
 
   - id: flight-cgbfa
+    company_id: company-acme
+    company_name: "Acme Air Cargo"
     callsign: CGBFA
     route: YYZ-JFK
     origin: "Canada"
@@ -306,6 +331,8 @@ flights:
     eta_utc: "2026-09-17T15:50:00Z"
 
   - id: flight-nsz3519
+    company_id: company-spindrift
+    company_name: "Spindrift Logistics"
     callsign: NSZ3519
     route: LGW-CDG
     origin: "Sweden"
@@ -318,6 +345,8 @@ flights:
     eta_utc: "2026-09-17T16:15:00Z"
 
   - id: flight-eju38ab
+    company_id: company-acme
+    company_name: "Acme Air Cargo"
     callsign: EJU38AB
     route: FRA-CDG
     origin: "Austria"
@@ -330,6 +359,8 @@ flights:
     eta_utc: "2026-09-17T17:05:00Z"
 
   - id: flight-lpe2031
+    company_id: company-spindrift
+    company_name: "Spindrift Logistics"
     callsign: LP2031
     route: LIM-SCL
     origin: "Chile"
@@ -342,6 +373,8 @@ flights:
     eta_utc: "2026-09-17T20:45:00Z"
 
   - id: flight-aal2082
+    company_id: company-acme
+    company_name: "Acme Air Cargo"
     callsign: AAL2082
     route: ORD-LAX
     origin: "United States"
@@ -354,6 +387,8 @@ flights:
     eta_utc: "2026-09-17T21:00:00Z"
 
   - id: flight-aal398
+    company_id: company-spindrift
+    company_name: "Spindrift Logistics"
     callsign: AAL398
     route: DFW-ORD
     origin: "United States"
@@ -366,6 +401,8 @@ flights:
     eta_utc: "2026-09-17T18:40:00Z"
 
   - id: flight-dlh752
+    company_id: company-acme
+    company_name: "Acme Air Cargo"
     callsign: DLH752
     route: FRA-DEL
     origin: "Germany"
@@ -378,6 +415,8 @@ flights:
     eta_utc: "2026-09-18T01:30:00Z"
 
   - id: flight-amx090
+    company_id: company-spindrift
+    company_name: "Spindrift Logistics"
     callsign: AMX090
     route: HND-LAX
     origin: "Mexico"
@@ -390,6 +429,8 @@ flights:
     eta_utc: "2026-09-18T06:20:00Z"
 
   - id: flight-aal123
+    company_id: company-acme
+    company_name: "Acme Air Cargo"
     callsign: AAL123
     route: LAX-JFK
     origin: "United States"
@@ -402,6 +443,8 @@ flights:
     eta_utc: "2026-09-17T23:10:00Z"
 
   - id: flight-baw63vp
+    company_id: company-spindrift
+    company_name: "Spindrift Logistics"
     callsign: BAW63VP
     route: LHR-Gatwick
     origin: "United Kingdom"
@@ -414,6 +457,8 @@ flights:
     eta_utc: "2026-09-17T15:35:00Z"
 
   - id: flight-dal1035
+    company_id: company-acme
+    company_name: "Acme Air Cargo"
     callsign: DAL1035
     route: JFK-ORD
     origin: "United States"

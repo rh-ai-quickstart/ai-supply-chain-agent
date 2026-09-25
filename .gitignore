@@ -46,4 +46,6 @@ helm/secrets.yaml
 venv/
 app/backend/venv/
 
-data/supply-chain-network.example.yaml
+
+# Local network overlay (copy from data/supply-chain-network.example.yaml)
+data/supply-chain-network.yaml
