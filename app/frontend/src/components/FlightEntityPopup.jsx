@@ -1,11 +1,9 @@
 import PropTypes from "prop-types";
 import {
-  aircraftValueUsd,
-  cargoCostForAircraft,
+  buildFlightPopupValues,
   cargoLineValue,
   formatCommodityLabel,
   formatCurrency,
-  getFlightSupplyChain,
   skuInventoryValue,
 } from "../utils/impactEntityUtils";
 
@@ -33,30 +31,14 @@ export function FlightEntityPopup({
   supplyChainIndexes,
   isHighlighted,
 }) {
-  const { cargo, skus } = getFlightSupplyChain(info.id, supplyChainIndexes);
-  const flightValue = aircraftValueUsd(info.id, valueByEntity, info);
-  const cargoOnBoard = cargoCostForAircraft(info.id, valueByEntity, affectedIds);
-
-  let cargoTotalFromIndex = 0;
-  let cargoIndexHasValue = false;
-  for (const item of cargo) {
-    const lineValue = cargoLineValue(item.attributes);
-    if (Number.isFinite(lineValue)) {
-      cargoTotalFromIndex += lineValue;
-      cargoIndexHasValue = true;
-    }
-  }
-  const displayCargoTotal = Number.isFinite(cargoOnBoard)
-    ? cargoOnBoard
-    : cargoIndexHasValue
-      ? cargoTotalFromIndex
-      : null;
-
-  const totalAtRisk =
-    (Number.isFinite(flightValue) ? flightValue : 0) +
-    (Number.isFinite(displayCargoTotal) ? displayCargoTotal : 0);
-  const showTotal =
-    Number.isFinite(flightValue) && Number.isFinite(displayCargoTotal) && totalAtRisk > 0;
+  const {
+    cargo,
+    skus,
+    flightValue,
+    displayCargoTotal,
+    totalAtRisk,
+    showTotal,
+  } = buildFlightPopupValues(info, valueByEntity, affectedIds, supplyChainIndexes);
 
   const title = info.callSign || info.id;
   const companyLabel = info.companyName || info.companyId;
