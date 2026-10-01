@@ -45,6 +45,12 @@ export function ImpactSimulationPage({
 
   return (
     <div className="simulation-stack">
+      <SupplyChainKpiBar
+        kpis={kpiState.kpis}
+        loading={kpiState.loading}
+        error={kpiState.error}
+      />
+
       <main className="dashboard-grid impact-simulation-grid">
       <ImpactQueryPanel
         scenarios={sim.scenarios}
@@ -88,12 +94,6 @@ export function ImpactSimulationPage({
         focusedDiversionKey={sim.selectedDiversionKey}
       />
       </main>
-
-      <SupplyChainKpiBar
-        kpis={kpiState.kpis}
-        loading={kpiState.loading}
-        error={kpiState.error}
-      />
     </div>
   );
 }

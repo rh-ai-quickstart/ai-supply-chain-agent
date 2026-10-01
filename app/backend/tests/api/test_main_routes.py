@@ -42,8 +42,8 @@ def flask_client(monkeypatch, mock_llama_stack_client):
     kpi.get_kpis.return_value = {
         "success": True,
         "scenario_id": "",
-        "kpis": {"inStock": {"value": "92%", "numeric": 92}},
-        "data_quality": {"mode": "default"},
+        "kpis": {"inStock": {"value": "100%", "numeric": 100}},
+        "data_quality": {"mode": "healthy_baseline"},
     }
     kpi.compute_kpis.return_value = {
         "success": True,
@@ -306,7 +306,7 @@ def test_get_kpis(flask_client):
     assert rv.status_code == 200
     body = rv.get_json()
     assert body["success"] is True
-    assert body["kpis"]["inStock"]["value"] == "92%"
+    assert body["kpis"]["inStock"]["value"] == "100%"
     container.kpi_service.get_kpis.assert_called_once_with(
         scenario_id="opensky-uk-closure-001",
         bbox="-15,35,40,62",

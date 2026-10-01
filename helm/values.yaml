@@ -33,8 +33,8 @@ general-simulation:
       # LiteMaaS chat — set apiToken in helm/secrets.yaml.
       external-model:
         enabled: true
-        id: Qwen3.6-35B-A3B
-        url: https://litemaas.rhoai.rh-aiservices-bu.com/v1
+        id: qwen3-14b
+        url: https://maas-rhdp.apps.maas.redhatworkshops.io/v1
         apiToken: ""
   openshift:
     neo4j:
@@ -112,7 +112,7 @@ general-simulation:
       apiKey: unused
     models:
       # Stack model id = <providerKey>/<model.id> (see global.models.external-model above).
-      generation: external-model/Qwen3.6-35B-A3B
+      generation: external-model/qwen3-14b
       # Llama Stack inline embedder — full stack model id (see GET /v1/models on llamastack).
       embedding: sentence-transformers/nomic-ai/nomic-embed-text-v1.5
       embeddingDimension: "768"

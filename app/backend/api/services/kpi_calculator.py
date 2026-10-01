@@ -6,13 +6,14 @@ from datetime import datetime, timezone
 from typing import Any
 
 HEALTHY_STATUSES = frozenset({"airborne", "in_transit", "on_ground"})
+WAREHOUSE_OR_SKU_PENALTY = 0.35
 
 DEFAULT_KPIS = {
-    "inStock": {"value": "92%", "numeric": 92},
-    "onTime": {"value": "88%", "numeric": 88},
-    "turnover": {"value": "4.1x", "numeric": 4.1},
+    "inStock": {"value": "100%", "numeric": 100},
+    "onTime": {"value": "100%", "numeric": 100},
+    "turnover": {"value": "6.5x", "numeric": 6.5},
     "lostSales": {"value": "$0.0M", "numeric": 0},
-    "reorderPoint": {"value": "72%", "numeric": 72},
+    "reorderPoint": {"value": "0%", "numeric": 0},
 }
 
 
@@ -96,12 +97,15 @@ def _effective_on_hand(sku: dict[str, Any], affected_ids: set[str]) -> float:
     on_hand = float(sku.get("on_hand_qty") or 0)
     if not _is_sku_at_risk(sku, affected_ids):
         return on_hand
+
     linked = sku.get("linked_carrier_ids") or []
     disrupted_links = sum(1 for carrier_id in linked if carrier_id in affected_ids)
-    if disrupted_links == 0:
-        return on_hand
-    penalty_ratio = min(1.0, disrupted_links / max(1, len(linked)))
-    return max(0.0, on_hand * (1 - 0.35 * penalty_ratio))
+    if disrupted_links > 0:
+        penalty_ratio = min(1.0, disrupted_links / max(1, len(linked)))
+        return max(0.0, on_hand * (1 - WAREHOUSE_OR_SKU_PENALTY * penalty_ratio))
+
+    # Warehouse- or SKU-id disruption with no linked-carrier hit.
+    return max(0.0, on_hand * (1 - WAREHOUSE_OR_SKU_PENALTY))
 
 
 def _parse_utc(value: str | None) -> datetime | None:
@@ -194,24 +198,25 @@ def _compute_lost_sales(
         stockout_loss += shortfall * unit_price
 
     solver_var = float((solver or {}).get("total_value_at_risk") or 0)
-    total = stockout_loss + solver_var
     if stockout_loss > 0 and solver_var > 0:
-        source = "sku_stockout+solver.var"
-    elif stockout_loss > 0:
-        source = "sku_stockout"
-    elif solver_var > 0:
-        source = "solver.total_value_at_risk"
-    else:
-        source = "simulation.none"
-    return total, source
+        return max(stockout_loss, solver_var), "max(sku_stockout,solver.var)"
+    if stockout_loss > 0:
+        return stockout_loss, "sku_stockout"
+    if solver_var > 0:
+        return solver_var, "solver.total_value_at_risk"
+    return 0.0, "simulation.none"
 
 
-def _compute_reorder(skus: list[dict[str, Any]], solver: dict[str, Any] | None) -> tuple[float, str]:
+def _compute_reorder(
+    skus: list[dict[str, Any]],
+    affected_ids: set[str],
+    solver: dict[str, Any] | None,
+) -> tuple[float, str]:
     if skus:
         reorder_count = sum(
             1
             for sku in skus
-            if float(sku.get("on_hand_qty") or 0) <= float(sku.get("reorder_point") or 0)
+            if _effective_on_hand(sku, affected_ids) <= float(sku.get("reorder_point") or 0)
         )
         return round(_clamp((reorder_count / len(skus)) * 100, 0, 100)), "inventory_sku.reorder_point"
 
@@ -297,6 +302,20 @@ def _apply_trend(metric_key: str, current: dict[str, Any], baseline: dict[str, A
     }
 
 
+def _healthy_baseline_kpis() -> dict[str, dict[str, Any]]:
+    return {
+        key: {
+            **metric,
+            "source": "simulation.default",
+            "confidence": "simulated",
+            "trend": "",
+            "trendDirection": "neutral",
+            "trendSentiment": "neutral",
+        }
+        for key, metric in DEFAULT_KPIS.items()
+    }
+
+
 def _compute_metrics(
     skus: list[dict[str, Any]],
     shipments: list[dict[str, Any]],
@@ -309,7 +328,7 @@ def _compute_metrics(
     on_time_num, on_time_source = _compute_on_time(shipments, affected_ids, impact_score)
     turnover_num, turnover_source = _compute_turnover(skus, affected_ids)
     lost_sales_num, lost_sales_source = _compute_lost_sales(skus, affected_ids, solver)
-    reorder_num, reorder_source = _compute_reorder(skus, solver)
+    reorder_num, reorder_source = _compute_reorder(skus, affected_ids, solver)
 
     return {
         "inStock": _build_metric(in_stock_num, _format_percent, in_stock_source),
@@ -330,33 +349,23 @@ def compute_supply_chain_kpis(
     skus = _parse_skus(sku_items)
     shipments = _parse_shipments(geojson_features)
     affected_ids = set(affected_entities or [])
+    has_disruption = bool(solver) or bool(affected_ids)
 
-    if not skus and not shipments and not solver:
-        kpis = {
-            key: {**metric, "trend": "", "trendDirection": "neutral", "trendSentiment": "neutral"}
-            for key, metric in {
-                "inStock": {**DEFAULT_KPIS["inStock"], "source": "simulation.default", "confidence": "simulated"},
-                "onTime": {**DEFAULT_KPIS["onTime"], "source": "simulation.default", "confidence": "simulated"},
-                "turnover": {**DEFAULT_KPIS["turnover"], "source": "simulation.default", "confidence": "simulated"},
-                "lostSales": {**DEFAULT_KPIS["lostSales"], "source": "simulation.default", "confidence": "simulated"},
-                "reorderPoint": {**DEFAULT_KPIS["reorderPoint"], "source": "simulation.default", "confidence": "simulated"},
-            }.items()
-        }
+    if not has_disruption:
         return {
-            "kpis": kpis,
+            "kpis": _healthy_baseline_kpis(),
             "data_quality": {
-                "sku_count": 0,
-                "shipment_count": 0,
+                "sku_count": len(skus),
+                "shipment_count": len(shipments),
                 "has_solver": False,
-                "mode": "default",
+                "mode": "healthy_baseline",
             },
+            "computed_at": datetime.now(timezone.utc).isoformat(),
         }
 
-    baseline = _compute_metrics(skus, shipments, set(), None)
     current = _compute_metrics(skus, shipments, affected_ids, solver)
-
     kpis = {
-        key: _apply_trend(key, current[key], baseline[key])
+        key: _apply_trend(key, current[key], DEFAULT_KPIS[key])
         for key in current
     }
 
