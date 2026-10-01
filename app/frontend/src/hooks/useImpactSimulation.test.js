@@ -4,11 +4,13 @@ import { useImpactSimulation } from "./useImpactSimulation";
 
 const listImpactScenarios = vi.hoisted(() => vi.fn());
 const getImpactEntitiesGeoJson = vi.hoisted(() => vi.fn());
+const fetchImpactEntitiesByType = vi.hoisted(() => vi.fn());
 const runImpactQuery = vi.hoisted(() => vi.fn());
 
 vi.mock("../services/generalSimulationService", () => ({
   listImpactScenarios: (...args) => listImpactScenarios(...args),
   getImpactEntitiesGeoJson: (...args) => getImpactEntitiesGeoJson(...args),
+  fetchImpactEntitiesByType: (...args) => fetchImpactEntitiesByType(...args),
   runImpactQuery: (...args) => runImpactQuery(...args),
 }));
 
@@ -16,12 +18,14 @@ describe("useImpactSimulation", () => {
   beforeEach(() => {
     listImpactScenarios.mockReset();
     getImpactEntitiesGeoJson.mockReset();
+    fetchImpactEntitiesByType.mockReset();
     runImpactQuery.mockReset();
     listImpactScenarios.mockResolvedValue({ success: true, scenarios: ["opensky-uk-closure-001"] });
     getImpactEntitiesGeoJson.mockResolvedValue({
       success: true,
       geojson: { type: "FeatureCollection", features: [] },
     });
+    fetchImpactEntitiesByType.mockResolvedValue({ success: true, items: [], total: 0 });
   });
 
   it("loads scenarios on mount and preselects the initial scenario", async () => {
@@ -241,5 +245,70 @@ describe("useImpactSimulation", () => {
     expect(result.current.result?.answer).toBe("Twelve flights affected.");
     expect(result.current.result?.solver?.impact_score).toBe(0.8);
     expect(result.current.result?.tool_call_trace).toHaveLength(1);
+  });
+
+  it("filters map features and scenario results when a company is selected", async () => {
+    getImpactEntitiesGeoJson.mockResolvedValue({
+      success: true,
+      geojson: {
+        type: "FeatureCollection",
+        features: [
+          {
+            type: "Feature",
+            properties: {
+              id: "flight-a",
+              type: "moving_entity",
+              attributes: { company_id: "company-1", company_name: "Acme Air" },
+            },
+          },
+          {
+            type: "Feature",
+            properties: {
+              id: "flight-b",
+              type: "moving_entity",
+              attributes: { company_id: "company-2", company_name: "Beta Freight" },
+            },
+          },
+        ],
+      },
+    });
+    runImpactQuery.mockResolvedValue({
+      success: true,
+      affected_entities: ["flight-a", "flight-b"],
+      solver: {
+        value_breakdown: [
+          { entity_id: "flight-a", value_usd: 100 },
+          { entity_id: "flight-b", value_usd: 200 },
+        ],
+        recommended_reroutes: [
+          { entity_id: "flight-a", target_id: "EIDW" },
+          { entity_id: "flight-b", target_id: "LFPG" },
+        ],
+      },
+    });
+
+    const { result } = renderHook(() =>
+      useImpactSimulation({ initialScenarioId: "opensky-uk-closure-001" }),
+    );
+    await waitFor(() => expect(result.current.scenariosLoading).toBe(false));
+    await waitFor(() => expect(result.current.collection.features).toHaveLength(2));
+
+    await act(async () => {
+      await result.current.handleRunQuery();
+    });
+    expect(result.current.companyOptions).toEqual([
+      { id: "company-1", label: "Acme Air" },
+      { id: "company-2", label: "Beta Freight" },
+    ]);
+
+    act(() => result.current.handleChangeCompanyId("company-1"));
+    expect(result.current.companyId).toBe("company-1");
+    expect(result.current.collection.features.map((feature) => feature.properties.id)).toEqual([
+      "flight-a",
+    ]);
+    expect(result.current.highlightedIds).toEqual(["flight-a"]);
+    expect(result.current.reroutes).toEqual([{ entity_id: "flight-a", target_id: "EIDW" }]);
+    expect(result.current.valueByEntity.get("flight-a")).toBe(100);
+    expect(result.current.valueByEntity.has("flight-b")).toBe(false);
   });
 });

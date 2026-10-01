@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  fetchImpactEntitiesByType,
   getImpactEntitiesGeoJson,
   listImpactScenarios,
   runImpactQuery,
@@ -10,7 +11,15 @@ import {
   bboxForScenario,
   questionForScenario,
 } from "../services/presetScenarioIds";
-import { buildValueByEntity, diversionKey } from "../utils/impactEntityUtils";
+import {
+  buildCompanyFilterContext,
+  buildCompanyOptions,
+  buildSupplyChainIndexes,
+  buildValueByEntity,
+  diversionKey,
+  filterImpactResultByCompany,
+  filterMapFeaturesByCompany,
+} from "../utils/impactEntityUtils";
 import { messageFromError } from "../utils/errorMessage";
 import { getLogger } from "../utils/logger.js";
 
@@ -59,6 +68,7 @@ export function useImpactSimulation({
   const [question, setQuestion] = useState(DEFAULT_IMPACT_QUESTION);
 
   const [collection, setCollection] = useState({ type: "FeatureCollection", features: [] });
+  const [supplyChainEntities, setSupplyChainEntities] = useState([]);
   const [mapLoading, setMapLoading] = useState(false);
   const [mapError, setMapError] = useState("");
   const [mapWarning, setMapWarning] = useState("");
@@ -74,6 +84,8 @@ export function useImpactSimulation({
   const [diversionFocusNonce, setDiversionFocusNonce] = useState(0);
   /** ``live`` = world fit (default); ``scenario`` = camera framed to scenario bbox. */
   const [mapMode, setMapMode] = useState("live");
+  /** Empty string = all companies; otherwise filter flights and scenario results. */
+  const [companyId, setCompanyId] = useState("");
 
   useEffect(() => {
     const controller = new AbortController();
@@ -142,17 +154,31 @@ export function useImpactSimulation({
       setMapWarning("");
       try {
         // Load the full seeded demo world; scenario bbox is camera-only (focusBbox).
-        const geoRes = await getImpactEntitiesGeoJson({
-          bbox: GLOBAL_DEMO_BBOX,
-          limit: DEFAULT_GEOJSON_LIMIT,
-          signal: controller.signal,
-        });
+        const [geoRes, cargoRes, skuRes] = await Promise.all([
+          getImpactEntitiesGeoJson({
+            bbox: GLOBAL_DEMO_BBOX,
+            limit: DEFAULT_GEOJSON_LIMIT,
+            signal: controller.signal,
+          }),
+          fetchImpactEntitiesByType("cargo_item", { signal: controller.signal }),
+          fetchImpactEntitiesByType("inventory_sku", { signal: controller.signal }),
+        ]);
         if (controller.signal.aborted) return;
         if (geoRes.success === false) {
           setMapError(geoRes.error || "Unable to load map entities.");
           return;
         }
         setCollection(geoRes.geojson || { type: "FeatureCollection", features: [] });
+        const supplyEntities = [
+          ...(cargoRes.success === false ? [] : cargoRes.items || []),
+          ...(skuRes.success === false ? [] : skuRes.items || []),
+        ];
+        setSupplyChainEntities(supplyEntities);
+        if (cargoRes.success === false || skuRes.success === false) {
+          setMapWarning(
+            "Some cargo/SKU details could not be loaded; flight popups may be incomplete.",
+          );
+        }
         setMapScenarioId(scenarioId);
       } catch (err) {
         if (err?.name === "AbortError") return;
@@ -267,6 +293,14 @@ export function useImpactSimulation({
     }
   }, []);
 
+  const handleChangeCompanyId = useCallback((nextCompanyId) => {
+    setCompanyId(nextCompanyId || "");
+    setFocusedEntityId("");
+    setFocusNonce(0);
+    setSelectedDiversionKey("");
+    setDiversionFocusNonce(0);
+  }, []);
+
   useEffect(() => {
     if (!scenarioId) return;
     onScenarioChange?.(scenarioId);
@@ -277,22 +311,50 @@ export function useImpactSimulation({
     void applySimulationResult(chatSimulation, scenarioId);
   }, [chatSimulation, scenarioId, applySimulationResult]);
 
+  const supplyChainIndexes = useMemo(
+    () => buildSupplyChainIndexes(supplyChainEntities),
+    [supplyChainEntities],
+  );
+  const companyOptions = useMemo(
+    () => buildCompanyOptions(collection.features),
+    [collection.features],
+  );
+  const companyFilterContext = useMemo(
+    () => buildCompanyFilterContext(collection.features, supplyChainIndexes),
+    [collection.features, supplyChainIndexes],
+  );
+  const activeCompanyId = useMemo(() => {
+    if (!companyId) return "";
+    return companyOptions.some((option) => option.id === companyId) ? companyId : "";
+  }, [companyId, companyOptions]);
+  const filteredCollection = useMemo(
+    () => ({
+      ...collection,
+      features: filterMapFeaturesByCompany(collection.features, activeCompanyId),
+    }),
+    [collection, activeCompanyId],
+  );
+  const filteredResult = useMemo(
+    () => filterImpactResultByCompany(result, activeCompanyId, companyFilterContext),
+    [result, activeCompanyId, companyFilterContext],
+  );
   const highlightedIds = useMemo(
-    () => (Array.isArray(result?.affected_entities) ? result.affected_entities : []),
-    [result],
+    () =>
+      Array.isArray(filteredResult?.affected_entities) ? filteredResult.affected_entities : [],
+    [filteredResult],
   );
   const reroutes = useMemo(
     () =>
-      Array.isArray(result?.solver?.recommended_reroutes)
-        ? result.solver.recommended_reroutes
+      Array.isArray(filteredResult?.solver?.recommended_reroutes)
+        ? filteredResult.solver.recommended_reroutes
         : [],
-    [result],
+    [filteredResult],
   );
   const valueByEntity = useMemo(
-    () => buildValueByEntity(result?.solver?.value_breakdown),
-    [result],
+    () => buildValueByEntity(filteredResult?.solver?.value_breakdown),
+    [filteredResult],
   );
-  const currency = result?.solver?.currency || "USD";
+  const currency = filteredResult?.solver?.currency || "USD";
 
   const handleFocusEntity = useCallback((entityId) => {
     setFocusedEntityId(entityId);
@@ -330,7 +392,10 @@ export function useImpactSimulation({
     handleMapModeChange,
     mapTitle,
 
-    collection,
+    collection: filteredCollection,
+    companyOptions,
+    companyId: activeCompanyId,
+    handleChangeCompanyId,
     mapLoading,
     mapError,
     mapWarning,
@@ -338,13 +403,14 @@ export function useImpactSimulation({
 
     queryLoading,
     queryError,
-    result,
+    result: filteredResult,
     handleRunQuery,
     handleRunSuggestedPrompt,
 
     highlightedIds,
     reroutes,
     valueByEntity,
+    supplyChainIndexes,
     currency,
 
     focusedEntityId,

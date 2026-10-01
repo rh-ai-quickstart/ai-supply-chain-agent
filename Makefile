@@ -135,8 +135,9 @@ help:
 	@echo "    ingest-status      Show the status of the ingest Job"
 	@echo ""
 	@echo "  Gen-sim demo data:"
-	@echo "    seed               Demo seed then live OpenSky (seed-gen-sim + seed-opensky-live)"
+	@echo "    seed               Demo seed, YAML overlay, then live OpenSky"
 	@echo "    seed-gen-sim       Port-forward Neo4j+Postgres, pull secrets, run seed_demo.py"
+	@echo "    seed-network-overlay  Merge network YAML (local or .example) onto base demo"
 	@echo "    seed-opensky-live  Pull live OpenSky on laptop → upsert into cluster PG+Neo4j"
 	@echo ""
 	@echo "  Full install:"
@@ -676,9 +677,22 @@ seed-opensky-live:
 	OPENSKY_MAX=$(OPENSKY_MAX) \
 	./scripts/seed-opensky-live.sh
 
+# Optional override. When unset, seed-network-overlay.sh uses
+# data/supply-chain-network.yaml if present, else the committed .example.yaml.
+NETWORK_YAML ?=
+
+.PHONY: seed-network-overlay
+seed-network-overlay:
+	@echo ">>> Merging supply-chain network YAML overlay (run seed-gen-sim first)"
+	NAMESPACE=$(NAMESPACE) \
+	GEN_SIM_NAMESPACE=$(GEN_SIM_NAMESPACE) \
+	GENERAL_SIM_DIR=$(GENERAL_SIM_DIR) \
+	$(if $(NETWORK_YAML),NETWORK_YAML=$(NETWORK_YAML)) \
+	./scripts/seed-network-overlay.sh
+
 .PHONY: seed
-seed: seed-gen-sim seed-opensky-live
-	@echo ">>> seed complete (demo scenarios/maritime + live OpenSky flights)"
+seed: seed-gen-sim seed-network-overlay seed-opensky-live
+	@echo ">>> seed complete (demo + YAML overlay + live OpenSky flights)"
 
 .PHONY: submodule-init
 submodule-init:
