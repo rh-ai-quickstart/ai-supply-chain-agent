@@ -44,8 +44,9 @@ The Impact Map and **Live Flights** UI read **seeded PostGIS geometries** from g
 
 ```bash
 make seed-gen-sim
-# optional: many live aircraft via laptop egress (OpenSky reachable from your machine)
-make seed-opensky-live GEN_SIM_NAMESPACE=supply-chain-dashboard
+# network YAML files + live aircraft from helm/values.yaml `seed`
+# (default: data/supply-chain-network.example.yaml and 50 OpenSky flights)
+make seed-opensky GEN_SIM_NAMESPACE=supply-chain-dashboard
 # or both:
 make seed
 ```
@@ -136,7 +137,7 @@ A **React + Vite** single-page app served by nginx. It is the operator UI for th
 oc get route supply-chain-dashboard-frontend -n supply-chain-dashboard
 ```
 
-Open the **https** URL in a browser. Use **Simulation** (`#/simulation`) for the map and impact queries. Seed map data with `make seed-gen-sim` (and optionally `make seed-opensky-live`) against the dashboard namespace before expecting markers.
+Open the **https** URL in a browser. Use **Simulation** (`#/simulation`) for the map and impact queries. Seed map data with `make seed-gen-sim`, then `make seed-opensky` (YAML files and flight cap from the `seed` block in `helm/values.yaml`), against the dashboard namespace before expecting markers.
 
 ### Layout and interactions
 
@@ -176,7 +177,7 @@ Open the **https** URL in a browser. Use **Simulation** (`#/simulation`) for the
 ## Suggested walkthrough
 
 1. Open the **frontend Route** and confirm the Simulation view loads (backend healthy).
-2. Seed demo data: `make seed-gen-sim` (add `make seed-opensky-live` if you want denser live aircraft).
+2. Seed demo data: `make seed-gen-sim`, then `make seed-opensky` for the network YAML and live flights configured under `seed` in `helm/values.yaml`.
 3. Select **Port Strike LA** (or UK Airspace Closure / Suez Blockage) to run the scenario — review entities and diversions on the map and in Impact results.
 4. Ask the chat: *“Summarize current critical alerts.”* (vector store may auto-select after ingest).
 5. Open **Knowledge bases**, upload a short `.txt`, then ask a question grounded in that content.

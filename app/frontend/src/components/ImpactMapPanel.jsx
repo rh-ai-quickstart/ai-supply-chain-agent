@@ -255,6 +255,12 @@ function EntityMarker({
               <span className="muted">ID: {info.id}</span>
             </>
           ) : null}
+          {info.companyName || info.companyId ? (
+            <>
+              <br />
+              Company: {info.companyName || info.companyId}
+            </>
+          ) : null}
           {info.type ? (
             <>
               <br />

@@ -6,10 +6,27 @@ import {
   dedupeImpactAnswer,
   diversionKey,
   diversionRoutePositions,
+  flightInfoFromFeature,
   resolveMapEntityId,
 } from "./impactEntityUtils";
 
 describe("impactEntityUtils", () => {
+  it("reads company name and id from flight attributes", () => {
+    const info = flightInfoFromFeature({
+      properties: {
+        id: "flight-baw177",
+        attributes: {
+          call_sign: "BAW177",
+          company_name: "Acme Air Cargo",
+          company_id: "company-acme",
+        },
+      },
+    });
+    expect(info.companyName).toBe("Acme Air Cargo");
+    expect(info.companyId).toBe("company-acme");
+    expect(info.callSign).toBe("BAW177");
+  });
+
   it("builds a value map from solver breakdown", () => {
     const map = buildValueByEntity([
       { entity_id: "opensky-1", value_usd: 100 },

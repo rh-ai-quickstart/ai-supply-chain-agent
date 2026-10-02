@@ -74,7 +74,7 @@ flowchart TB
 
     subgraph users["Operators"]
         U1["Browser — impact workspace"]:::rhOutline
-        U2["Laptop — make seed-opensky-live"]:::rhOutline
+        U2["Laptop — make seed-opensky"]:::rhOutline
     end
 
     subgraph ocp["OpenShift cluster"]
@@ -265,24 +265,25 @@ You will not yet see any flight data as we still need to seed flight information
 
 #### Seed Data
 
-The step seeds default scenarios and the general-simulation map data from OpenSky. Since OpenSky often blocks access from
-hyperscalers, the seed data is pulled on your client system and then populated into the quickstart. 
+The step seeds default scenarios, the network YAML files listed in the Helm values file, and live flights from OpenSky. Since OpenSky often blocks access from hyperscalers, the flight pull runs on your client system and then writes into the quickstart.
 
-If you used a different namesapce by setting NAMESPACE=XXX when you installed the quickstart you must use GENSIM_NAMESPACE=XXX in the command in this section.
+If you used a different namespace by setting `NAMESPACE=XXX` when you installed the quickstart, pass `GEN_SIM_NAMESPACE=XXX` on the seed commands below.
 
-First seed the scenarios: 
+Which YAML files run, and how many live flights are imported, is the `seed` block in `helm/values.yaml` (or whichever file you pass as `VALUES_FILE`). `seed.networkFiles` is imported in order. `seed.opensky.max` is the number of live aircraft to keep (`0` means unlimited). Set `seed.opensky.enabled` to `false` to skip the OpenSky pull. The default imports `data/supply-chain-network.example.yaml` and 50 flights.
+
+First seed the scenarios:
 
 ```bash
 make seed-gen-sim
 ```
 
-Next install flight data from the OpenSky Data API. 
+Then import the network YAML and live flights:
 
 ```bash
-make seed-opensky-live GEN_SIM_NAMESPACE=supply-chain-dashboard OPENSKY_MAX=50
+make seed-opensky GEN_SIM_NAMESPACE=supply-chain-dashboard
 ```
 
-This will fetch 50 live flights (as a representation of flights that your organization has shipments on) from the API and inserts the records into PGVector and Neo4j giving the engine baseline data for simulations. This seed script will also assign arbitrary values of cargo to each flight that will be used in impact assessments.
+You can run both with `make seed`. The OpenSky step fetches the configured number of live flights (as a representation of flights that your organization has shipments on) and inserts them into Postgres and Neo4j. It also assigns arbitrary cargo values to each flight for impact assessments. The YAML overlay is merged onto the demo data first (same entity ids upsert; new ids add).
 
 Once complete you should see a page like:
 

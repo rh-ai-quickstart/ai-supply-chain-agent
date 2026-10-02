@@ -1,21 +1,22 @@
 #!/usr/bin/env bash
-# Pull live OpenSky flights on your laptop and upsert into OpenShift Postgres + Neo4j.
+# Import network YAML files and, when enabled, live OpenSky flights.
 #
-# OpenSky blocks many AWS/hyperscaler source IPs, so the in-cluster CronJob cannot
-# fetch. This script runs the HTTP pull locally, then writes through oc port-forward.
+# What runs is read from the Helm values file (`seed.networkFiles` and
+# `seed.opensky`). YAML is merged first, then OpenSky, through one
+# port-forward to cluster Postgres + Neo4j.
 #
-# Prefer GEN_SIM_NAMESPACE=supply-chain-dashboard so the dashboard UI sees the data.
+# OpenSky blocks many AWS/hyperscaler source IPs, so the HTTP pull stays on
+# the laptop. Run `make seed-gen-sim` first for demo scenarios.
 #
 # Usage:
-#   make seed-opensky-live
-#   make seed-opensky-live GEN_SIM_NAMESPACE=supply-chain-dashboard OPENSKY_MAX=500
-#   ./scripts/seed-opensky-live.sh
+#   make seed-opensky
+#   make seed-opensky GEN_SIM_NAMESPACE=supply-chain-dashboard
+#   VALUES_FILE=helm/values.yaml ./scripts/seed-opensky.sh
 #
 # Overrides:
+#   VALUES_FILE                     Helm values file (default: helm/values.yaml)
 #   GEN_SIM_NAMESPACE / NAMESPACE   OpenShift project (auto-detected if unset)
 #   GENERAL_SIM_DIR                 Path to general-simulation checkout
-#   OPENSKY_MAX                     Max aircraft to upsert (default 2000; 0 = all)
-#   OPENSKY_TIMEOUT                 HTTP timeout seconds (default 60)
 #   LOCAL_NEO4J_PORT / LOCAL_PG_PORT
 set -euo pipefail
 
@@ -24,8 +25,7 @@ OC="${OC:-oc}"
 LOCAL_NEO4J_PORT="${LOCAL_NEO4J_PORT:-7687}"
 LOCAL_PG_PORT="${LOCAL_PG_PORT:-5433}"
 GENERAL_SIM_DIR="${GENERAL_SIM_DIR:-${ROOT}/vendor/general-simulation}"
-OPENSKY_MAX="${OPENSKY_MAX:-2000}"
-OPENSKY_TIMEOUT="${OPENSKY_TIMEOUT:-60}"
+VALUES_FILE="${VALUES_FILE:-${ROOT}/helm/values.yaml}"
 
 log() { echo ">>> $*"; }
 fail() { echo "ERROR: $*" >&2; exit 1; }
@@ -93,21 +93,33 @@ postgres_dsn_from_secret() {
   echo "postgresql://${user}:${enc}@127.0.0.1:${local_port}/sim"
 }
 
-run_seed() {
+# Run a Python entrypoint under uv, .venv, or system python3.
+# Caller cds via the function; arguments are paths/flags passed to python.
+run_gen_sim_python() {
   local sim_dir="$1"
-  cd "${sim_dir}"
-  local args=(scripts/seed_opensky_live.py --max "${OPENSKY_MAX}" --timeout "${OPENSKY_TIMEOUT}")
-  if command -v uv >/dev/null 2>&1; then
-    # Explicit install works even when python-downloads=manual (e.g. Fedora's
-    # packaged uv) — `uv run` alone would fail there if the pinned
-    # .python-version isn't already present instead of downloading it.
-    uv python install
-    uv run python "${args[@]}"
-  elif [[ -x "${sim_dir}/.venv/bin/python" ]]; then
-    "${sim_dir}/.venv/bin/python" "${args[@]}"
-  else
-    python3 "${args[@]}"
+  shift
+  (
+    cd "${sim_dir}"
+    if command -v uv >/dev/null 2>&1; then
+      uv run python "$@"
+    elif [[ -x "${sim_dir}/.venv/bin/python" ]]; then
+      "${sim_dir}/.venv/bin/python" "$@"
+    else
+      python3 "$@"
+    fi
+  )
+}
+
+resolve_values_file() {
+  local path="$1"
+  if [[ "${path}" = /* ]]; then
+    printf '%s\n' "${path}"
+    return
   fi
+  local dir base
+  dir="$(cd "$(dirname "${path}")" && pwd)"
+  base="$(basename "${path}")"
+  printf '%s\n' "${dir}/${base}"
 }
 
 need_cmd "${OC}"
@@ -115,12 +127,49 @@ need_cmd python3
 need_cmd base64
 
 [[ -d "${GENERAL_SIM_DIR}" ]] || fail "general-simulation not found at ${GENERAL_SIM_DIR} (set GENERAL_SIM_DIR)"
-[[ -f "${GENERAL_SIM_DIR}/scripts/seed_opensky_live.py" ]] || fail "Missing ${GENERAL_SIM_DIR}/scripts/seed_opensky_live.py"
+[[ -f "${ROOT}/scripts/read_seed_config.py" ]] || fail "Missing ${ROOT}/scripts/read_seed_config.py"
+
+VALUES_FILE="$(resolve_values_file "${VALUES_FILE}")"
+
+if command -v uv >/dev/null 2>&1; then
+  # Explicit install works even when python-downloads=manual (e.g. Fedora's
+  # packaged uv) — `uv run` alone would fail there if the pinned
+  # .python-version isn't already present instead of downloading it.
+  (cd "${GENERAL_SIM_DIR}" && uv python install)
+fi
+
+CONFIG_JSON="$(run_gen_sim_python "${GENERAL_SIM_DIR}" "${ROOT}/scripts/read_seed_config.py" "${ROOT}" "${VALUES_FILE}")" \
+  || fail "Could not read seed config from ${VALUES_FILE}"
+
+NETWORK_COUNT="$(python3 -c 'import json,sys; print(len(json.loads(sys.argv[1])["networkFiles"]))' "${CONFIG_JSON}")"
+OPENSKY_ENABLED="$(python3 -c 'import json,sys; print("1" if json.loads(sys.argv[1])["opensky"]["enabled"] else "0")' "${CONFIG_JSON}")"
+OPENSKY_MAX="$(python3 -c 'import json,sys; print(json.loads(sys.argv[1])["opensky"]["max"])' "${CONFIG_JSON}")"
+OPENSKY_TIMEOUT="$(python3 -c 'import json,sys; print(json.loads(sys.argv[1])["opensky"]["timeoutSeconds"])' "${CONFIG_JSON}")"
+
+if [[ "${NETWORK_COUNT}" -gt 0 ]]; then
+  [[ -f "${GENERAL_SIM_DIR}/scripts/seed_network_overlay.py" ]] || fail "Missing ${GENERAL_SIM_DIR}/scripts/seed_network_overlay.py"
+fi
+if [[ "${OPENSKY_ENABLED}" == "1" ]]; then
+  [[ -f "${GENERAL_SIM_DIR}/scripts/seed_opensky_live.py" ]] || fail "Missing ${GENERAL_SIM_DIR}/scripts/seed_opensky_live.py"
+fi
+
+log "Values file: ${VALUES_FILE}"
+log "Network YAML files: ${NETWORK_COUNT}"
+if [[ "${NETWORK_COUNT}" -gt 0 ]]; then
+  python3 -c 'import json,sys; [print(p) for p in json.loads(sys.argv[1])["networkFiles"]]' "${CONFIG_JSON}" \
+    | while IFS= read -r network_yaml; do
+        log "  ${network_yaml}"
+      done
+fi
+if [[ "${OPENSKY_ENABLED}" == "1" ]]; then
+  log "OpenSky max entities: ${OPENSKY_MAX} (0 = unlimited)"
+else
+  log "OpenSky: disabled (seed.opensky.enabled is false)"
+fi
 
 NS="$(resolve_namespace)"
 log "Using namespace: ${NS}"
 log "general-simulation: ${GENERAL_SIM_DIR}"
-log "OpenSky max entities: ${OPENSKY_MAX} (0 = unlimited)"
 log "Dashboard UI reads general-sim-api / Postgres in this namespace — use supply-chain-dashboard for the SPA."
 
 "${OC}" get svc neo4j -n "${NS}" >/dev/null || fail "Service neo4j not found in ${NS}"
@@ -161,6 +210,19 @@ export NEO4J_PASSWORD
 export POSTGRES_DSN
 export ENABLED_DOMAINS="${ENABLED_DOMAINS:-aviation}"
 
-log "Fetching OpenSky on this laptop → upserting into cluster Postgres + Neo4j…"
-run_seed "${GENERAL_SIM_DIR}"
+if [[ "${NETWORK_COUNT}" -gt 0 ]]; then
+  while IFS= read -r network_yaml; do
+    [[ -n "${network_yaml}" ]] || continue
+    log "Merging network overlay: ${network_yaml}"
+    run_gen_sim_python "${GENERAL_SIM_DIR}" scripts/seed_network_overlay.py "${network_yaml}"
+  done < <(python3 -c 'import json,sys; [print(p) for p in json.loads(sys.argv[1])["networkFiles"]]' "${CONFIG_JSON}")
+fi
+
+if [[ "${OPENSKY_ENABLED}" == "1" ]]; then
+  log "Fetching OpenSky on this laptop → upserting into cluster Postgres + Neo4j…"
+  run_gen_sim_python "${GENERAL_SIM_DIR}" scripts/seed_opensky_live.py \
+    --max "${OPENSKY_MAX}" \
+    --timeout "${OPENSKY_TIMEOUT}"
+fi
+
 log "Done. Open Simulation (Live Flights map mode) after frontend rebuild to see flights."
