@@ -97,6 +97,8 @@ export function flightInfoFromFeature(feature) {
     callSign: attrs.call_sign || attrs.callsign || "",
     route: attrs.route || "",
     originCountry: attrs.origin_country || "",
+    companyName: attrs.company_name || "",
+    companyId: attrs.company_id || "",
     revenueUsd: Number.isFinite(Number(attrs.revenue_usd)) ? Number(attrs.revenue_usd) : null,
     valueUsd: Number.isFinite(Number(attrs.value_usd)) ? Number(attrs.value_usd) : null,
   };

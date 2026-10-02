@@ -58,6 +58,27 @@ describe("ImpactMapPanel", () => {
     expect(screen.getByText(/No map entities yet/i)).toBeInTheDocument();
   });
 
+  it("shows the flight company in the marker popup", () => {
+    render(
+      <ImpactMapPanel
+        features={[
+          {
+            ...aircraftFeature,
+            properties: {
+              ...aircraftFeature.properties,
+              attributes: {
+                call_sign: "BAW177",
+                company_name: "Acme Air Cargo",
+                company_id: "company-acme",
+              },
+            },
+          },
+        ]}
+      />,
+    );
+    expect(screen.getByTestId("popup")).toHaveTextContent("Company: Acme Air Cargo");
+  });
+
   it("shows entity count in the header when not loading", () => {
     render(<ImpactMapPanel title="Live Flights" features={[aircraftFeature]} />);
     expect(screen.getByRole("heading", { name: "Live Flights" })).toBeInTheDocument();

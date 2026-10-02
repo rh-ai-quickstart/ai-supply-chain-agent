@@ -2,9 +2,14 @@
 # Listed in helm/values.yaml under seed.networkFiles.
 # Merged onto base seed_demo.py data (same entity ids upsert; new ids add).
 # Add more files by appending paths under seed.networkFiles.
+#
+# company_id / company_name at the top apply to every flight that does not
+# set its own. The map popup shows company_name when you click a flight.
 
 version: "1"
 dataset_id: "supply-chain-overlay-example"
+company_id: company-acme
+company_name: "Acme Air Cargo"
 
 airports:
   - id: airport-jfk
@@ -26,6 +31,8 @@ flights:
     revenue_usd: 680000
     operating_cost_usd: 420000
     depends_on_port: port-los-angeles
+    company_id: company-acme
+    company_name: "Acme Air Cargo"
 
 cargo:
   - id: cargo-flight-baw177-pharma
