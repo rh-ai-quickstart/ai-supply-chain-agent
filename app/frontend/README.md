@@ -23,7 +23,7 @@ Hash routes (no React Router):
 | `#/simulation?scenario=…` | Impact query + map + results, news ticker, chat dock |
 | `#/knowledge-bases` | Create/list Llama Stack knowledge bases |
 
-Chat auto-selects a vector store for the active scenario by keyword match on store names. Map data comes from general-simulation GeoJSON (seed with `make seed-gen-sim` / `make seed-opensky-live`).
+Chat auto-selects a vector store for the active scenario by keyword match on store names. Map data comes from general-simulation GeoJSON (seed with `make seed-gen-sim`, then `make seed-opensky`; YAML files and the OpenSky cap are the `seed` block in `helm/values.yaml`).
 
 ## Production image
 

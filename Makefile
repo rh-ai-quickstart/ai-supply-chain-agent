@@ -135,9 +135,9 @@ help:
 	@echo "    ingest-status      Show the status of the ingest Job"
 	@echo ""
 	@echo "  Gen-sim demo data:"
-	@echo "    seed               Demo seed then live OpenSky (seed-gen-sim + seed-opensky-live)"
+	@echo "    seed               Demo seed, then YAML overlay and live OpenSky (seed-gen-sim + seed-opensky)"
 	@echo "    seed-gen-sim       Port-forward Neo4j+Postgres, pull secrets, run seed_demo.py"
-	@echo "    seed-opensky-live  Pull live OpenSky on laptop → upsert into cluster PG+Neo4j"
+	@echo "    seed-opensky       Import seed.networkFiles and optional OpenSky flights from VALUES_FILE"
 	@echo ""
 	@echo "  Full install:"
 	@echo "    install-full       install + ingest + seed (NAMESPACE, MODEL_ID, MODEL_URL, API_KEY)"
@@ -156,9 +156,8 @@ help:
 	@echo "    NAMESPACE          $(NAMESPACE)"
 	@echo "    GEN_SIM_NAMESPACE  (optional) OpenShift ns with gen-sim postgres+neo4j"
 	@echo "    GENERAL_SIM_DIR    $(GENERAL_SIM_DIR)"
-	@echo "    OPENSKY_MAX        $(OPENSKY_MAX)  (seed-opensky-live cap; 0=unlimited)"
 	@echo "    HELM_RELEASE       $(HELM_RELEASE)"
-	@echo "    VALUES_FILE        $(VALUES_FILE)  (set secrets in helm/secrets.yaml — see secrets.example.yaml)"
+	@echo "    VALUES_FILE        $(VALUES_FILE)  (Helm install and seed.networkFiles / seed.opensky)"
 	@echo "    MODEL_ID           $(MODEL_ID)  (install-full: external-model id)"
 	@echo "    MODEL_URL          $(MODEL_URL)  (install-full: external-model url)"
 	@echo "    API_KEY            (install-full: external-model apiToken)"
@@ -657,7 +656,6 @@ ingest-status:
 # postgres-credentials from the cluster.
 GENERAL_SIM_DIR ?= $(CURDIR)/vendor/general-simulation
 GEN_SIM_NAMESPACE ?=
-OPENSKY_MAX ?= 2000
 
 .PHONY: seed-gen-sim
 seed-gen-sim:
@@ -667,18 +665,18 @@ seed-gen-sim:
 	GENERAL_SIM_DIR=$(GENERAL_SIM_DIR) \
 	./scripts/seed-gen-sim-demo.sh
 
-.PHONY: seed-opensky-live
-seed-opensky-live:
-	@echo ">>> Pulling live OpenSky on laptop → cluster Postgres + Neo4j"
+.PHONY: seed-opensky
+seed-opensky:
+	@echo ">>> Importing network YAML and live OpenSky from $(VALUES_FILE)"
 	NAMESPACE=$(NAMESPACE) \
 	GEN_SIM_NAMESPACE=$(GEN_SIM_NAMESPACE) \
 	GENERAL_SIM_DIR=$(GENERAL_SIM_DIR) \
-	OPENSKY_MAX=$(OPENSKY_MAX) \
-	./scripts/seed-opensky-live.sh
+	VALUES_FILE=$(VALUES_FILE) \
+	./scripts/seed-opensky.sh
 
 .PHONY: seed
-seed: seed-gen-sim seed-opensky-live
-	@echo ">>> seed complete (demo scenarios/maritime + live OpenSky flights)"
+seed: seed-gen-sim seed-opensky
+	@echo ">>> seed complete (demo scenarios/maritime + YAML overlay + live OpenSky flights)"
 
 .PHONY: submodule-init
 submodule-init:
@@ -704,7 +702,7 @@ INSTALL_FULL_EXTRA_ARGS = \
 install-full:
 	@echo ">>> Full install: install + ingest + seed (namespace: $(NAMESPACE))"
 	$(MAKE) install HELM_EXTRA_ARGS='$(INSTALL_FULL_EXTRA_ARGS)'
-	$(MAKE) seed OPENSKY_MAX=50
+	$(MAKE) seed
 	$(MAKE) ingest
 	@echo ">>> install-full complete (install + ingest + seed)"
 

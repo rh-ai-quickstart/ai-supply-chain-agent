@@ -1,0 +1,53 @@
+# Example overlay network manifest for `make seed-opensky`.
+# Listed in helm/values.yaml under seed.networkFiles.
+# Merged onto base seed_demo.py data (same entity ids upsert; new ids add).
+# Add more files by appending paths under seed.networkFiles.
+
+version: "1"
+dataset_id: "supply-chain-overlay-example"
+
+airports:
+  - id: airport-jfk
+    name: "John F. Kennedy International"
+    iata: JFK
+    icao: KJFK
+    region: us_east
+    lon: -73.78
+    lat: 40.64
+
+flights:
+  - id: flight-baw177
+    callsign: BAW177
+    route: LHR-JFK
+    origin: "United Kingdom"
+    status: airborne
+    lon: -0.45
+    lat: 51.47
+    revenue_usd: 680000
+    operating_cost_usd: 420000
+    depends_on_port: port-los-angeles
+
+cargo:
+  - id: cargo-flight-baw177-pharma
+    carrier_id: flight-baw177
+    sku_ref: sku-overlay-pharma-01
+    commodity: pharmaceuticals
+    quantity: 8
+    unit_price_usd: 8500
+
+inventory_skus:
+  - id: sku-overlay-pharma-01
+    sku: OVERLAY-PHARMA-01
+    commodity: pharmaceuticals
+    warehouse_id: warehouse-inland-empire
+    on_hand_qty: 24
+    safety_stock: 10
+    reorder_point: 15
+    unit_price_usd: 8500
+    avg_daily_sales_30d: 1.5
+    linked_carrier_ids:
+      - flight-baw177
+
+dependencies:
+  - from: flight-baw177
+    to: airport-jfk

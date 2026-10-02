@@ -199,3 +199,14 @@ frontend:
     enabled: true
     host: "" # Set the host for the frontend route, this is done dynamically in the frontend deployment template.
     timeout: 5m
+
+# Laptop seed only (`make seed-opensky`). Not rendered by this chart.
+# networkFiles are imported in order (paths relative to the repo root).
+# opensky.max is the first N live aircraft to upsert; 0 means unlimited.
+seed:
+  networkFiles:
+    - data/supply-chain-network.example.yaml
+  opensky:
+    enabled: true
+    max: 50
+    timeoutSeconds: 60
