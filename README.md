@@ -48,7 +48,7 @@ Typical use cases include operations centers modeling a Port of Los Angeles stri
 
 ### See it in action
 
-- TODO: - link to video to be inserted here
+Checkout a live [video demo](https://www.loom.com/share/fd6dfe3b3f6a4dcb8aa48bcb6f3394ea)!
 
 ### Architecture diagrams
 
