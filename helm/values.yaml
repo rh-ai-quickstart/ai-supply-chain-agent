@@ -2,6 +2,8 @@
 # Propagates to supply-chain app images and the general-simulation subchart.
 global:
   registry: quay.io/rh-ai-quickstart
+  # Platform default (general-simulation postgres, api, bootstrap, …).
+  # Supply-chain app images set explicit tags below.
   imageTag: latest
   images:
     backend: ai-supply-chain-agent-backend
@@ -113,7 +115,7 @@ general-simulation:
       host: postgres
     neo4j:
       password: password
-  # Live OpenSky CronJob (opensky-network.org). Keep disabled on AWS/hyperscaler
+  # Live OpenSky CronJob (opensky-network.org). Keep disabled on AWS/hyper-scaler
   # clusters: OpenSky drops those source IPs at TCP (documented; they refuse AI
   # dashboard allowlists). Cluster NetworkPolicy / EgressFirewall cannot fix it.
   # Seed offline demo data with general-simulation scripts/seed_demo.py instead.

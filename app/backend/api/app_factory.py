@@ -14,6 +14,7 @@ from flask import Flask
 from flask_cors import CORS
 from routes import chat as chat_routes
 from routes import general_simulation as general_simulation_routes
+from routes import kpis as kpis_routes
 from routes import health as health_routes
 from routes import knowledge_bases as knowledge_bases_routes
 from routes import news as news_routes
@@ -44,6 +45,7 @@ def create_app(settings: Settings | None = None, container: Container | None = N
         knowledge_bases_routes,
         scenarios_routes,
         general_simulation_routes,
+        kpis_routes,
     ):
         app.register_blueprint(module.create_blueprint(container))
 
