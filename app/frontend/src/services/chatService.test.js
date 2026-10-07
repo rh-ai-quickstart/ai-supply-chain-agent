@@ -35,14 +35,20 @@ describe("chatService", () => {
     );
   });
 
-  it("sendChatMessageStream includes history, vector store, and scenario", async () => {
+  it("sendChatMessageStream includes history, vector store, scenario, and impact", async () => {
     const onEvent = vi.fn();
     const signal = AbortSignal.timeout(1000);
     const history = [{ role: "human", content: "prior" }];
+    const impactResult = {
+      scenario_id: "opensky-uk-closure-001",
+      answer: "Three aircraft are affected.",
+      affected_entities: ["a"],
+    };
     apiPostStream.mockResolvedValue(undefined);
     await sendChatMessageStream("follow up", history, " vs_1 ", false, onEvent, {
       signal,
       scenarioId: " opensky-uk-closure-001 ",
+      impactResult,
     });
     expect(apiPostStream).toHaveBeenCalledWith(
       "/api/v1/chat",
@@ -52,6 +58,7 @@ describe("chatService", () => {
         chat_history: history,
         vector_store_id: "vs_1",
         scenario_id: "opensky-uk-closure-001",
+        impact_result: impactResult,
       },
       onEvent,
       { signal },

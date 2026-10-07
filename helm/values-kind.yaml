@@ -78,6 +78,12 @@ general-simulation:
   postgres:
     postgres:
       password: kind-demo-password
+    # Image USER is root; Kind has no OpenShift SCC to inject a UID.
+    podSecurityContext:
+      runAsUser: 999
+      fsGroup: 999
+    containerSecurityContext:
+      runAsUser: 999
   neo4j:
     fullnameOverride: neo4j
     # Skip live-cluster lookups during helm template/install (not needed for Secret/pgvector tests).
