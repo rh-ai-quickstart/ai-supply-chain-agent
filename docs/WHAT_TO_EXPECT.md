@@ -91,6 +91,7 @@ The **frontend** is built with a proxy pointing at this Route (same-origin `/api
 | `GET` | `/api/v1/general-simulation/scenarios` | Scenario IDs for the picker |
 | `POST` | `/api/v1/general-simulation/query` | Natural-language impact query (`question`, `scenario_id`) |
 | `GET` | `/api/v1/general-simulation/entities/geojson` | Map features (bbox / scenario filters) |
+| `GET` | `/api/v1/kpis` | Simulated supply-chain KPI bar (inventory / on-time / turnover / lost sales / reorder); see [KPIS.md](./KPIS.md) |
 | `POST` | `/api/v1/chat` | RAG chat (`input`, `chat_history`, optional `vector_store_id`; UI uses SSE streaming) |
 | `GET` | `/api/v1/vector_stores` | Llama Stack vector stores (chat knowledge-base picker) |
 | `GET` / `POST` | `/api/v1/knowledge-bases` | List UI-upload catalog / upload files (multipart) |
@@ -149,10 +150,11 @@ Open the **https** URL in a browser. Use **Simulation** (`#/simulation`) for the
 **Simulation view** (main grid)
 
 1. **News ticker** (header, right side) — RSS headlines from `/api/v1/news`; click a headline to read the article or create a scenario from that story
-2. **Impact query** (left) — **Map view** toggle (**Live Flights** default = world fit, or **Scenario focus** = camera framed to the selected scenario bbox); pick a scenario (UK Airspace Closure, Port Strike LA, Suez Blockage, …) to run it; **Create scenario** opens a modal to describe a disruption in natural language; suggested prompts send follow-up questions through chat
-3. **Map** (center) — Leaflet markers for seeded demo / live-seeded OpenSky entities; entity count and color legend in the panel
-4. **Impact results** (right) — answer, score / value at risk, affected entities, diversions
-5. **Chat bar** (bottom) — streaming RAG chat; the active knowledge-base name is shown above the input; vector store auto-matched to the active scenario when possible
+2. **KPI bar** — in-stock, on-time, turnover, lost sales, and reorder metrics from `GET /api/v1/kpis` (seeded inventory + disruption overlay). Formulas: [KPIS.md](./KPIS.md)
+3. **Impact query** (left) — **Map view** toggle (**Live Flights** default = world fit, or **Scenario focus** = camera framed to the selected scenario bbox); pick a scenario (UK Airspace Closure, Port Strike LA, Suez Blockage, …) to run it; **Create scenario** opens a modal to describe a disruption in natural language; suggested prompts send follow-up questions through chat
+4. **Map** (center) — Leaflet markers for seeded demo / live-seeded OpenSky entities; entity count and color legend in the panel
+5. **Impact results** (right) — answer, score / value at risk, affected entities, diversions
+6. **Chat bar** (bottom) — streaming RAG chat; the active knowledge-base name is shown above the input; vector store auto-matched to the active scenario when possible
 
 **Knowledge bases view**
 
