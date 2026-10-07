@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 from logging_config import getLogger
 import requests
@@ -18,6 +18,59 @@ class GeneralSimulationClient:
         self.base_url = (base_url or _DEFAULT_BASE_URL).rstrip("/")
         self.timeout = timeout
         self._session = session or requests.Session()
+
+    def _request_json(
+        self,
+        method: str,
+        path: str,
+        *,
+        params: dict[str, Any] | None = None,
+        json_body: dict[str, Any] | None = None,
+        timeout: int,
+        label: str,
+        validate: Callable[[Any], dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
+        """HTTP JSON from gen-sim with shared timeout/HTTP error handling."""
+        url = f"{self.base_url}{path}"
+        verb = method.upper()
+        try:
+            # Prefer get/post so callers (and tests) can mock session.get/post.
+            if verb == "GET":
+                resp = self._session.get(url, params=params or {}, timeout=timeout)
+            elif verb == "POST":
+                # Omit json/params when unused so call kwargs match prior client shape.
+                post_kwargs: dict[str, Any] = {"timeout": timeout}
+                if params:
+                    post_kwargs["params"] = params
+                if json_body is not None:
+                    post_kwargs["json"] = json_body
+                resp = self._session.post(url, **post_kwargs)
+            else:
+                req_kwargs: dict[str, Any] = {
+                    "params": params or {},
+                    "timeout": timeout,
+                }
+                if json_body is not None:
+                    req_kwargs["json"] = json_body
+                resp = self._session.request(verb, url, **req_kwargs)
+            resp.raise_for_status()
+            data = resp.json()
+            if validate is not None:
+                return validate(data)
+            if isinstance(data, dict):
+                return data
+            return {"error": f"Unexpected {label} response shape"}
+        except requests.Timeout:
+            logger.error("GeneralSimulation %s timed out", label)
+            return {"error": f"Request timed out after {timeout}s"}
+        except requests.HTTPError as exc:
+            status = exc.response.status_code
+            detail = exc.response.text[:500] if exc.response.text else ""
+            logger.error("GeneralSimulation %s HTTP %s: %s", label, status, detail)
+            return {"error": f"HTTP {status}: {detail}"}
+        except (requests.RequestException, ValueError, TypeError) as exc:
+            logger.error("GeneralSimulation %s failed: %s", label, exc)
+            return {"error": str(exc)}
 
     def health(self) -> dict[str, Any]:
         try:
@@ -40,53 +93,50 @@ class GeneralSimulationClient:
             "question": question,
             "scenario_id": scenario_id,
         }
-        try:
-            logger.info(
-                "GeneralSimulation query: scenario=%s question=%r",
-                scenario_id,
-                question[:80],
-            )
-            resp = self._session.post(
-                f"{self.base_url}/query",
-                json=payload,
-                timeout=self.timeout,
-            )
-            resp.raise_for_status()
-            return dict(resp.json())
-        except requests.Timeout:
-            logger.error("GeneralSimulation query timed out after %ss", self.timeout)
-            return {"error": f"Request timed out after {self.timeout}s"}
-        except requests.HTTPError as exc:
-            status = exc.response.status_code
-            detail = exc.response.text[:500] if exc.response.text else ""
-            logger.error("GeneralSimulation query HTTP %s: %s", status, detail)
-            return {"error": f"HTTP {status}: {detail}"}
-        except requests.RequestException as exc:
-            logger.error("GeneralSimulation query failed: %s", exc)
-            return {"error": str(exc)}
+        logger.info(
+            "GeneralSimulation query: scenario=%s question=%r",
+            scenario_id,
+            question[:80],
+        )
+        return self._request_json(
+            "POST",
+            "/query",
+            json_body=payload,
+            timeout=self.timeout,
+            label="query",
+        )
 
     def list_scenarios(self) -> dict[str, Any]:
-        try:
-            resp = self._session.get(
-                f"{self.base_url}/admin/graph/scenarios",
-                timeout=30,
-            )
-            resp.raise_for_status()
-            data = resp.json()
+        def _validate(data: Any) -> dict[str, Any]:
             if isinstance(data, list):
                 return {"scenarios": [str(item) for item in data]}
             return {"error": "Unexpected scenarios response shape"}
-        except requests.Timeout:
-            logger.error("GeneralSimulation list_scenarios timed out")
-            return {"error": "Request timed out after 30s"}
-        except requests.HTTPError as exc:
-            status = exc.response.status_code
-            detail = exc.response.text[:500] if exc.response.text else ""
-            logger.error("GeneralSimulation list_scenarios HTTP %s: %s", status, detail)
-            return {"error": f"HTTP {status}: {detail}"}
-        except (requests.RequestException, ValueError, TypeError) as exc:
-            logger.error("GeneralSimulation list_scenarios failed: %s", exc)
-            return {"error": str(exc)}
+
+        return self._request_json(
+            "GET",
+            "/admin/graph/scenarios",
+            timeout=30,
+            label="list_scenarios",
+            validate=_validate,
+        )
+
+    def list_entities(
+        self,
+        *,
+        entity_type: str | None = None,
+        limit: int = 500,
+        offset: int = 0,
+    ) -> dict[str, Any]:
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        if entity_type:
+            params["type"] = entity_type
+        return self._request_json(
+            "GET",
+            "/admin/entities",
+            params=params,
+            timeout=60,
+            label="list_entities",
+        )
 
     def get_entities_geojson(
         self,
@@ -102,30 +152,13 @@ class GeneralSimulationClient:
             params["ids"] = ",".join(ids)
         if limit is not None:
             params["limit"] = limit
-        try:
-            resp = self._session.get(
-                f"{self.base_url}/admin/entities/geojson",
-                params=params,
-                timeout=60,
-            )
-            resp.raise_for_status()
-            data = resp.json()
-            if isinstance(data, dict):
-                return data
-            return {"error": "Unexpected geojson response shape"}
-        except requests.Timeout:
-            logger.error("GeneralSimulation get_entities_geojson timed out")
-            return {"error": "Request timed out after 60s"}
-        except requests.HTTPError as exc:
-            status = exc.response.status_code
-            detail = exc.response.text[:500] if exc.response.text else ""
-            logger.error(
-                "GeneralSimulation get_entities_geojson HTTP %s: %s", status, detail
-            )
-            return {"error": f"HTTP {status}: {detail}"}
-        except (requests.RequestException, ValueError, TypeError) as exc:
-            logger.error("GeneralSimulation get_entities_geojson failed: %s", exc)
-            return {"error": str(exc)}
+        return self._request_json(
+            "GET",
+            "/admin/entities/geojson",
+            params=params,
+            timeout=60,
+            label="geojson",
+        )
 
     def create_event(
         self,
@@ -145,58 +178,28 @@ class GeneralSimulationClient:
             "affected_entity_ids": [],
             "attributes": attributes or {},
         }
-        try:
-            logger.info(
-                "GeneralSimulation create_event: scenario=%s event=%s bbox=%s",
-                scenario_id,
-                event_id,
-                bbox,
-            )
-            resp = self._session.post(
-                f"{self.base_url}/admin/graph/events",
-                json=payload,
-                timeout=self.timeout,
-            )
-            resp.raise_for_status()
-            data = resp.json()
-            if isinstance(data, dict):
-                return data
-            return {"error": "Unexpected create_event response shape"}
-        except requests.Timeout:
-            logger.error("GeneralSimulation create_event timed out after %ss", self.timeout)
-            return {"error": f"Request timed out after {self.timeout}s"}
-        except requests.HTTPError as exc:
-            status = exc.response.status_code
-            detail = exc.response.text[:500] if exc.response.text else ""
-            logger.error("GeneralSimulation create_event HTTP %s: %s", status, detail)
-            return {"error": f"HTTP {status}: {detail}"}
-        except (requests.RequestException, ValueError, TypeError) as exc:
-            logger.error("GeneralSimulation create_event failed: %s", exc)
-            return {"error": str(exc)}
+        logger.info(
+            "GeneralSimulation create_event: scenario=%s event=%s bbox=%s",
+            scenario_id,
+            event_id,
+            bbox,
+        )
+        return self._request_json(
+            "POST",
+            "/admin/graph/events",
+            json_body=payload,
+            timeout=self.timeout,
+            label="create_event",
+        )
 
     def sync_spatial(self, scenario_id: str) -> dict[str, Any]:
         """Refresh AFFECTED_BY edges for a scenario's bbox overlays."""
         sid = (scenario_id or "").strip()
         if not sid:
             return {"error": "scenario_id is required"}
-        try:
-            resp = self._session.post(
-                f"{self.base_url}/admin/graph/scenarios/{sid}/sync-spatial",
-                timeout=self.timeout,
-            )
-            resp.raise_for_status()
-            data = resp.json()
-            if isinstance(data, dict):
-                return data
-            return {"error": "Unexpected sync_spatial response shape"}
-        except requests.Timeout:
-            logger.error("GeneralSimulation sync_spatial timed out after %ss", self.timeout)
-            return {"error": f"Request timed out after {self.timeout}s"}
-        except requests.HTTPError as exc:
-            status = exc.response.status_code
-            detail = exc.response.text[:500] if exc.response.text else ""
-            logger.error("GeneralSimulation sync_spatial HTTP %s: %s", status, detail)
-            return {"error": f"HTTP {status}: {detail}"}
-        except (requests.RequestException, ValueError, TypeError) as exc:
-            logger.error("GeneralSimulation sync_spatial failed: %s", exc)
-            return {"error": str(exc)}
+        return self._request_json(
+            "POST",
+            f"/admin/graph/scenarios/{sid}/sync-spatial",
+            timeout=self.timeout,
+            label="sync_spatial",
+        )

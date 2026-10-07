@@ -10,6 +10,9 @@ export function ImpactQueryPanel({
   scenariosError = "",
   scenarioId = "",
   onChangeScenarioId,
+  companyOptions = [],
+  companyId = "",
+  onChangeCompanyId,
   mapMode = "live",
   onChangeMapMode,
   onRunSuggestedPrompt,
@@ -53,6 +56,33 @@ export function ImpactQueryPanel({
             Scenario focus
           </button>
         </div>
+
+        {companyOptions.length > 0 ? (
+          <>
+            <span className="field-label field-label--with-hint" id="impact-company-label">
+              Company
+              <InfoTooltip
+                label="About company filter"
+                content="Filter flights and scenario impact results to one company. Facilities stay visible on the map."
+              />
+            </span>
+            <select
+              id="impact-company-filter"
+              className="impact-company-select"
+              value={companyId}
+              onChange={(event) => onChangeCompanyId?.(event.target.value)}
+              disabled={locked}
+              aria-labelledby="impact-company-label"
+            >
+              <option value="">All companies</option>
+              {companyOptions.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.label} ({option.id})
+                </option>
+              ))}
+            </select>
+          </>
+        ) : null}
 
         <div className="impact-query-panel__scenario-heading">
           <h3>Scenario Selection</h3>
@@ -146,6 +176,14 @@ ImpactQueryPanel.propTypes = {
   scenariosError: PropTypes.string,
   scenarioId: PropTypes.string,
   onChangeScenarioId: PropTypes.func,
+  companyOptions: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.string.isRequired,
+      label: PropTypes.string.isRequired,
+    }),
+  ),
+  companyId: PropTypes.string,
+  onChangeCompanyId: PropTypes.func,
   mapMode: PropTypes.oneOf(["live", "scenario"]),
   onChangeMapMode: PropTypes.func,
   onRunSuggestedPrompt: PropTypes.func,

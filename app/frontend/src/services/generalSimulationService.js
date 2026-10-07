@@ -19,6 +19,34 @@ export function listImpactScenarios({ signal } = {}) {
   return apiGet("/api/v1/general-simulation/scenarios", { signal });
 }
 
+export function getImpactEntities({ type, limit = 500, offset = 0, signal } = {}) {
+  const params = new URLSearchParams();
+  if (type) params.set("type", type);
+  params.set("limit", String(limit));
+  params.set("offset", String(offset));
+  const qs = params.toString();
+  return apiGet(`/api/v1/general-simulation/entities?${qs}`, { signal });
+}
+
+/** Fetch all entities of a type, paging through gen-sim admin limits. */
+export async function fetchImpactEntitiesByType(type, { signal, pageSize = 500 } = {}) {
+  const items = [];
+  let offset = 0;
+  let total = Number.POSITIVE_INFINITY;
+  while (offset < total) {
+    const res = await getImpactEntities({ type, limit: pageSize, offset, signal });
+    if (res.success === false) {
+      return res;
+    }
+    const page = Array.isArray(res.items) ? res.items : [];
+    items.push(...page);
+    total = Number.isFinite(Number(res.total)) ? Number(res.total) : items.length;
+    offset += pageSize;
+    if (page.length === 0) break;
+  }
+  return { success: true, items, total: items.length };
+}
+
 export function getImpactEntitiesGeoJson({ bbox, ids, limit, signal } = {}) {
   logger.info("getImpactEntitiesGeoJson: bbox=%s ids=%d limit=%s", bbox, ids?.length || 0, limit);
   const params = new URLSearchParams();
