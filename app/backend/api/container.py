@@ -100,7 +100,6 @@ class Container:
 
         self.agent_service = AgentService(
             self.primary_llama_client,
-            general_simulation_client=self.general_simulation_client,
             news_client=self.news_client,
             news_vector_store=self.news_vector_store_service,
         )

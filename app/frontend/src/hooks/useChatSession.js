@@ -20,7 +20,12 @@ function chatKeyForScenario(scenarioId) {
  * via `sendChatMessageStream`. `abortActiveStream` is exposed so callers
  * (e.g. a scenario switch) can cancel an in-flight request from outside.
  */
-export function useChatSession({ vectorStores, vectorStoresError, activeScenarioId }) {
+export function useChatSession({
+  vectorStores,
+  vectorStoresError,
+  activeScenarioId,
+  impactResult = null,
+}) {
   const [chatMessagesByScenario, setChatMessagesByScenario] = useState({});
   const [chatInputByScenario, setChatInputByScenario] = useState({});
   const [chatErrorByScenario, setChatErrorByScenario] = useState({});
@@ -102,7 +107,11 @@ export function useChatSession({ vectorStores, vectorStoresError, activeScenario
               return next ? { ...prev, [scenarioKey]: next } : prev;
             });
           },
-          { signal: controller.signal, scenarioId: activeScenarioId },
+          {
+            signal: controller.signal,
+            scenarioId: activeScenarioId,
+            impactResult,
+          },
         );
       } catch (err) {
         if (err?.name === "AbortError") return;
@@ -120,7 +129,14 @@ export function useChatSession({ vectorStores, vectorStoresError, activeScenario
         setChatLoadingByScenario((prev) => ({ ...prev, [scenarioKey]: false }));
       }
     },
-    [chatLoading, chatKey, matchedVectorStoreId, chatMessagesByScenario, activeScenarioId],
+    [
+      chatLoading,
+      chatKey,
+      matchedVectorStoreId,
+      chatMessagesByScenario,
+      activeScenarioId,
+      impactResult,
+    ],
   );
 
   const handleSubmitChat = useCallback(() => {

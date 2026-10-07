@@ -115,7 +115,43 @@ describe("useChatSession", () => {
       "vs-air",
       true,
       expect.any(Function),
-      expect.objectContaining({ scenarioId: "opensky-uk-closure-001" }),
+      expect.objectContaining({
+        scenarioId: "opensky-uk-closure-001",
+        impactResult: null,
+      }),
+    );
+  });
+
+  it("forwards the latest impact result into the chat request", async () => {
+    sendChatMessageStream.mockResolvedValue(undefined);
+    const impactResult = {
+      scenario_id: "opensky-uk-closure-001",
+      answer: "Three aircraft are affected.",
+      affected_entities: ["a"],
+      solver: { impact_score: 0.5 },
+    };
+    const { result } = renderHook(() =>
+      useChatSession({
+        vectorStores: [],
+        vectorStoresError: "",
+        activeScenarioId: "opensky-uk-closure-001",
+        impactResult,
+      }),
+    );
+    act(() => result.current.handleChangeChatInput("summarize"));
+    await act(async () => {
+      await result.current.handleSubmitChat();
+    });
+    expect(sendChatMessageStream).toHaveBeenCalledWith(
+      "summarize",
+      expect.any(Array),
+      undefined,
+      true,
+      expect.any(Function),
+      expect.objectContaining({
+        scenarioId: "opensky-uk-closure-001",
+        impactResult,
+      }),
     );
   });
 

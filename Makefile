@@ -7,9 +7,9 @@ REGISTRY        ?= quay.io/rh-ai-quickstart
 BACKEND_IMAGE      ?= $(REGISTRY)/ai-supply-chain-agent-backend
 INGEST_IMAGE       ?= $(REGISTRY)/ai-supply-chain-agent-ingestion
 FRONTEND_IMAGE     ?= $(REGISTRY)/ai-supply-chain-agent-frontend
-BACKEND_TAG        ?= latest
-INGEST_TAG         ?= latest
-FRONTEND_TAG       ?= latest
+BACKEND_TAG        ?= dev
+INGEST_TAG         ?= dev
+FRONTEND_TAG       ?= dev
 GEN_SIM_TAG        ?= $(BACKEND_TAG)
 GEN_SIM_APP_IMAGE  ?= $(REGISTRY)/general-sim-api:$(GEN_SIM_TAG)
 GEN_SIM_POSTGRES_IMAGE ?= $(REGISTRY)/general-sim-postgres:$(GEN_SIM_TAG)
@@ -353,21 +353,21 @@ helm-deps:
 .PHONY: helm-patch-scc
 helm-patch-scc:
 	@echo ">>> Patching general-simulation SCC bindings (ClusterRoleBinding -> RoleBinding; avoids needing cluster-admin)"
-	@set -eu; \
-	TGZ=$$(ls $(HELM_CHART)/charts/general-simulation-*.tgz 2>/dev/null | head -1); \
-	if [ -z "$$TGZ" ]; then echo "  (no general-simulation chart found — skipping)"; exit 0; fi; \
-	TMPDIR=$$(mktemp -d); \
-	COPYFILE_DISABLE=1 tar xzf "$$TGZ" -C "$$TMPDIR"; \
-	FOUND=0; \
-	for f in $$(find "$$TMPDIR/general-simulation/templates" -name 'scc-binding.yaml' -type f | sort); do \
-	  FOUND=1; \
-	  grep -q '^kind: ClusterRoleBinding$$' "$$f" || { echo "ERROR: 'kind: ClusterRoleBinding' not found in $$f (chart content changed — patch needs updating)"; rm -rf "$$TMPDIR"; exit 1; }; \
-	  sed -i '' 's/^kind: ClusterRoleBinding$$/kind: RoleBinding/' "$$f" 2>/dev/null || sed -i 's/^kind: ClusterRoleBinding$$/kind: RoleBinding/' "$$f"; \
-	  echo "  patched $$f"; \
-	done; \
-	if [ "$$FOUND" -eq 0 ]; then echo "ERROR: no scc-binding.yaml templates found under general-simulation (chart layout changed?)"; rm -rf "$$TMPDIR"; exit 1; fi; \
-	COPYFILE_DISABLE=1 tar czf "$$TGZ" -C "$$TMPDIR" general-simulation; \
-	rm -rf "$$TMPDIR"
+# 	@set -eu; \
+# 	TGZ=$$(ls $(HELM_CHART)/charts/general-simulation-*.tgz 2>/dev/null | head -1); \
+# 	if [ -z "$$TGZ" ]; then echo "  (no general-simulation chart found — skipping)"; exit 0; fi; \
+# 	TMPDIR=$$(mktemp -d); \
+# 	COPYFILE_DISABLE=1 tar xzf "$$TGZ" -C "$$TMPDIR"; \
+# 	FOUND=0; \
+# 	for f in $$(find "$$TMPDIR/general-simulation/templates" -name 'scc-binding.yaml' -type f | sort); do \
+# 	  FOUND=1; \
+# 	  grep -q '^kind: ClusterRoleBinding$$' "$$f" || { echo "ERROR: 'kind: ClusterRoleBinding' not found in $$f (chart content changed — patch needs updating)"; rm -rf "$$TMPDIR"; exit 1; }; \
+# 	  sed -i '' 's/^kind: ClusterRoleBinding$$/kind: RoleBinding/' "$$f" 2>/dev/null || sed -i 's/^kind: ClusterRoleBinding$$/kind: RoleBinding/' "$$f"; \
+# 	  echo "  patched $$f"; \
+# 	done; \
+# 	if [ "$$FOUND" -eq 0 ]; then echo "ERROR: no scc-binding.yaml templates found under general-simulation (chart layout changed?)"; rm -rf "$$TMPDIR"; exit 1; fi; \
+# 	COPYFILE_DISABLE=1 tar czf "$$TGZ" -C "$$TMPDIR" general-simulation; \
+# 	rm -rf "$$TMPDIR"
 
 .PHONY: helm-deps-local
 helm-deps-local: helm-deps
