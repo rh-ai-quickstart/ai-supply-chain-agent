@@ -17,6 +17,7 @@ from repositories.knowledge_base_repository import KnowledgeBaseRepository
 from services.agent_service import AgentService
 from services.chat_service import ChatService
 from services.general_simulation_service import GeneralSimulationService
+from services.kpi_service import KpiService
 from services.news_service import NewsService
 from services.news_vector_store_service import NewsVectorStoreService
 from services.readiness_service import ReadinessService
@@ -81,6 +82,9 @@ class Container:
         )
         self.general_simulation_service = GeneralSimulationService(
             client=self.general_simulation_client
+        )
+        self.kpi_service = KpiService(
+            general_simulation_service=self.general_simulation_service
         )
 
         openai_model = _resolve_openai_model(settings)

@@ -794,6 +794,139 @@ body,
   grid-template-rows: auto 1fr auto;
 }
 
+.simulation-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+  height: 100%;
+}
+
+.simulation-stack .dashboard-grid {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.kpi-bar {
+  flex-shrink: 0;
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 15px 20px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
+.kpi-bar__error {
+  position: absolute;
+  top: 8px;
+  right: 16px;
+  margin: 0;
+  font-size: 0.8rem;
+}
+
+.kpi-card-new {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  border-right: 1px solid var(--color-border);
+  padding: 0 15px;
+  min-width: 0;
+}
+
+.kpi-card-new:last-child {
+  border-right: none;
+}
+
+.kpi-card-new .info-tooltip {
+  position: absolute;
+  top: 0;
+  right: 0;
+}
+
+.kpi-card-new__value-row {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.kpi-value-new {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  line-height: 1.1;
+}
+
+.kpi-trend {
+  font-size: 0.9rem;
+  padding: 2px 5px;
+  border-radius: 4px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.kpi-trend.up {
+  color: var(--color-accent-green);
+  background: rgba(46, 204, 113, 0.2);
+}
+
+.kpi-trend.down {
+  color: var(--color-accent-red);
+  background: rgba(255, 71, 87, 0.2);
+}
+
+.kpi-trend--bad {
+  color: var(--color-accent-red);
+  background: rgba(255, 71, 87, 0.2);
+}
+
+.kpi-trend--good {
+  color: var(--color-accent-green);
+  background: rgba(46, 204, 113, 0.2);
+}
+
+.kpi-trend--caution {
+  color: var(--color-accent-yellow);
+  background: rgba(255, 195, 0, 0.2);
+}
+
+@media (max-width: 1100px) {
+  .kpi-bar {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .kpi-card-new {
+    border-right: none;
+    border-bottom: 1px solid var(--color-border);
+    padding: 10px 0;
+  }
+
+  .kpi-card-new:nth-child(3) {
+    border-bottom: none;
+  }
+}
+
+@media (max-width: 720px) {
+  .kpi-bar {
+    grid-template-columns: 1fr;
+    padding: 12px 16px;
+  }
+
+  .kpi-card-new {
+    border-bottom: 1px solid var(--color-border);
+    padding: 10px 0;
+  }
+
+  .kpi-card-new:last-child {
+    border-bottom: none;
+  }
+}
+
 /* --- News ticker --- */
 .news-ticker {
   display: flex;

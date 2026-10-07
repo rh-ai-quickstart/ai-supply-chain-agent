@@ -153,6 +153,7 @@ class TestGeneralSimulationServiceGetEntitiesGeojson:
             bbox="-15,35,40,62",
             ids=["e1"],
             limit=10,
+            entity_type=None,
         )
 
     def test_client_error(self):
