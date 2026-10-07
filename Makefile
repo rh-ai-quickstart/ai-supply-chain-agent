@@ -7,9 +7,9 @@ REGISTRY        ?= quay.io/rh-ai-quickstart
 BACKEND_IMAGE      ?= $(REGISTRY)/ai-supply-chain-agent-backend
 INGEST_IMAGE       ?= $(REGISTRY)/ai-supply-chain-agent-ingestion
 FRONTEND_IMAGE     ?= $(REGISTRY)/ai-supply-chain-agent-frontend
-BACKEND_TAG        ?= latest
-INGEST_TAG         ?= latest
-FRONTEND_TAG       ?= latest
+BACKEND_TAG        ?= dev
+INGEST_TAG         ?= dev
+FRONTEND_TAG       ?= dev
 GEN_SIM_TAG        ?= $(BACKEND_TAG)
 GEN_SIM_APP_IMAGE  ?= $(REGISTRY)/general-sim-api:$(GEN_SIM_TAG)
 GEN_SIM_POSTGRES_IMAGE ?= $(REGISTRY)/general-sim-postgres:$(GEN_SIM_TAG)
@@ -135,9 +135,10 @@ help:
 	@echo "    ingest-status      Show the status of the ingest Job"
 	@echo ""
 	@echo "  Gen-sim demo data:"
-	@echo "    seed               Demo seed, then YAML overlay and live OpenSky (seed-gen-sim + seed-opensky)"
+	@echo "    seed               Demo seed, then values-driven YAML + OpenSky (seed-opensky)"
 	@echo "    seed-gen-sim       Port-forward Neo4j+Postgres, pull secrets, run seed_demo.py"
-	@echo "    seed-opensky       Import seed.networkFiles and optional OpenSky flights from VALUES_FILE"
+	@echo "    seed-customer-data Merge customer network YAML (local or .example) onto base demo"
+	@echo "    seed-opensky       Import seed.networkFiles + live OpenSky from VALUES_FILE"
 	@echo ""
 	@echo "  Full install:"
 	@echo "    install-full       install + ingest + seed (NAMESPACE, MODEL_ID, MODEL_URL, API_KEY)"
@@ -674,9 +675,22 @@ seed-opensky:
 	VALUES_FILE=$(VALUES_FILE) \
 	./scripts/seed-opensky.sh
 
+# Optional override. When unset, seed-customer-data.sh uses
+# data/supply-chain-network.yaml if present, else the committed .example.yaml.
+NETWORK_YAML ?=
+
+.PHONY: seed-customer-data
+seed-customer-data:
+	@echo ">>> Merging customer supply-chain network YAML (run seed-gen-sim first)"
+	NAMESPACE=$(NAMESPACE) \
+	GEN_SIM_NAMESPACE=$(GEN_SIM_NAMESPACE) \
+	GENERAL_SIM_DIR=$(GENERAL_SIM_DIR) \
+	$(if $(NETWORK_YAML),NETWORK_YAML=$(NETWORK_YAML)) \
+	./scripts/seed-customer-data.sh
+
 .PHONY: seed
 seed: seed-gen-sim seed-opensky
-	@echo ">>> seed complete (demo scenarios/maritime + YAML overlay + live OpenSky flights)"
+	@echo ">>> seed complete (demo + values-driven YAML overlay + live OpenSky)"
 
 .PHONY: submodule-init
 submodule-init:

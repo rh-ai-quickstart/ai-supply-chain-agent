@@ -1,10 +1,17 @@
-# Example overlay network manifest for `make seed-opensky`.
-# Listed in helm/values.yaml under seed.networkFiles.
+# Example customer network manifest for `make seed-customer-data`.
 # Merged onto base seed_demo.py data (same entity ids upsert; new ids add).
-# Add more files by appending paths under seed.networkFiles.
+# Copy to data/supply-chain-network.yaml to customize, or set NETWORK_YAML.
+#
+# This file is self-contained: port + warehouse + UK scenario are included so
+# the Live Flights map and impact dropdown work even before `make seed-gen-sim`.
+# Prefer `make seed` (seed-gen-sim + seed-opensky) for the full demo world.
 #
 # company_id / company_name at the top apply to every flight that does not
 # set its own. The map popup shows company_name when you click a flight.
+#
+# Cargo may be nested under flights[] / vessels[] (carrier_id inferred) or
+# declared top-level with carrier_id. When sku_ref matches inventory_skus.id,
+# commodity and unit_price_usd may be omitted.
 
 version: "1"
 dataset_id: "supply-chain-overlay-example"
@@ -20,6 +27,20 @@ airports:
     lon: -73.78
     lat: 40.64
 
+ports:
+  - id: port-los-angeles
+    name: "Port of Los Angeles"
+    region: west_coast
+    lon: -118.27
+    lat: 33.74
+
+warehouses:
+  - id: warehouse-inland-empire
+    name: "Inland Empire DC"
+    region: west_coast
+    lon: -117.43
+    lat: 34.05
+
 flights:
   - id: flight-baw177
     callsign: BAW177
@@ -28,19 +49,16 @@ flights:
     status: airborne
     lon: -0.45
     lat: 51.47
-    revenue_usd: 680000
-    operating_cost_usd: 420000
     depends_on_port: port-los-angeles
     company_id: company-acme
     company_name: "Acme Air Cargo"
-
-cargo:
-  - id: cargo-flight-baw177-pharma
-    carrier_id: flight-baw177
-    sku_ref: sku-overlay-pharma-01
-    commodity: pharmaceuticals
-    quantity: 8
-    unit_price_usd: 8500
+    cargo:
+      - id: cargo-flight-baw177-pharma
+        sku_ref: sku-overlay-pharma-01
+        quantity: 8
+      - id: cargo-flight-baw177-electronics
+        sku_ref: sku-overlay-electronics-01
+        quantity: 10
 
 inventory_skus:
   - id: sku-overlay-pharma-01
@@ -54,7 +72,29 @@ inventory_skus:
     avg_daily_sales_30d: 1.5
     linked_carrier_ids:
       - flight-baw177
+  - id: sku-overlay-electronics-01
+    sku: OVERLAY-ELEC-01
+    commodity: electronics
+    warehouse_id: warehouse-inland-empire
+    on_hand_qty: 40
+    safety_stock: 12
+    reorder_point: 18
+    unit_price_usd: 1200
+    avg_daily_sales_30d: 3.0
+    linked_carrier_ids:
+      - flight-baw177
 
 dependencies:
   - from: flight-baw177
     to: airport-jfk
+
+# Matches the frontend UK Airspace Closure preset so impact queries work
+# without a prior seed-gen-sim run.
+scenarios:
+  - scenario_id: opensky-uk-closure-001
+    event_id: evt-overlay-uk-airspace-closure
+    bbox: "-15,35,40,62"
+    description: >-
+      UK airspace closed to civilian traffic (demo overlay). Aircraft near the
+      London FIR, including BAW177, must divert. Use Live Flights map mode to
+      inspect seeded carriers and cargo value.
