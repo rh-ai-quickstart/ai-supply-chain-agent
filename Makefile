@@ -99,7 +99,7 @@ help:
 	@echo "    helm-lint          Lint the Helm chart"
 	@echo "    helm-test          Run Helm unit tests (helm-unittest)"
 	@echo "    helm-render        Render chart templates to stdout (dry-run)"
-	@echo "    helm-install       Install the Helm release and print Route URLs"
+	@echo "    helm-install       Install the Helm release, seed gen-sim demo data, print Route URLs"
 	@echo "    helm-upgrade-install  helm upgrade --install with REGISTRY / secrets"
 	@echo "    helm-upgrade-install-maas  MaaS profile (VALUES_FILE=helm/values-maas.yaml)"
 	@echo "    helm-upgrade       Upgrade an existing Helm release"
@@ -398,10 +398,11 @@ helm-render: helm-deps
 
 .PHONY: helm-install
 helm-install: helm-deps
-	@echo ">>> Installing Helm release: $(HELM_RELEASE) in namespace: $(NAMESPACE)"
-	@echo ">>> Registry: $(REGISTRY) (backend=$(BACKEND_TAG) frontend=$(FRONTEND_TAG) ingest=$(INGEST_TAG))"
-	@echo ">>> Secrets file: $(if $(SECRETS_FLAGS),$(SECRETS_FILE) (found),not found - see secrets.example.yaml)"
-	oc get namespace $(NAMESPACE) 2>/dev/null || oc new-project $(NAMESPACE)
+	@set -eu; \
+	echo ">>> [helm-install] 1/3 Installing Helm release: $(HELM_RELEASE) in namespace: $(NAMESPACE)"; \
+	echo ">>> Registry: $(REGISTRY) (backend=$(BACKEND_TAG) frontend=$(FRONTEND_TAG) ingest=$(INGEST_TAG))"; \
+	echo ">>> Secrets file: $(if $(SECRETS_FLAGS),$(SECRETS_FILE) (found),not found - see secrets.example.yaml)"; \
+	oc get namespace $(NAMESPACE) 2>/dev/null || oc new-project $(NAMESPACE); \
 	helm install $(HELM_RELEASE) $(HELM_CHART) \
 		--namespace $(NAMESPACE) \
 		-f $(VALUES_FILE) \
@@ -409,8 +410,30 @@ helm-install: helm-deps
 		$(HELM_IMAGE_SETS) \
 		$(HELM_EXTRA_ARGS) \
 		--wait \
-		--timeout 10m
-	@$(MAKE) --no-print-directory print-routes
+		--timeout 10m; \
+	echo ""; \
+	echo ">>> [helm-install] 2/3 Seeding gen-sim demo data (make seed-gen-sim)"; \
+	seed_rc=0; \
+	$(MAKE) --no-print-directory seed-gen-sim \
+		NAMESPACE=$(NAMESPACE) \
+		GEN_SIM_NAMESPACE="$(GEN_SIM_NAMESPACE)" \
+		GENERAL_SIM_DIR="$(GENERAL_SIM_DIR)" \
+		|| seed_rc=$$?; \
+	if [ "$$seed_rc" -ne 0 ]; then \
+		echo ""; \
+		echo ">>> WARNING: seed-gen-sim failed (exit $$seed_rc). Helm install succeeded."; \
+		echo ">>> Retry: make seed-gen-sim NAMESPACE=$(NAMESPACE)"; \
+	else \
+		echo ">>> [helm-install] seed-gen-sim completed successfully"; \
+	fi; \
+	echo ""; \
+	echo ">>> [helm-install] 3/3 Printing OpenShift Route URLs"; \
+	$(MAKE) --no-print-directory print-routes; \
+	if [ "$$seed_rc" -ne 0 ]; then \
+		echo ">>> [helm-install] finished with seed warning (exit $$seed_rc)"; \
+		exit $$seed_rc; \
+	fi; \
+	echo ">>> [helm-install] complete"
 
 .PHONY: helm-upgrade
 helm-upgrade: helm-deps
