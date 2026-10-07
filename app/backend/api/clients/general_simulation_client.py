@@ -31,14 +31,28 @@ class GeneralSimulationClient:
         validate: Callable[[Any], dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
         """HTTP JSON from gen-sim with shared timeout/HTTP error handling."""
+        url = f"{self.base_url}{path}"
+        verb = method.upper()
         try:
-            resp = self._session.request(
-                method,
-                f"{self.base_url}{path}",
-                params=params or {},
-                json=json_body,
-                timeout=timeout,
-            )
+            # Prefer get/post so callers (and tests) can mock session.get/post.
+            if verb == "GET":
+                resp = self._session.get(url, params=params or {}, timeout=timeout)
+            elif verb == "POST":
+                # Omit json/params when unused so call kwargs match prior client shape.
+                post_kwargs: dict[str, Any] = {"timeout": timeout}
+                if params:
+                    post_kwargs["params"] = params
+                if json_body is not None:
+                    post_kwargs["json"] = json_body
+                resp = self._session.post(url, **post_kwargs)
+            else:
+                req_kwargs: dict[str, Any] = {
+                    "params": params or {},
+                    "timeout": timeout,
+                }
+                if json_body is not None:
+                    req_kwargs["json"] = json_body
+                resp = self._session.request(verb, url, **req_kwargs)
             resp.raise_for_status()
             data = resp.json()
             if validate is not None:
@@ -143,7 +157,7 @@ class GeneralSimulationClient:
             "/admin/entities/geojson",
             params=params,
             timeout=60,
-            label="get_entities_geojson",
+            label="geojson",
         )
 
     def create_event(

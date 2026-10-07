@@ -70,7 +70,7 @@ OPENSKY_TIMEOUT="$(python3 -c 'import json,sys; print(json.loads(sys.argv[1])["o
 
 if [[ "${NETWORK_COUNT}" -gt 0 ]]; then
   [[ -f "${GENERAL_SIM_DIR}/scripts/seed_network_overlay.py" ]] || fail \
-    "Missing ${GENERAL_SIM_DIR}/scripts/seed_network_overlay.py (pin vendor/general-simulation to a commit that includes network YAML seeding, e.g. 07b4b4eb / feat/nested-cargo-yaml — not plain origin/development)"
+    "Missing ${GENERAL_SIM_DIR}/scripts/seed_network_overlay.py (pin vendor/general-simulation to a commit that includes network YAML seeding, e.g. d9cf443 / feat/nested-cargo-yaml — not plain origin/development)"
 fi
 if [[ "${OPENSKY_ENABLED}" == "1" ]]; then
   [[ -f "${GENERAL_SIM_DIR}/scripts/seed_opensky_live.py" ]] || fail "Missing ${GENERAL_SIM_DIR}/scripts/seed_opensky_live.py"
