@@ -91,6 +91,15 @@ general-simulation:
     # SCC off skips ServiceAccount/neo4j-sa; the chart still defaults to it.
     podSpec:
       serviceAccountName: default
+    # Image USER is "neo4j" (non-numeric). Kind rejects runAsNonRoot without a
+    # numeric UID; OpenShift restricted SCC injects one (gen-sim leaves null).
+    securityContext:
+      runAsUser: 7474
+      runAsGroup: 7474
+      fsGroup: 7474
+    containerSecurityContext:
+      runAsUser: 7474
+      runAsGroup: 7474
     neo4j:
       resources:
         # Official neo4j chart fails helm template below 2Gi — this is the floor.
