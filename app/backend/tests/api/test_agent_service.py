@@ -9,34 +9,14 @@ def _make_mock_llama_stack() -> MagicMock:
     return client
 
 
-def _make_mock_sim_client() -> MagicMock:
-    client = MagicMock()
-    client.query.return_value = {
-        "answer": "The UK airspace closure affects 12 cargo flights.",
-        "scenario_id": "uk-closure-001",
-        "question": "Which flights are affected?",
-        "affected_entities": ["FLT001", "FLT002", "FLT003"],
-        "solver": {
-            "impact_score": 0.75,
-            "total_value_at_risk": 4500000.0,
-            "currency": "USD",
-        },
-        "tool_call_trace": [
-            {"tool_name": "get_affected_subgraph", "arguments": {}, "output": {}}
-        ],
-    }
-    return client
-
-
 class TestAgentService:
     def test_tools_are_registered(self):
         service = AgentService(_make_mock_llama_stack())
-        assert len(service.tools) == 4
+        assert len(service.tools) == 3
         names = {t.name for t in service.tools}
         assert names == {
             "news_knowledge_base",
             "knowledge_base",
-            "general_simulation",
             "fetch_news",
         }
 
@@ -47,10 +27,10 @@ class TestAgentService:
         assert names == {
             "news_knowledge_base",
             "knowledge_base",
-            "general_simulation",
             "fetch_news",
         }
         assert all(s["type"] == "function" for s in schemas)
+        assert "general_simulation" not in names
 
     def test_news_knowledge_base_tool_success(self):
         news_store = MagicMock()
@@ -181,95 +161,16 @@ class TestAgentService:
         assert result.success is False
         assert "search failed" in result.error
 
-    def test_general_simulation_tool_success(self):
-        sim_client = _make_mock_sim_client()
-        service = AgentService(
-            _make_mock_llama_stack(),
-            general_simulation_client=sim_client,
-        )
-        result = service.run_tool(
-            "general_simulation",
-            question="Which flights are affected by the UK airspace closure?",
-            scenario_id="uk-closure-001",
-        )
-        assert result.success is True
-        assert "FLT001" in result.output
-        assert "0.75" in result.output
-        sim_client.query.assert_called_once_with(
-            "Which flights are affected by the UK airspace closure?",
-            "uk-closure-001",
-        )
-
-    def test_general_simulation_tool_empty_question(self):
-        service = AgentService(
-            _make_mock_llama_stack(),
-            general_simulation_client=_make_mock_sim_client(),
-        )
-        result = service.run_tool(
-            "general_simulation",
-            question="   ",
-            scenario_id="uk-closure-001",
-        )
-        assert result.success is False
-        assert "question" in result.error
-
-    def test_general_simulation_tool_empty_scenario_id(self):
-        service = AgentService(
-            _make_mock_llama_stack(),
-            general_simulation_client=_make_mock_sim_client(),
-        )
+    def test_general_simulation_is_not_a_chat_tool(self):
+        service = AgentService(_make_mock_llama_stack())
+        assert service.get_tool("general_simulation") is None
         result = service.run_tool(
             "general_simulation",
             question="Which flights are affected?",
-            scenario_id="",
-        )
-        assert result.success is False
-        assert "scenario_id" in result.error
-
-    def test_general_simulation_tool_propagates_error(self):
-        sim_client = _make_mock_sim_client()
-        sim_client.query.return_value = {"error": "Service unavailable"}
-        service = AgentService(
-            _make_mock_llama_stack(),
-            general_simulation_client=sim_client,
-        )
-        result = service.run_tool(
-            "general_simulation",
-            question="Which flights?",
             scenario_id="uk-closure-001",
         )
         assert result.success is False
-        assert "Service unavailable" in result.error
-
-    def test_general_simulation_tool_no_entities(self):
-        sim_client = _make_mock_sim_client()
-        sim_client.query.return_value = {
-            "answer": "No entities affected.",
-            "scenario_id": "empty-001",
-            "question": "Is anything affected?",
-            "affected_entities": [],
-            "solver": {},
-            "tool_call_trace": [],
-        }
-        service = AgentService(
-            _make_mock_llama_stack(),
-            general_simulation_client=sim_client,
-        )
-        result = service.run_tool(
-            "general_simulation",
-            question="Is anything affected?",
-            scenario_id="empty-001",
-        )
-        assert result.success is True
-        assert "none" in result.output
-
-    def test_general_simulation_tool_spec_params(self):
-        service = AgentService(_make_mock_llama_stack())
-        tool = service.get_tool("general_simulation")
-        assert tool is not None
-        assert "question" in tool.parameters["properties"]
-        assert "scenario_id" in tool.parameters["properties"]
-        assert tool.parameters["required"] == ["question"]
+        assert "Unknown tool" in result.error
 
     def test_fetch_news_tool_success(self):
         news_client = MagicMock()

@@ -1,5 +1,5 @@
 import PropTypes from "prop-types";
-import { useCallback } from "react";
+import { useCallback, useEffect } from "react";
 import { ImpactMapPanel } from "./ImpactMapPanel";
 import { ImpactQueryPanel } from "./ImpactQueryPanel";
 import { ImpactResultsPanel } from "./ImpactResultsPanel";
@@ -12,6 +12,7 @@ export function ImpactSimulationPage({
   chatSimulation = null,
   chatLoading = false,
   onSendPrompt,
+  onImpactResultChange,
 }) {
   const sim = useImpactSimulation({
     initialScenarioId,
@@ -19,6 +20,10 @@ export function ImpactSimulationPage({
     chatSimulation,
     chatLoading,
   });
+
+  useEffect(() => {
+    onImpactResultChange?.(sim.result);
+  }, [onImpactResultChange, sim.result]);
 
   const handleRunSuggestedPrompt = useCallback(
     (prompt) => {
@@ -90,4 +95,5 @@ ImpactSimulationPage.propTypes = {
   chatSimulation: PropTypes.object,
   chatLoading: PropTypes.bool,
   onSendPrompt: PropTypes.func,
+  onImpactResultChange: PropTypes.func,
 };

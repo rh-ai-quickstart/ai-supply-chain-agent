@@ -15,6 +15,7 @@ function App() {
   const [isLightTheme, setIsLightTheme] = useState(false);
   const [isCreateScenarioOpen, setIsCreateScenarioOpen] = useState(false);
   const [createScenarioInitialPrompt, setCreateScenarioInitialPrompt] = useState("");
+  const [impactResult, setImpactResult] = useState(null);
   const { activeView, activeScenarioId, setActiveScenarioId, syncScenarioHash, navigate } =
     useHashRoute();
   const { vectorStores, vectorStoresError, reloadVectorStores } = useVectorStores();
@@ -31,7 +32,12 @@ function App() {
     handleSubmitChat,
     knowledgeBaseName,
     sendPrompt,
-  } = useChatSession({ vectorStores, vectorStoresError, activeScenarioId });
+  } = useChatSession({
+    vectorStores,
+    vectorStoresError,
+    activeScenarioId,
+    impactResult,
+  });
   const { newsItems, newsLoading } = useNewsFeed(chatLoading);
 
   const handleOpenCreateScenario = useCallback((prompt = "") => {
@@ -69,12 +75,17 @@ function App() {
       const nextId = scenarioId || "";
       if (nextId !== activeScenarioId) {
         abortActiveStream();
+        setImpactResult(null);
       }
       setActiveScenarioId(nextId);
       syncScenarioHash(nextId);
     },
     [abortActiveStream, activeScenarioId, setActiveScenarioId, syncScenarioHash],
   );
+
+  const handleImpactResultChange = useCallback((result) => {
+    setImpactResult(result && typeof result === "object" ? result : null);
+  }, []);
 
   const isKnowledgeBases = activeView === "knowledge-bases";
 
@@ -107,6 +118,7 @@ function App() {
                 chatSimulation={chatSimulation}
                 chatLoading={chatLoading}
                 onSendPrompt={sendPrompt}
+                onImpactResultChange={handleImpactResultChange}
               />
               <ChatBar
                 chatInput={chatInput}

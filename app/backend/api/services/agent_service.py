@@ -1,17 +1,17 @@
 from dataclasses import dataclass
 from typing import Any, Callable, Optional
 
-from clients.general_simulation_client import GeneralSimulationClient
 from clients.llama_stack_client import LlamaStackClient
 from clients.news_client import NewsClient
-from services.general_simulation_service import GeneralSimulationService
 from services.news_service import NewsService
 from services.news_vector_store_service import NewsVectorStoreService
 from logging_config import getLogger
 
 logger = getLogger(__name__)
 
-_LLM_TOOL_NAMES = ("news_knowledge_base", "knowledge_base", "general_simulation", "fetch_news")
+# general_simulation is intentionally omitted: Impact Query owns that path;
+# exposing it in general chat caused excessive / noisy tool calls.
+_LLM_TOOL_NAMES = ("news_knowledge_base", "knowledge_base", "fetch_news")
 
 
 @dataclass(frozen=True)
@@ -59,14 +59,10 @@ class AgentService:
     def __init__(
         self,
         llama_stack_client: LlamaStackClient,
-        general_simulation_client: GeneralSimulationClient | None = None,
         news_client: NewsClient | None = None,
         news_vector_store: NewsVectorStoreService | None = None,
     ):
         self._llama_client = llama_stack_client
-        self._sim_service = GeneralSimulationService(
-            client=general_simulation_client or GeneralSimulationClient(),
-        )
         self._news_service = NewsService(client=news_client or NewsClient())
         self._news_vector_store = news_vector_store
         self._tools: dict[str, ToolSpec] = {}
@@ -110,37 +106,6 @@ class AgentService:
             fn=self._run_knowledge_base,
         )
         self._tools[knowledge_base.name] = knowledge_base
-
-        general_simulation = ToolSpec(
-            name="general_simulation",
-            description=(
-                "Run a what-if / impact simulation for an active scenario "
-                "(airspace closure, port strike, canal blockage, etc.). "
-                "Use for questions about affected entities, value at risk, or diversions."
-            ),
-            parameters={
-                "type": "object",
-                "properties": {
-                    "question": {
-                        "type": "string",
-                        "description": (
-                            "Natural-language question about the simulation scenario "
-                            "(e.g. 'Which flights are affected by the UK airspace closure?')"
-                        ),
-                    },
-                    "scenario_id": {
-                        "type": "string",
-                        "description": (
-                            "ID of the simulation scenario. Optional when the UI already "
-                            "has an active scenario selected."
-                        ),
-                    },
-                },
-                "required": ["question"],
-            },
-            fn=self._run_general_simulation,
-        )
-        self._tools[general_simulation.name] = general_simulation
 
         fetch_news = ToolSpec(
             name="fetch_news",
@@ -266,40 +231,6 @@ class AgentService:
             success=True,
             output=context,
             data=context,
-        )
-
-    def _run_general_simulation(self, question: str, scenario_id: str = "") -> ToolResult:
-        if not question or not question.strip():
-            return ToolResult(success=False, output="", error="question is required")
-        if not scenario_id or not scenario_id.strip():
-            return ToolResult(success=False, output="", error="scenario_id is required")
-
-        result = self._sim_service.run_simulation(question, scenario_id)
-        if not result.get("success"):
-            return ToolResult(
-                success=False,
-                output="",
-                error=result.get("error", "simulation failed"),
-            )
-
-        answer = result.get("answer", "")
-        entities = result.get("affected_entities", [])
-        solver = result.get("solver", {})
-        trace = result.get("tool_call_trace", [])
-
-        summary = (
-            f"Simulation result for scenario '{scenario_id}':\n\n"
-            f"{answer}\n\n"
-            f"Affected entities ({len(entities)}): {', '.join(entities) if entities else 'none'}\n"
-            f"Impact score: {solver.get('impact_score', 'N/A')}\n"
-            f"Value at risk: {solver.get('total_value_at_risk', 'N/A')} {solver.get('currency', 'USD')}\n"
-            f"Tool calls made: {len(trace)}"
-        )
-
-        return ToolResult(
-            success=True,
-            output=summary,
-            data=result,
         )
 
     def _run_fetch_news(self, limit: int = 12) -> ToolResult:

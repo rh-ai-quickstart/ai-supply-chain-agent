@@ -21,11 +21,14 @@ def _sse_event(payload: dict[str, Any]) -> str:
 def _parse_chat_payload(payload: dict[str, Any]) -> dict[str, Any]:
     raw_vs = payload.get("vector_store_id") or payload.get("vectorStoreId") or ""
     raw_scenario = payload.get("scenario_id") or payload.get("scenarioId") or ""
+    raw_impact = payload.get("impact_result") or payload.get("impactResult")
+    impact_result = raw_impact if isinstance(raw_impact, dict) else None
     return {
         "user_input": payload.get("input", ""),
         "chat_history": payload.get("chat_history") or [],
         "vector_store_id": str(raw_vs).strip() or None,
         "scenario_id": str(raw_scenario).strip() or None,
+        "impact_result": impact_result,
         "use_vllm": bool(payload.get("use_vllm", True)),
         "stream": bool(payload.get("stream", False)),
     }
@@ -57,6 +60,7 @@ def create_blueprint(container: Container) -> Blueprint:
                     vector_store_id=args["vector_store_id"],
                     use_vllm=args["use_vllm"],
                     scenario_id=args["scenario_id"],
+                    impact_result=args["impact_result"],
                 ):
                     yield _sse_event(event)
 
@@ -77,6 +81,7 @@ def create_blueprint(container: Container) -> Blueprint:
                 vector_store_id=args["vector_store_id"],
                 use_vllm=args["use_vllm"],
                 scenario_id=args["scenario_id"],
+                impact_result=args["impact_result"],
             )
         )
 

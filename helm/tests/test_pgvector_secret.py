@@ -265,15 +265,28 @@ def test_kind_overlay_does_not_require_pgvector_or_neo4j_sa() -> None:
     )
 
     neo4j_sa = None
+    neo4j_run_as_user = None
+    postgres_run_as_user = None
     gen_sim_images = _collect_gen_sim_images(manifest)
     for doc in docs:
         kind = doc.get("kind")
         name = (doc.get("metadata") or {}).get("name")
         if kind == "StatefulSet" and name == "neo4j":
-            neo4j_sa = doc["spec"]["template"]["spec"].get("serviceAccountName")
+            pod_spec = doc["spec"]["template"]["spec"]
+            neo4j_sa = pod_spec.get("serviceAccountName")
+            neo4j_run_as_user = (pod_spec.get("securityContext") or {}).get("runAsUser")
+        if kind == "StatefulSet" and name == "postgres":
+            pod_spec = doc["spec"]["template"]["spec"]
+            postgres_run_as_user = (pod_spec.get("securityContext") or {}).get("runAsUser")
 
     assert neo4j_sa == "default", (
         f"Kind Neo4j StatefulSet must use ServiceAccount default, got {neo4j_sa!r}"
+    )
+    assert neo4j_run_as_user == 7474, (
+        f"Kind Neo4j must set numeric runAsUser 7474 (image USER is neo4j), got {neo4j_run_as_user!r}"
+    )
+    assert postgres_run_as_user == 999, (
+        f"Kind postgres must set numeric runAsUser 999, got {postgres_run_as_user!r}"
     )
     assert gen_sim_images, "Kind overlay must render general-sim platform images"
     assert all(image.startswith("quay.io/") for image in gen_sim_images), (
