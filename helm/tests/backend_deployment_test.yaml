@@ -63,6 +63,12 @@ tests:
       - equal:
           path: spec.template.spec.securityContext.runAsNonRoot
           value: true
+      - equal:
+          path: spec.template.spec.initContainers[0].name
+          value: wait-for-llamastack
+      - lengthEqual:
+          path: spec.template.spec.initContainers
+          count: 1
 
   - it: uses any stack model id configured on gen-sim api
     set:

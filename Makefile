@@ -266,6 +266,11 @@ HELM_TEST ?= make helm-test
 test: test-backend test-frontend test-helm
 	@echo ">>> All tests passed."
 
+.PHONY: test-backend-deps
+test-backend-deps:
+	@echo ">>> Installing backend test dependencies (requirements-dev.txt)..."
+	python -m pip install -r app/backend/requirements-dev.txt
+
 .PHONY: test-backend
 test-backend:
 	@echo ">>> Running backend tests..."
