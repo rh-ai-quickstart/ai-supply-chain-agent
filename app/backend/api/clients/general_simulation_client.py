@@ -88,12 +88,46 @@ class GeneralSimulationClient:
             logger.error("GeneralSimulation list_scenarios failed: %s", exc)
             return {"error": str(exc)}
 
+    def list_entities(
+        self,
+        *,
+        entity_type: str | None = None,
+        limit: int = 500,
+        offset: int = 0,
+    ) -> dict[str, Any]:
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        if entity_type:
+            params["type"] = entity_type
+        try:
+            resp = self._session.get(
+                f"{self.base_url}/admin/entities",
+                params=params,
+                timeout=60,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            if isinstance(data, dict):
+                return data
+            return {"error": "Unexpected entities response shape"}
+        except requests.Timeout:
+            logger.error("GeneralSimulation list_entities timed out")
+            return {"error": "Request timed out after 60s"}
+        except requests.HTTPError as exc:
+            status = exc.response.status_code
+            detail = exc.response.text[:500] if exc.response.text else ""
+            logger.error("GeneralSimulation list_entities HTTP %s: %s", status, detail)
+            return {"error": f"HTTP {status}: {detail}"}
+        except (requests.RequestException, ValueError, TypeError) as exc:
+            logger.error("GeneralSimulation list_entities failed: %s", exc)
+            return {"error": str(exc)}
+
     def get_entities_geojson(
         self,
         *,
         bbox: str | None = None,
         ids: list[str] | None = None,
         limit: int | None = None,
+        entity_type: str | None = None,
     ) -> dict[str, Any]:
         params: dict[str, Any] = {}
         if bbox:
@@ -102,6 +136,8 @@ class GeneralSimulationClient:
             params["ids"] = ",".join(ids)
         if limit is not None:
             params["limit"] = limit
+        if entity_type:
+            params["type"] = entity_type
         try:
             resp = self._session.get(
                 f"{self.base_url}/admin/entities/geojson",

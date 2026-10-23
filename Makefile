@@ -343,31 +343,37 @@ helm-deps:
 	helm dependency update $(HELM_CHART)
 	@$(MAKE) --no-print-directory helm-patch-scc
 
-# Workaround for general-simulation creating ClusterRoleBindings (cluster-scoped)
-# to grant the anyuid SCC, which forces every installer to have cluster-admin.
-# Patches them to namespace-scoped RoleBindings referencing the same
-# ClusterRole (system:openshift:scc:anyuid) — namespace `admin` is sufficient
-# for that, matching how `oc adm policy add-scc-to-user` works. Remove this
-# target and the call to it in helm-deps once general-simulation ships the fix
-# upstream.
+# Compatibility shim: older general-simulation charts used ClusterRoleBindings
+# (cluster-scoped) for the anyuid SCC. Current upstream already ships
+# namespace-scoped RoleBindings — skip when already patched/fixed.
 .PHONY: helm-patch-scc
 helm-patch-scc:
-	@echo ">>> Patching general-simulation SCC bindings (ClusterRoleBinding -> RoleBinding; avoids needing cluster-admin)"
-# 	@set -eu; \
-# 	TGZ=$$(ls $(HELM_CHART)/charts/general-simulation-*.tgz 2>/dev/null | head -1); \
-# 	if [ -z "$$TGZ" ]; then echo "  (no general-simulation chart found — skipping)"; exit 0; fi; \
-# 	TMPDIR=$$(mktemp -d); \
-# 	COPYFILE_DISABLE=1 tar xzf "$$TGZ" -C "$$TMPDIR"; \
-# 	FOUND=0; \
-# 	for f in $$(find "$$TMPDIR/general-simulation/templates" -name 'scc-binding.yaml' -type f | sort); do \
-# 	  FOUND=1; \
-# 	  grep -q '^kind: ClusterRoleBinding$$' "$$f" || { echo "ERROR: 'kind: ClusterRoleBinding' not found in $$f (chart content changed — patch needs updating)"; rm -rf "$$TMPDIR"; exit 1; }; \
-# 	  sed -i '' 's/^kind: ClusterRoleBinding$$/kind: RoleBinding/' "$$f" 2>/dev/null || sed -i 's/^kind: ClusterRoleBinding$$/kind: RoleBinding/' "$$f"; \
-# 	  echo "  patched $$f"; \
-# 	done; \
-# 	if [ "$$FOUND" -eq 0 ]; then echo "ERROR: no scc-binding.yaml templates found under general-simulation (chart layout changed?)"; rm -rf "$$TMPDIR"; exit 1; fi; \
-# 	COPYFILE_DISABLE=1 tar czf "$$TGZ" -C "$$TMPDIR" general-simulation; \
-# 	rm -rf "$$TMPDIR"
+	@echo ">>> Checking general-simulation SCC bindings (ClusterRoleBinding -> RoleBinding if needed)"
+	@set -eu; \
+	TGZ=$$(ls $(HELM_CHART)/charts/general-simulation-*.tgz 2>/dev/null | head -1); \
+	if [ -z "$$TGZ" ]; then echo "  (no general-simulation chart found — skipping)"; exit 0; fi; \
+	TMPDIR=$$(mktemp -d); \
+	COPYFILE_DISABLE=1 tar xzf "$$TGZ" -C "$$TMPDIR"; \
+	FOUND=0; \
+	PATCHED=0; \
+	for f in $$(find "$$TMPDIR/general-simulation/templates" -name 'scc-binding.yaml' -type f | sort); do \
+	  FOUND=1; \
+	  if grep -q '^kind: RoleBinding$$' "$$f"; then \
+	    echo "  already RoleBinding — $$f (skipping)"; \
+	  elif grep -q '^kind: ClusterRoleBinding$$' "$$f"; then \
+	    sed -i '' 's/^kind: ClusterRoleBinding$$/kind: RoleBinding/' "$$f" 2>/dev/null || sed -i 's/^kind: ClusterRoleBinding$$/kind: RoleBinding/' "$$f"; \
+	    echo "  patched $$f"; \
+	    PATCHED=1; \
+	  else \
+	    echo "ERROR: neither RoleBinding nor ClusterRoleBinding found in $$f"; \
+	    rm -rf "$$TMPDIR"; exit 1; \
+	  fi; \
+	done; \
+	if [ "$$FOUND" -eq 0 ]; then echo "ERROR: no scc-binding.yaml templates found under general-simulation (chart layout changed?)"; rm -rf "$$TMPDIR"; exit 1; fi; \
+	if [ "$$PATCHED" -eq 1 ]; then \
+	  COPYFILE_DISABLE=1 tar czf "$$TGZ" -C "$$TMPDIR" general-simulation; \
+	fi; \
+	rm -rf "$$TMPDIR"
 
 .PHONY: helm-deps-local
 helm-deps-local: helm-deps

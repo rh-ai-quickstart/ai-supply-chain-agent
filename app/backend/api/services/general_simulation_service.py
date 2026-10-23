@@ -47,14 +47,40 @@ class GeneralSimulationService:
             "scenarios": result.get("scenarios", []),
         }
 
+    def list_entities(
+        self,
+        *,
+        entity_type: str | None = None,
+        limit: int = 500,
+        offset: int = 0,
+    ) -> dict[str, Any]:
+        result = self._client.list_entities(
+            entity_type=entity_type,
+            limit=limit,
+            offset=offset,
+        )
+        if "error" in result:
+            return {"success": False, "error": result["error"], "items": []}
+        return {
+            "success": True,
+            "items": result.get("items", []),
+            "total": result.get("total", 0),
+        }
+
     def get_entities_geojson(
         self,
         *,
         bbox: str | None = None,
         ids: list[str] | None = None,
         limit: int | None = None,
+        entity_type: str | None = None,
     ) -> dict[str, Any]:
-        result = self._client.get_entities_geojson(bbox=bbox, ids=ids, limit=limit)
+        result = self._client.get_entities_geojson(
+            bbox=bbox,
+            ids=ids,
+            limit=limit,
+            entity_type=entity_type,
+        )
         if "error" in result:
             return {"success": False, "error": result["error"]}
         return {

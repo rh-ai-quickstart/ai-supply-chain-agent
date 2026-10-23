@@ -429,6 +429,7 @@ oc delete project supply-chain-dashboard
 ## Reference
 
 - [What to expect after deployment](./docs/WHAT_TO_EXPECT.md)
+- [Supply-chain KPIs](./docs/KPIS.md) — formulas, data sources, and healthy vs disrupted modes
 - [OGX documentation](https://ogx.readthedocs.io)
 - [LangChain PGVector integration](https://python.langchain.com/docs/integrations/vectorstores/pgvector/)
 - [React Leaflet](https://react-leaflet.js.org/)
