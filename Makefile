@@ -728,7 +728,7 @@ seed: seed-gen-sim seed-opensky
 
 .PHONY: submodule-init
 submodule-init:
-	@echo ">>> Initializing git submodules (general-simulation @ development)"
+	@echo ">>> Initializing git submodules (general-simulation @ main)"
 	git submodule update --init --recursive
 
 # ============================================================

@@ -10,7 +10,7 @@ dependencies:
   # general-simulation — packaged from the git submodule (vendor/).
   #
   # Published chart: https://rh-ai-quickstart.github.io/general-simulation
-  # Submodule tracks general-simulation development; run `make submodule-init` after clone.
+  # Submodule tracks general-simulation main; run `make submodule-init` after clone.
   - name: general-simulation
     version: 1.0.1
     repository: file://../vendor/general-simulation/deploy/helm
