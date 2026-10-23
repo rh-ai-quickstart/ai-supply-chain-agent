@@ -23,6 +23,40 @@ spec:
         runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
+      initContainers:
+        # Backend connects to Postgres at import time; block until SQL is accepting connections.
+        - name: wait-for-postgres
+          image: {{ include "supply-chain.containerImage" (dict "image" (dict "name" .Values.global.images.postgres) "global" .Values.global) | quote }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+          command:
+            - sh
+            - -c
+            - |
+              echo "Waiting for Postgres at {{ .Values.backend.env.PG_HOST }}:{{ .Values.backend.env.PG_PORT }} ..."
+              until pg_isready -h {{ .Values.backend.env.PG_HOST }} -p {{ .Values.backend.env.PG_PORT }} -U {{ .Values.backend.env.PG_USER }}; do
+                echo "  Postgres not ready — retrying in 5s"
+                sleep 5
+              done
+              echo "Postgres is up."
+        - name: wait-for-llamastack
+          image: quay.io/quay/busybox:latest
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+          command:
+            - sh
+            - -c
+            - |
+              echo "Waiting for llamastack at {{ .Values.backend.env.LLAMA_STACK_URL }}/v1/models ..."
+              until wget -qO- {{ .Values.backend.env.LLAMA_STACK_URL }}/v1/models > /dev/null 2>&1; do
+                echo "  llamastack not ready — retrying in 5s"
+                sleep 5
+              done
+              echo "llamastack is up."
       containers:
         - name: backend
           securityContext:
