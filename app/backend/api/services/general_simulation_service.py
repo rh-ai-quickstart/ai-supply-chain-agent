@@ -60,11 +60,13 @@ class GeneralSimulationService:
             offset=offset,
         )
         if "error" in result:
-            return {"success": False, "error": result["error"], "items": []}
+            return {"success": False, "error": result["error"], "items": [], "total": 0}
         return {
             "success": True,
             "items": result.get("items", []),
             "total": result.get("total", 0),
+            "limit": result.get("limit", limit),
+            "offset": result.get("offset", offset),
         }
 
     def get_entities_geojson(

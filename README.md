@@ -267,7 +267,7 @@ You will not yet see any flight data as we still need to seed flight information
 
 The step seeds default scenarios, the network YAML files listed in the Helm values file, and live flights from OpenSky. Since OpenSky often blocks access from hyperscalers, the flight pull runs on your client system and then writes into the quickstart.
 
-If you used a different namespace by setting `NAMESPACE=XXX` when you installed the quickstart, pass `GEN_SIM_NAMESPACE=XXX` on the seed commands below.
+If you used a different namespace by setting NAMESPACE=XXX when you installed the quickstart you must use GEN_SIM_NAMESPACE=XXX in the command in this section.
 
 Which YAML files run, and how many live flights are imported, is the `seed` block in `helm/values.yaml` (or whichever file you pass as `VALUES_FILE`). `seed.networkFiles` is imported in order. `seed.opensky.max` is the number of live aircraft to keep (`0` means unlimited). Set `seed.opensky.enabled` to `false` to skip the OpenSky pull. The default imports `data/supply-chain-network.example.yaml` and 50 flights.
 
@@ -277,7 +277,21 @@ First seed the scenarios:
 make seed-gen-sim
 ```
 
-Then import the network YAML and live flights:
+Optionally merge custom airports, ports, flights, cargo, and SKU inventory from YAML (overlays the base demo; same entity ids upsert, new ids add). Copy the example, edit your local file (gitignored), or point `NETWORK_YAML` at another path. Schema reference: `data/supply-chain-network.example.yaml` (also mirrored in `vendor/general-simulation/tests/fixtures/supply_chain_network.example.yaml`).
+
+Cargo can be nested under `flights[]` / `vessels[]` (`carrier_id` inferred from the parent) or declared top-level with `carrier_id`. When `sku_ref` matches an `inventory_skus` id, `commodity` and `unit_price_usd` may be omitted and are filled from the SKU.
+
+```bash
+cp data/supply-chain-network.example.yaml data/supply-chain-network.yaml
+# Edit data/supply-chain-network.yaml as needed, then:
+make seed-customer-data
+# Use a workspace fork instead of the submodule (must include nested-cargo YAML support):
+GENERAL_SIM_DIR=../general-simulation make seed-customer-data
+```
+
+If `data/supply-chain-network.yaml` is missing, `make seed-customer-data` falls back to the committed example automatically.
+
+Next install flight data from the OpenSky Data API. 
 
 ```bash
 make seed-opensky GEN_SIM_NAMESPACE=supply-chain-dashboard

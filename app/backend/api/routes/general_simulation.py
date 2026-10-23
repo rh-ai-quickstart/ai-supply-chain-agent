@@ -1,4 +1,4 @@
-"""General-simulation query/scenarios/entities-geojson proxy routes."""
+"""General-simulation query, scenarios, entities list, and entities-geojson proxy routes."""
 
 from __future__ import annotations
 
@@ -21,6 +21,24 @@ def create_blueprint(container: Container) -> Blueprint:
     @bp.route("/api/v1/general-simulation/scenarios", methods=["GET"])
     def get_general_simulation_scenarios():
         result = container.general_simulation_service.list_scenarios()
+        status = 200 if result.get("success") else 502
+        return jsonify(result), status
+
+    @bp.route("/api/v1/general-simulation/entities", methods=["GET"])
+    def get_general_simulation_entities():
+        entity_type = request.args.get("type") or None
+        limit_raw = request.args.get("limit", "500")
+        offset_raw = request.args.get("offset", "0")
+        try:
+            limit = int(limit_raw)
+            offset = int(offset_raw)
+        except (TypeError, ValueError):
+            return jsonify({"success": False, "error": "limit and offset must be integers"}), 400
+        result = container.general_simulation_service.list_entities(
+            entity_type=entity_type,
+            limit=limit,
+            offset=offset,
+        )
         status = 200 if result.get("success") else 502
         return jsonify(result), status
 
