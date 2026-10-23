@@ -10,7 +10,7 @@ from services.guardrail_policy import GUARDRAIL_RESPONSE
 
 @pytest.fixture
 def chat_service(mock_llama_stack_client):
-    return ChatService(mock_llama_stack_client, vector_store_client=None)
+    return ChatService(mock_llama_stack_client)
 
 
 def test_guardrail_blocks_off_topic(chat_service):
@@ -48,7 +48,7 @@ def test_latest_user_text_prefers_history():
     }
     agent = MagicMock()
     agent.openai_tools.return_value = []
-    svc = ChatService(mock_llama, vector_store_client=None, agent_service=agent)
+    svc = ChatService(mock_llama, agent_service=agent)
     history = [
         {"role": "human", "content": "first"},
         {"role": "ai", "content": "mid"},
@@ -73,25 +73,6 @@ def test_map_chat_history_roles():
     ]
 
 
-def test_retrieve_context_via_pgvector_client_fallback():
-    mock_llama = MagicMock()
-    mock_llama.ask_with_tools.return_value = {
-        "answer": "ok",
-        "completion": None,
-        "tool_calls_made": [],
-    }
-    agent = MagicMock()
-    agent.openai_tools.return_value = []
-    doc = MagicMock()
-    doc.page_content = "doc a"
-    vs = MagicMock()
-    vs.similarity_search.return_value = [doc]
-    svc = ChatService(mock_llama, vector_store_client=vs, agent_service=agent)
-    svc.reply("query text", chat_history=[], vector_store_id=None)
-    vs.similarity_search.assert_called_once_with("query text", k=3)
-    ctx = mock_llama.ask_with_tools.call_args.kwargs["context"]
-    assert ctx == "doc a"
-
 
 def test_reply_stream_guardrail(chat_service):
     events = list(chat_service.reply_stream("best pizza in town", chat_history=[]))
@@ -106,100 +87,6 @@ def test_reply_stream_delegates_to_llama(chat_service, mock_llama_stack_client):
     assert [e["type"] for e in events] == ["delta", "delta", "done"]
     assert events[-1]["answer"] == "mocked answer"
     mock_llama_stack_client.ask_stream_with_tools.assert_called_once()
-
-
-def test_llm_tool_calling_runs_general_simulation(mock_llama_stack_client):
-    agent = MagicMock()
-    agent.openai_tools.return_value = [
-        {"type": "function", "function": {"name": "general_simulation", "parameters": {}}},
-    ]
-    agent.run_tool.return_value = ToolResult(
-        success=True,
-        output="summary",
-        data={
-            "success": True,
-            "answer": "Three aircraft are affected.",
-            "scenario_id": "opensky-uk-closure-001",
-            "question": "Which flights are affected?",
-            "affected_entities": ["opensky-1"],
-            "solver": {"impact_score": 0.5},
-            "tool_call_trace": [],
-        },
-    )
-
-    def _ask_with_tools(*_args, execute_tool=None, **_kwargs):
-        assert execute_tool is not None
-        execute_tool("general_simulation", {"question": "Which flights are affected?"})
-        return {
-            "answer": "Three aircraft are affected.",
-            "completion": None,
-            "tool_calls_made": [{"name": "general_simulation"}],
-        }
-
-    mock_llama_stack_client.ask_with_tools.side_effect = _ask_with_tools
-    svc = ChatService(
-        mock_llama_stack_client,
-        vector_store_client=None,
-        agent_service=agent,
-    )
-    out = svc.reply(
-        "Which flights are affected?",
-        chat_history=[],
-        scenario_id="opensky-uk-closure-001",
-    )
-    assert out["tool"] == "general_simulation"
-    assert out["answer"] == "Three aircraft are affected."
-    assert out["simulation"]["affected_entities"] == ["opensky-1"]
-    agent.run_tool.assert_called_once_with(
-        "general_simulation",
-        question="Which flights are affected?",
-        scenario_id="opensky-uk-closure-001",
-    )
-
-
-def test_llm_tool_calling_overrides_invented_scenario_id(mock_llama_stack_client):
-    """Small models invent labels like 'UK NATS GPS failure'; prefer UI scenario."""
-    agent = MagicMock()
-    agent.openai_tools.return_value = []
-    agent.run_tool.return_value = ToolResult(
-        success=True,
-        output="summary",
-        data={
-            "success": True,
-            "answer": "ok",
-            "scenario_id": "opensky-uk-closure-001",
-            "question": "Which flights are affected?",
-            "affected_entities": [],
-            "solver": {},
-            "tool_call_trace": [],
-        },
-    )
-
-    def _ask_with_tools(*_args, execute_tool=None, **_kwargs):
-        execute_tool(
-            "general_simulation",
-            {
-                "question": "Which flights are affected by the UK airspace closure?",
-                "scenario_id": "UK NATS GPS failure",
-            },
-        )
-        return {"answer": "ok", "completion": None, "tool_calls_made": []}
-
-    mock_llama_stack_client.ask_with_tools.side_effect = _ask_with_tools
-    svc = ChatService(
-        mock_llama_stack_client,
-        agent_service=agent,
-    )
-    svc.reply(
-        "Which flights are affected?",
-        chat_history=[],
-        scenario_id="opensky-uk-closure-001",
-    )
-    agent.run_tool.assert_called_once_with(
-        "general_simulation",
-        question="Which flights are affected by the UK airspace closure?",
-        scenario_id="opensky-uk-closure-001",
-    )
 
 
 def test_llm_tool_calling_binds_vector_store_for_knowledge_base(mock_llama_stack_client):
@@ -333,7 +220,6 @@ def test_retrieve_context_merges_news_vector_store(mock_llama_stack_client):
     news_store.search.return_value = "News: Suez canal traffic delayed by storm."
     svc = ChatService(
         mock_llama_stack_client,
-        vector_store_client=None,
         news_vector_store=news_store,
     )
     ctx = svc._retrieve_context("what is happening at the suez canal?")
@@ -347,7 +233,7 @@ def test_retrieve_context_merges_news_vector_store(mock_llama_stack_client):
 
 def test_reply_keeps_context_when_history_is_empty(mock_llama_stack_client):
     """Cleared chat (empty history) still retrieves KB context."""
-    svc = ChatService(mock_llama_stack_client, vector_store_client=None)
+    svc = ChatService(mock_llama_stack_client)
     svc.reply(
         "Show me the affected routes",
         chat_history=[],
@@ -367,48 +253,18 @@ def test_reply_keeps_context_when_history_is_empty(mock_llama_stack_client):
 
 
 def test_reply_keeps_scenario_context_when_history_is_empty(mock_llama_stack_client):
-    """Scenario ID is respected even with cleared history."""
-    agent = MagicMock()
-    agent.openai_tools.return_value = [
-        {"type": "function", "function": {"name": "general_simulation", "parameters": {}}},
-    ]
-    agent.run_tool.return_value = ToolResult(
-        success=True,
-        output="summary",
-        data={
-            "success": True,
-            "answer": "ok",
-            "scenario_id": "opensky-uk-closure-001",
-            "question": "What-if impact?",
-            "affected_entities": [],
-            "solver": {},
-            "tool_call_trace": [],
-        },
-    )
-
-    def _ask_with_tools(*_args, execute_tool=None, **_kwargs):
-        assert execute_tool is not None
-        # Execute with empty conversation but context present
-        execute_tool("general_simulation", {"question": "What-if impact?"})
-        return {"answer": "ok", "completion": None, "tool_calls_made": []}
-
-    mock_llama_stack_client.ask_with_tools.side_effect = _ask_with_tools
-    svc = ChatService(
-        mock_llama_stack_client,
-        vector_store_client=None,
-        agent_service=agent,
-    )
+    """Scenario ID is still injected into the LLM prompt with cleared history."""
+    svc = ChatService(mock_llama_stack_client)
     svc.reply(
         "What-if impact?",
         chat_history=[],  # cleared history
         scenario_id="opensky-uk-closure-001",
     )
-    # Scenario ID should still be bound correctly
-    agent.run_tool.assert_called_once_with(
-        "general_simulation",
-        question="What-if impact?",
-        scenario_id="opensky-uk-closure-001",
-    )
+    call_kw = mock_llama_stack_client.ask_with_tools.call_args.kwargs
+    ctx = call_kw["scenario_context"]
+    assert "Active simulation scenario: opensky-uk-closure-001 (UK Airspace Closure)." in ctx
+    assert "NATS GPS failure" in ctx
+    assert call_kw["conversation_messages"] == []
 
 
 def test_map_chat_history_returns_empty_for_cleared_session():
@@ -419,7 +275,7 @@ def test_map_chat_history_returns_empty_for_cleared_session():
 
 def test_reply_with_history_retrieves_context(mock_llama_stack_client):
     """Context is retrieved from vector store when history is non-empty."""
-    svc = ChatService(mock_llama_stack_client, vector_store_client=None)
+    svc = ChatService(mock_llama_stack_client)
     history = [
         {"role": "human", "content": "previous question"},
         {"role": "ai", "content": "previous answer"},
@@ -441,7 +297,7 @@ def test_reply_with_history_retrieves_context(mock_llama_stack_client):
 
 def test_reply_injects_active_scenario_context(mock_llama_stack_client):
     """The active scenario is named in the LLM context block (not only the tool)."""
-    svc = ChatService(mock_llama_stack_client, vector_store_client=None)
+    svc = ChatService(mock_llama_stack_client)
     svc.reply(
         "What is the impact?",
         chat_history=[],
@@ -449,27 +305,77 @@ def test_reply_injects_active_scenario_context(mock_llama_stack_client):
         vector_store_id="vs_abc",
     )
     call_kw = mock_llama_stack_client.ask_with_tools.call_args.kwargs
-    assert call_kw["scenario_context"] == (
-        "Active scenario: opensky-uk-closure-001 (UK Airspace Closure)."
-    )
+    ctx = call_kw["scenario_context"]
+    assert "Active simulation scenario: opensky-uk-closure-001 (UK Airspace Closure)." in ctx
+    assert "Scenario context:" in ctx
     assert call_kw["context"] == "context chunk"  # RAG context still retrieved
 
 
+def test_reply_injects_latest_impact_result(mock_llama_stack_client):
+    """Latest Impact Query payload is appended to the simulation context block."""
+    svc = ChatService(mock_llama_stack_client)
+    svc.reply(
+        "Summarize the impact",
+        chat_history=[],
+        scenario_id="opensky-uk-closure-001",
+        impact_result={
+            "scenario_id": "opensky-uk-closure-001",
+            "question": "Which flights are affected?",
+            "answer": "Three aircraft are affected.",
+            "affected_entities": ["opensky-1", "opensky-2"],
+            "solver": {
+                "impact_score": 0.5,
+                "total_value_at_risk": 1000,
+                "currency": "USD",
+                "value_breakdown": [
+                    {"entity_id": "opensky-2", "value_usd": 200},
+                    {"entity_id": "opensky-1", "value_usd": 800, "callsign": "BAW442"},
+                ],
+            },
+        },
+    )
+    ctx = mock_llama_stack_client.ask_with_tools.call_args.kwargs["scenario_context"]
+    assert "Latest Impact Query result" in ctx
+    assert "Three aircraft are affected." in ctx
+    assert "opensky-1" in ctx
+    assert "impact_score: 0.5" in ctx
+    assert "opensky-1 [flight] (callsign=BAW442): 800 USD" in ctx
+    assert "Do not redirect the user to Impact Query" in ctx
+    assert "No Impact Query snapshot is loaded yet" not in ctx
+
+
+def test_system_prompt_answers_from_loaded_impact_snapshot():
+    from clients.chat_completion_client import SYSTEM_PROMPT
+
+    assert "Latest Impact Query result" in SYSTEM_PROMPT
+    assert "value_breakdown" in SYSTEM_PROMPT
+    assert "inventing simulation results" not in SYSTEM_PROMPT
+    assert "rather than inventing" not in SYSTEM_PROMPT
+
+
+def test_reply_infers_scenario_context_from_user_text(mock_llama_stack_client):
+    """When UI omits scenario_id, seeded clues still inject simulation context."""
+    svc = ChatService(mock_llama_stack_client)
+    svc.reply("What is the UK airspace impact?", chat_history=[], scenario_id="")
+    ctx = mock_llama_stack_client.ask_with_tools.call_args.kwargs["scenario_context"]
+    assert "opensky-uk-closure-001" in ctx
+    assert "NATS GPS failure" in ctx
+
+
 def test_reply_leaves_scenario_context_empty_without_scenario(mock_llama_stack_client):
-    """Without an active scenario, no scenario context block is sent."""
-    svc = ChatService(mock_llama_stack_client, vector_store_client=None)
+    """Without an active scenario or clue, no scenario context block is sent."""
+    svc = ChatService(mock_llama_stack_client)
     svc.reply("What is the impact?", chat_history=[], scenario_id="")
     call_kw = mock_llama_stack_client.ask_with_tools.call_args.kwargs
     assert call_kw["scenario_context"] == ""
 
 
 def test_reply_stream_injects_active_scenario_context(mock_llama_stack_client):
-    svc = ChatService(mock_llama_stack_client, vector_store_client=None)
+    svc = ChatService(mock_llama_stack_client)
     list(svc.reply_stream("What is the impact?", chat_history=[], scenario_id="opensky-uk-closure-001"))
     call_kw = mock_llama_stack_client.ask_stream_with_tools.call_args.kwargs
-    assert call_kw["scenario_context"] == (
-        "Active scenario: opensky-uk-closure-001 (UK Airspace Closure)."
-    )
+    ctx = call_kw["scenario_context"]
+    assert "Active simulation scenario: opensky-uk-closure-001 (UK Airspace Closure)." in ctx
 
 
 def test_scenario_context_block_absent_without_scenario():
@@ -483,7 +389,7 @@ def test_scenario_context_block_absent_without_scenario():
         scenario_context=scenario_context_block(""),
     )
     system = messages[0]["content"]
-    assert "Active scenario" not in system
+    assert "Active simulation scenario" not in system
     assert "Relevant context from the knowledge base" in system
 
 
@@ -498,9 +404,10 @@ def test_scenario_context_block_prepends_scenario_before_kb_context():
         scenario_context=scenario_context_block("supply-chain-port-strike-la"),
     )
     system = messages[0]["content"]
-    assert "Active scenario: supply-chain-port-strike-la (Port Strike LA)." in system
+    assert "Active simulation scenario: supply-chain-port-strike-la (Port Strike LA)." in system
+    assert "Scenario context:" in system
     assert "Relevant context from the knowledge base" in system
-    assert system.index("Active scenario") < system.index("Relevant context")
+    assert system.index("Active simulation scenario") < system.index("Relevant context")
 
 
 def test_system_prompt_lists_all_registered_tools(mock_llama_stack_client):
@@ -513,8 +420,9 @@ def test_system_prompt_lists_all_registered_tools(mock_llama_stack_client):
     assert registered == {
         "news_knowledge_base",
         "knowledge_base",
-        "general_simulation",
         "fetch_news",
     }
+    assert "general_simulation" not in registered
+    assert "general_simulation" not in SYSTEM_PROMPT
     for name in registered:
         assert name in SYSTEM_PROMPT, f"{name!r} must be named in SYSTEM_PROMPT"

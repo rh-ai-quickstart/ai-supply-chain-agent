@@ -7,9 +7,9 @@ REGISTRY        ?= quay.io/rh-ai-quickstart
 BACKEND_IMAGE      ?= $(REGISTRY)/ai-supply-chain-agent-backend
 INGEST_IMAGE       ?= $(REGISTRY)/ai-supply-chain-agent-ingestion
 FRONTEND_IMAGE     ?= $(REGISTRY)/ai-supply-chain-agent-frontend
-BACKEND_TAG        ?= latest
-INGEST_TAG         ?= latest
-FRONTEND_TAG       ?= latest
+BACKEND_TAG        ?= dev
+INGEST_TAG         ?= dev
+FRONTEND_TAG       ?= dev
 GEN_SIM_TAG        ?= $(BACKEND_TAG)
 GEN_SIM_APP_IMAGE  ?= $(REGISTRY)/general-sim-api:$(GEN_SIM_TAG)
 GEN_SIM_POSTGRES_IMAGE ?= $(REGISTRY)/general-sim-postgres:$(GEN_SIM_TAG)
@@ -99,7 +99,7 @@ help:
 	@echo "    helm-lint          Lint the Helm chart"
 	@echo "    helm-test          Run Helm unit tests (helm-unittest)"
 	@echo "    helm-render        Render chart templates to stdout (dry-run)"
-	@echo "    helm-install       Install the Helm release and print Route URLs"
+	@echo "    helm-install       Install the Helm release, seed gen-sim demo data, print Route URLs"
 	@echo "    helm-upgrade-install  helm upgrade --install with REGISTRY / secrets"
 	@echo "    helm-upgrade-install-maas  MaaS profile (VALUES_FILE=helm/values-maas.yaml)"
 	@echo "    helm-upgrade       Upgrade an existing Helm release"
@@ -135,9 +135,10 @@ help:
 	@echo "    ingest-status      Show the status of the ingest Job"
 	@echo ""
 	@echo "  Gen-sim demo data:"
-	@echo "    seed               Demo seed then live OpenSky (seed-gen-sim + seed-opensky-live)"
+	@echo "    seed               Demo seed, then values-driven YAML + OpenSky (seed-opensky)"
 	@echo "    seed-gen-sim       Port-forward Neo4j+Postgres, pull secrets, run seed_demo.py"
-	@echo "    seed-opensky-live  Pull live OpenSky on laptop → upsert into cluster PG+Neo4j"
+	@echo "    seed-customer-data Merge customer network YAML (local or .example) onto base demo"
+	@echo "    seed-opensky       Import seed.networkFiles + live OpenSky from VALUES_FILE"
 	@echo ""
 	@echo "  Full install:"
 	@echo "    install-full       install + ingest + seed (NAMESPACE, MODEL_ID, MODEL_URL, API_KEY)"
@@ -156,9 +157,8 @@ help:
 	@echo "    NAMESPACE          $(NAMESPACE)"
 	@echo "    GEN_SIM_NAMESPACE  (optional) OpenShift ns with gen-sim postgres+neo4j"
 	@echo "    GENERAL_SIM_DIR    $(GENERAL_SIM_DIR)"
-	@echo "    OPENSKY_MAX        $(OPENSKY_MAX)  (seed-opensky-live cap; 0=unlimited)"
 	@echo "    HELM_RELEASE       $(HELM_RELEASE)"
-	@echo "    VALUES_FILE        $(VALUES_FILE)  (set secrets in helm/secrets.yaml — see secrets.example.yaml)"
+	@echo "    VALUES_FILE        $(VALUES_FILE)  (Helm install and seed.networkFiles / seed.opensky)"
 	@echo "    MODEL_ID           $(MODEL_ID)  (install-full: external-model id)"
 	@echo "    MODEL_URL          $(MODEL_URL)  (install-full: external-model url)"
 	@echo "    API_KEY            (install-full: external-model apiToken)"
@@ -266,6 +266,11 @@ HELM_TEST ?= make helm-test
 test: test-backend test-frontend test-helm
 	@echo ">>> All tests passed."
 
+.PHONY: test-backend-deps
+test-backend-deps:
+	@echo ">>> Installing backend test dependencies (requirements-dev.txt)..."
+	python -m pip install -r app/backend/requirements-dev.txt
+
 .PHONY: test-backend
 test-backend:
 	@echo ">>> Running backend tests..."
@@ -344,30 +349,36 @@ helm-deps:
 	helm dependency update $(HELM_CHART)
 	@$(MAKE) --no-print-directory helm-patch-scc
 
-# Workaround for general-simulation creating ClusterRoleBindings (cluster-scoped)
-# to grant the anyuid SCC, which forces every installer to have cluster-admin.
-# Patches them to namespace-scoped RoleBindings referencing the same
-# ClusterRole (system:openshift:scc:anyuid) — namespace `admin` is sufficient
-# for that, matching how `oc adm policy add-scc-to-user` works. Remove this
-# target and the call to it in helm-deps once general-simulation ships the fix
-# upstream.
+# Compatibility shim: older general-simulation charts used ClusterRoleBindings
+# (cluster-scoped) for the anyuid SCC. Current upstream already ships
+# namespace-scoped RoleBindings — skip when already patched/fixed.
 .PHONY: helm-patch-scc
 helm-patch-scc:
-	@echo ">>> Patching general-simulation SCC bindings (ClusterRoleBinding -> RoleBinding; avoids needing cluster-admin)"
+	@echo ">>> Checking general-simulation SCC bindings (ClusterRoleBinding -> RoleBinding if needed)"
 	@set -eu; \
 	TGZ=$$(ls $(HELM_CHART)/charts/general-simulation-*.tgz 2>/dev/null | head -1); \
 	if [ -z "$$TGZ" ]; then echo "  (no general-simulation chart found — skipping)"; exit 0; fi; \
 	TMPDIR=$$(mktemp -d); \
 	COPYFILE_DISABLE=1 tar xzf "$$TGZ" -C "$$TMPDIR"; \
 	FOUND=0; \
+	PATCHED=0; \
 	for f in $$(find "$$TMPDIR/general-simulation/templates" -name 'scc-binding.yaml' -type f | sort); do \
 	  FOUND=1; \
-	  grep -q '^kind: ClusterRoleBinding$$' "$$f" || { echo "ERROR: 'kind: ClusterRoleBinding' not found in $$f (chart content changed — patch needs updating)"; rm -rf "$$TMPDIR"; exit 1; }; \
-	  sed -i '' 's/^kind: ClusterRoleBinding$$/kind: RoleBinding/' "$$f" 2>/dev/null || sed -i 's/^kind: ClusterRoleBinding$$/kind: RoleBinding/' "$$f"; \
-	  echo "  patched $$f"; \
+	  if grep -q '^kind: RoleBinding$$' "$$f"; then \
+	    echo "  already RoleBinding — $$f (skipping)"; \
+	  elif grep -q '^kind: ClusterRoleBinding$$' "$$f"; then \
+	    sed -i '' 's/^kind: ClusterRoleBinding$$/kind: RoleBinding/' "$$f" 2>/dev/null || sed -i 's/^kind: ClusterRoleBinding$$/kind: RoleBinding/' "$$f"; \
+	    echo "  patched $$f"; \
+	    PATCHED=1; \
+	  else \
+	    echo "ERROR: neither RoleBinding nor ClusterRoleBinding found in $$f"; \
+	    rm -rf "$$TMPDIR"; exit 1; \
+	  fi; \
 	done; \
 	if [ "$$FOUND" -eq 0 ]; then echo "ERROR: no scc-binding.yaml templates found under general-simulation (chart layout changed?)"; rm -rf "$$TMPDIR"; exit 1; fi; \
-	COPYFILE_DISABLE=1 tar czf "$$TGZ" -C "$$TMPDIR" general-simulation; \
+	if [ "$$PATCHED" -eq 1 ]; then \
+	  COPYFILE_DISABLE=1 tar czf "$$TGZ" -C "$$TMPDIR" general-simulation; \
+	fi; \
 	rm -rf "$$TMPDIR"
 
 .PHONY: helm-deps-local
@@ -399,10 +410,11 @@ helm-render: helm-deps
 
 .PHONY: helm-install
 helm-install: helm-deps
-	@echo ">>> Installing Helm release: $(HELM_RELEASE) in namespace: $(NAMESPACE)"
-	@echo ">>> Registry: $(REGISTRY) (backend=$(BACKEND_TAG) frontend=$(FRONTEND_TAG) ingest=$(INGEST_TAG))"
-	@echo ">>> Secrets file: $(if $(SECRETS_FLAGS),$(SECRETS_FILE) (found),not found - see secrets.example.yaml)"
-	oc get namespace $(NAMESPACE) 2>/dev/null || oc new-project $(NAMESPACE)
+	@set -eu; \
+	echo ">>> [helm-install] 1/3 Installing Helm release: $(HELM_RELEASE) in namespace: $(NAMESPACE)"; \
+	echo ">>> Registry: $(REGISTRY) (backend=$(BACKEND_TAG) frontend=$(FRONTEND_TAG) ingest=$(INGEST_TAG))"; \
+	echo ">>> Secrets file: $(if $(SECRETS_FLAGS),$(SECRETS_FILE) (found),not found - see secrets.example.yaml)"; \
+	oc get namespace $(NAMESPACE) 2>/dev/null || oc new-project $(NAMESPACE); \
 	helm install $(HELM_RELEASE) $(HELM_CHART) \
 		--namespace $(NAMESPACE) \
 		-f $(VALUES_FILE) \
@@ -410,8 +422,30 @@ helm-install: helm-deps
 		$(HELM_IMAGE_SETS) \
 		$(HELM_EXTRA_ARGS) \
 		--wait \
-		--timeout 10m
-	@$(MAKE) --no-print-directory print-routes
+		--timeout 10m; \
+	echo ""; \
+	echo ">>> [helm-install] 2/3 Seeding gen-sim demo data (make seed-gen-sim)"; \
+	seed_rc=0; \
+	$(MAKE) --no-print-directory seed-gen-sim \
+		NAMESPACE=$(NAMESPACE) \
+		GEN_SIM_NAMESPACE="$(GEN_SIM_NAMESPACE)" \
+		GENERAL_SIM_DIR="$(GENERAL_SIM_DIR)" \
+		|| seed_rc=$$?; \
+	if [ "$$seed_rc" -ne 0 ]; then \
+		echo ""; \
+		echo ">>> WARNING: seed-gen-sim failed (exit $$seed_rc). Helm install succeeded."; \
+		echo ">>> Retry: make seed-gen-sim NAMESPACE=$(NAMESPACE)"; \
+	else \
+		echo ">>> [helm-install] seed-gen-sim completed successfully"; \
+	fi; \
+	echo ""; \
+	echo ">>> [helm-install] 3/3 Printing OpenShift Route URLs"; \
+	$(MAKE) --no-print-directory print-routes; \
+	if [ "$$seed_rc" -ne 0 ]; then \
+		echo ">>> [helm-install] finished with seed warning (exit $$seed_rc)"; \
+		exit $$seed_rc; \
+	fi; \
+	echo ">>> [helm-install] complete"
 
 .PHONY: helm-upgrade
 helm-upgrade: helm-deps
@@ -616,9 +650,6 @@ oc-status:
 # ============================================================
 
 # Run the ingestion Job as a one-off oc run (no Helm required).
-# Default matches helm/values.yaml ingest.strategy; override to langchain for PGVector.
-INGEST_STRATEGY ?= langchain
-
 .PHONY: ingest
 ingest:
 	@echo ">>> Running knowledge-base ingestion job in namespace: $(NAMESPACE)"
@@ -629,7 +660,6 @@ ingest:
 		$(SECRETS_FLAGS) \
 		$(HELM_IMAGE_SETS) \
 		--set ingest.enabled=true \
-		--set ingest.strategy=$(INGEST_STRATEGY) \
 		$(HELM_EXTRA_ARGS) \
 		--show-only templates/ingest-job.yaml \
 	| sed 's/name: $(HELM_RELEASE)-ingest/name: ingest-job/; s/post-install,post-upgrade/post-install/; /helm.sh\/hook/d; /helm.sh\/hook-weight/d' \
@@ -661,7 +691,6 @@ ingest-status:
 # postgres-credentials from the cluster.
 GENERAL_SIM_DIR ?= $(CURDIR)/vendor/general-simulation
 GEN_SIM_NAMESPACE ?=
-OPENSKY_MAX ?= 2000
 
 .PHONY: seed-gen-sim
 seed-gen-sim:
@@ -671,22 +700,35 @@ seed-gen-sim:
 	GENERAL_SIM_DIR=$(GENERAL_SIM_DIR) \
 	./scripts/seed-gen-sim-demo.sh
 
-.PHONY: seed-opensky-live
-seed-opensky-live:
-	@echo ">>> Pulling live OpenSky on laptop → cluster Postgres + Neo4j"
+.PHONY: seed-opensky
+seed-opensky:
+	@echo ">>> Importing network YAML and live OpenSky from $(VALUES_FILE)"
 	NAMESPACE=$(NAMESPACE) \
 	GEN_SIM_NAMESPACE=$(GEN_SIM_NAMESPACE) \
 	GENERAL_SIM_DIR=$(GENERAL_SIM_DIR) \
-	OPENSKY_MAX=$(OPENSKY_MAX) \
-	./scripts/seed-opensky-live.sh
+	VALUES_FILE=$(VALUES_FILE) \
+	./scripts/seed-opensky.sh
+
+# Optional override. When unset, seed-customer-data.sh uses
+# data/supply-chain-network.yaml if present, else the committed .example.yaml.
+NETWORK_YAML ?=
+
+.PHONY: seed-customer-data
+seed-customer-data:
+	@echo ">>> Merging customer supply-chain network YAML (run seed-gen-sim first)"
+	NAMESPACE=$(NAMESPACE) \
+	GEN_SIM_NAMESPACE=$(GEN_SIM_NAMESPACE) \
+	GENERAL_SIM_DIR=$(GENERAL_SIM_DIR) \
+	$(if $(NETWORK_YAML),NETWORK_YAML=$(NETWORK_YAML)) \
+	./scripts/seed-customer-data.sh
 
 .PHONY: seed
-seed: seed-gen-sim seed-opensky-live
-	@echo ">>> seed complete (demo scenarios/maritime + live OpenSky flights)"
+seed: seed-gen-sim seed-opensky
+	@echo ">>> seed complete (demo + values-driven YAML overlay + live OpenSky)"
 
 .PHONY: submodule-init
 submodule-init:
-	@echo ">>> Initializing git submodules (general-simulation @ development)"
+	@echo ">>> Initializing git submodules (general-simulation @ main)"
 	git submodule update --init --recursive
 
 # ============================================================
@@ -708,7 +750,7 @@ INSTALL_FULL_EXTRA_ARGS = \
 install-full:
 	@echo ">>> Full install: install + ingest + seed (namespace: $(NAMESPACE))"
 	$(MAKE) install HELM_EXTRA_ARGS='$(INSTALL_FULL_EXTRA_ARGS)'
-	$(MAKE) seed OPENSKY_MAX=50
+	$(MAKE) seed
 	$(MAKE) ingest
 	@echo ">>> install-full complete (install + ingest + seed)"
 

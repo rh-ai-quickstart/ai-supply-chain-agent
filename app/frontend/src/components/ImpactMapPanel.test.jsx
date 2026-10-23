@@ -1,7 +1,15 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ImpactMapPanel } from "./ImpactMapPanel";
 import { diversionKey } from "../utils/impactEntityUtils";
+
+const { mapApi } = vi.hoisted(() => ({
+  mapApi: {
+    setView: vi.fn(),
+    fitBounds: vi.fn(),
+    getZoom: () => 5,
+  },
+}));
 
 vi.mock("react-leaflet", () => ({
   MapContainer: ({ children }) => <div data-testid="map">{children}</div>,
@@ -20,7 +28,7 @@ vi.mock("react-leaflet", () => ({
   Polyline: ({ pathOptions }) => (
     <div data-testid="diversion-route" data-color={pathOptions?.color} />
   ),
-  useMap: () => ({ setView: vi.fn(), fitBounds: vi.fn(), getZoom: () => 5 }),
+  useMap: () => mapApi,
 }));
 
 const aircraftFeature = {
@@ -45,6 +53,11 @@ const reroute = {
 };
 
 describe("ImpactMapPanel", () => {
+  beforeEach(() => {
+    mapApi.setView.mockClear();
+    mapApi.fitBounds.mockClear();
+  });
+
   it("shows loading and error states", () => {
     const { rerender } = render(<ImpactMapPanel loading />);
     expect(screen.getByText("Loading entities…")).toBeInTheDocument();
@@ -56,6 +69,27 @@ describe("ImpactMapPanel", () => {
   it("shows empty-state copy when there are no features", () => {
     render(<ImpactMapPanel features={[]} />);
     expect(screen.getByText(/No map entities yet/i)).toBeInTheDocument();
+  });
+
+  it("shows the flight company in the marker popup", () => {
+    render(
+      <ImpactMapPanel
+        features={[
+          {
+            ...aircraftFeature,
+            properties: {
+              ...aircraftFeature.properties,
+              attributes: {
+                call_sign: "BAW177",
+                company_name: "Acme Air Cargo",
+                company_id: "company-acme",
+              },
+            },
+          },
+        ]}
+      />,
+    );
+    expect(screen.getByTestId("popup")).toHaveTextContent(/Company.*Acme Air Cargo/);
   });
 
   it("shows entity count in the header when not loading", () => {
@@ -80,6 +114,16 @@ describe("ImpactMapPanel", () => {
     // Highlighted markers are larger and tinted with the red accent color.
     expect(marker).toHaveAttribute("data-icon-shape", "34");
     expect(marker.getAttribute("data-icon-html")).toContain("#FF4757");
+  });
+
+  it("frames the map on the aircraft when a cargo affected id remaps to it", () => {
+    render(
+      <ImpactMapPanel
+        features={[aircraftFeature]}
+        highlightedIds={["cargo-opensky-407290-1"]}
+      />,
+    );
+    expect(mapApi.setView).toHaveBeenCalledWith([51.5, -0.1], 7);
   });
 
   it("renders a diversion polyline when a reroute is selected", () => {

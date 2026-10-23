@@ -1,24 +1,17 @@
 """``IngestConfig`` environment parsing."""
 
-from config import IngestConfig, IngestionStrategy
+from config import IngestConfig
 
 
 def test_from_env_default():
     cfg = IngestConfig.from_env()
-    assert cfg.strategy == IngestionStrategy.LLAMASTACK
+    assert cfg.knowledge_base_dir == "knowledge_base"
+    assert cfg.glob == "**/*.txt"
 
 
-def test_from_env_unknown_strategy_defaults_to_llamastack(monkeypatch):
-    monkeypatch.setenv("INGEST_STRATEGY", "not-a-real-strategy")
+def test_from_env_overrides(monkeypatch):
+    monkeypatch.setenv("KNOWLEDGE_BASE_DIR", "/data/kb")
+    monkeypatch.setenv("INGEST_GLOB", "*.txt")
     cfg = IngestConfig.from_env()
-    assert cfg.strategy == IngestionStrategy.LLAMASTACK
-
-
-def test_from_env_llamastack(monkeypatch):
-    monkeypatch.setenv("INGEST_STRATEGY", "llamastack")
-    monkeypatch.setenv("INGEST_CHUNK_SIZE", "512")
-    monkeypatch.setenv("INGEST_DROP_OLD", "false")
-    cfg = IngestConfig.from_env()
-    assert cfg.strategy == IngestionStrategy.LLAMASTACK
-    assert cfg.chunk_size == 512
-    assert cfg.drop_old is False
+    assert cfg.knowledge_base_dir == "/data/kb"
+    assert cfg.glob == "*.txt"

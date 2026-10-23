@@ -48,7 +48,7 @@ Typical use cases include operations centers modeling a Port of Los Angeles stri
 
 ### See it in action
 
-- TODO: - link to video to be inserted here
+Checkout a live [video demo](https://www.loom.com/share/fd6dfe3b3f6a4dcb8aa48bcb6f3394ea)!
 
 ### Architecture diagrams
 
@@ -74,7 +74,7 @@ flowchart TB
 
     subgraph users["Operators"]
         U1["Browser — impact workspace"]:::rhOutline
-        U2["Laptop — make seed-opensky-live"]:::rhOutline
+        U2["Laptop — make seed-opensky"]:::rhOutline
     end
 
     subgraph ocp["OpenShift cluster"]
@@ -265,28 +265,43 @@ You will not yet see any flight data as we still need to seed flight information
 
 #### Seed Data
 
-The step seeds default scenarios and the general-simulation map data from OpenSky. Since OpenSky often blocks access from
-hyperscalers, the seed data is pulled on your client system and then populated into the quickstart. 
+The step seeds default scenarios, the network YAML files listed in the Helm values file, and live flights from OpenSky. Since OpenSky often blocks access from hyperscalers, the flight pull runs on your client system and then writes into the quickstart.
 
-If you used a different namesapce by setting NAMESPACE=XXX when you installed the quickstart you must use GENSIM_NAMESPACE=XXX in the command in this section.
+If you used a different namespace by setting NAMESPACE=XXX when you installed the quickstart you must use GEN_SIM_NAMESPACE=XXX in the command in this section.
 
-First seed the scenarios: 
+Which YAML files run, and how many live flights are imported, is the `seed` block in `helm/values.yaml` (or whichever file you pass as `VALUES_FILE`). `seed.networkFiles` is imported in order. `seed.opensky.max` is the number of live aircraft to keep (`0` means unlimited). Set `seed.opensky.enabled` to `false` to skip the OpenSky pull. The default imports `data/supply-chain-network.example.yaml` and 50 flights.
+
+First seed the scenarios:
 
 ```bash
 make seed-gen-sim
 ```
 
+Optionally merge custom airports, ports, flights, cargo, and SKU inventory from YAML (overlays the base demo; same entity ids upsert, new ids add). Copy the example, edit your local file (gitignored), or point `NETWORK_YAML` at another path. Schema reference: `data/supply-chain-network.example.yaml` (also mirrored in `vendor/general-simulation/tests/fixtures/supply_chain_network.example.yaml`).
+
+Cargo can be nested under `flights[]` / `vessels[]` (`carrier_id` inferred from the parent) or declared top-level with `carrier_id`. When `sku_ref` matches an `inventory_skus` id, `commodity` and `unit_price_usd` may be omitted and are filled from the SKU.
+
+```bash
+cp data/supply-chain-network.example.yaml data/supply-chain-network.yaml
+# Edit data/supply-chain-network.yaml as needed, then:
+make seed-customer-data
+# Use a workspace fork instead of the submodule (must include nested-cargo YAML support):
+GENERAL_SIM_DIR=../general-simulation make seed-customer-data
+```
+
+If `data/supply-chain-network.yaml` is missing, `make seed-customer-data` falls back to the committed example automatically.
+
 Next install flight data from the OpenSky Data API. 
 
 ```bash
-make seed-opensky-live GEN_SIM_NAMESPACE=supply-chain-dashboard OPENSKY_MAX=50
+make seed-opensky GEN_SIM_NAMESPACE=supply-chain-dashboard
 ```
 
-This will fetch 50 live flights (as a representation of flights that your organization has shipments on) from the API and inserts the records into PGVector and Neo4j giving the engine baseline data for simulations. This seed script will also assign arbitrary values of cargo to each flight that will be used in impact assessments.
+You can run both with `make seed`. The OpenSky step fetches the configured number of live flights (as a representation of flights that your organization has shipments on) and inserts them into Postgres and Neo4j. It also assigns arbitrary cargo values to each flight for impact assessments. The YAML overlay is merged onto the demo data first (same entity ids upsert; new ids add).
 
 Once complete you should see a page like:
 
-![Supply chain dashboard map showing seeded flights with cargo markers](/docs/images/after-seed.png)
+![Supply chain dashboard map showing seeded flights with cargo markers](/docs/images/all-flights.png)
 
 Each icon is a single flight with cargo associated. 
 
@@ -321,7 +336,7 @@ After the scenario runs you will notice the map zoom to the location of the even
 
 You should be able to select flight redirect for each flight which will show as follows on the map: 
 
-![Map showing a suggested flight redirect route around the disrupted airspace](/docs/images/flight-redirects.png)
+![Map showing a suggested flight redirect route around the disrupted airspace](/docs/images/recomended-diversions.png)
 
 TODO: - add step to filter the impact based on a single company, showing how it can be more specific to your company, provided data that tags flights that you have cargo on.
 
@@ -329,9 +344,9 @@ TODO: - add step to filter the impact based on a single company, showing how it 
 
 After running the scenarios data is injected into the agents memory and you can ask follow up questions about that type of event. 
 
-TODO: - add screenshot that shows where you ask the questions
+![Example Question 1](/docs/images/ai-chat.png)
 
-TODO: - add at least 2 specific questions to ask, and example of what the response might look like for each one
+![Example Question 2](/docs/images/second-chat-message.png)
 
 #### Create a new Scenario
 
@@ -340,7 +355,7 @@ to your organization.
 
 In the top bar of the application click the create scenario as show in:
 
-TODO: add screenshot highlighting where to click to create a new scenario.
+![Click Scenario](/docs/images/new-scenario.png)
 
 Once you click on the `+` the page looks as follows:
 
@@ -357,7 +372,7 @@ Italy.
 Once you select the "Create scenario" button it will save you the scenario and bring you back to the home page.
 You should now see the new scenario in addition to the pre-configured ones:
 
-TODO: - add screenshot showing added scenario
+![New Scenario In Menu](/docs/images/new-scenario-in-menu.png)
 
 Next select the "Knowledge bases" option, and you should see a screen like:
 
@@ -368,11 +383,11 @@ select the file `/docs/knowledge-bases/italy_volcano_eruptions.txt` using Choose
 
 Select `Create and injest` and you should see that a knowledge base was added:
 
-TODO: - add screenshot showing knowledge base that was added
+![New Knowledge Base Added](/docs/images/before-ingest.png)
 
 Now go back to the main page and select the newly added scenario:
 
-TODO - add screenshot showing the new newly added scenario, selected 
+![New Knowledge Base Added](/docs/images/after-ingest.png)
 
 You will notice that the impact is centered on italy. You can now go and ask impact questions as shown
 earlier which will be grounded in the simulation for the new scenario and the knowledge base that was updated.
@@ -428,6 +443,7 @@ oc delete project supply-chain-dashboard
 ## Reference
 
 - [What to expect after deployment](./docs/WHAT_TO_EXPECT.md)
+- [Supply-chain KPIs](./docs/KPIS.md) — formulas, data sources, and healthy vs disrupted modes
 - [OGX documentation](https://ogx.readthedocs.io)
 - [LangChain PGVector integration](https://python.langchain.com/docs/integrations/vectorstores/pgvector/)
 - [React Leaflet](https://react-leaflet.js.org/)

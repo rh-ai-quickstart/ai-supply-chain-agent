@@ -3,17 +3,16 @@ from dataclasses import dataclass, field
 from typing import Any, Optional
 
 from clients.llama_stack_client import LlamaStackClient
-from clients.vector_store_client import VectorStoreClient
 from services.agent_service import AgentService, ToolResult
 from services.guardrail_policy import GuardrailPolicy
 from services.news_vector_store_service import NewsVectorStoreService
 from services.rag_context_provider import RagContextProvider
-from services.simulation_intent import normalize_scenario_id, scenario_context_block
+from services.simulation_intent import scenario_context_block
 from logging_config import getLogger
 
 logger = getLogger(__name__)
 
-_TOOL_PRIORITY = ("general_simulation", "fetch_news", "knowledge_base")
+_TOOL_PRIORITY = ("fetch_news", "knowledge_base", "news_knowledge_base")
 
 
 @dataclass(frozen=True)
@@ -32,11 +31,9 @@ class _ToolSideEffects:
     """Collect UI payloads while tools run inside the LLM loop."""
 
     names: list[str] = field(default_factory=list)
-    simulation: Optional[dict[str, Any]] = None
     news: Optional[list[Any]] = None
     latest_user: str = ""
     vector_store_id: str = ""
-    scenario_id: str = ""
     agent_service: Optional[AgentService] = None
 
     def execute(self, name: str, args: dict[str, Any]) -> str:
@@ -52,44 +49,19 @@ class _ToolSideEffects:
                     "Error: no knowledge base is selected. "
                     "Choose a scenario with a matched knowledge base, or pass vector_store_id."
                 )
-        elif name == "general_simulation":
-            question = (bound.get("question") or "").strip() or self.latest_user
-            bound["question"] = question
-            bound["scenario_id"] = normalize_scenario_id(
-                bound.get("scenario_id") or "",
-                active_scenario_id=self.scenario_id,
-                question=question,
-            )
-            if not (bound.get("scenario_id") or "").strip():
-                return (
-                    "Error: no active scenario. Select a scenario in Impact Query "
-                    "(UK Airspace Closure, Port Strike LA, or Suez Blockage), "
-                    "or pass scenario_id."
-                )
 
         logger.info("ChatService: LLM requested tool %s args_keys=%s", name, list(bound.keys()))
         result = self.agent_service.run_tool(name, **bound)
         self.names.append(name)
-        self._record_side_effects(name, bound, result)
+        self._record_side_effects(name, result)
         if result.success:
             return result.output or "Tool completed successfully."
         return f"Error: {result.error or 'tool failed'}"
 
-    def _record_side_effects(self, name: str, bound: dict[str, Any], result: ToolResult) -> None:
+    def _record_side_effects(self, name: str, result: ToolResult) -> None:
         if not result.success:
             return
-        if name == "general_simulation" and isinstance(result.data, dict):
-            simulation = result.data
-            self.simulation = {
-                "scenario_id": simulation.get("scenario_id", bound.get("scenario_id", "")),
-                "question": simulation.get("question", bound.get("question", self.latest_user)),
-                "affected_entities": simulation.get("affected_entities", []),
-                "solver": simulation.get("solver", {}),
-                "tool_call_trace": simulation.get("tool_call_trace", []),
-                "success": True,
-                "answer": simulation.get("answer") or result.output,
-            }
-        elif name == "fetch_news" and isinstance(result.data, list):
+        if name == "fetch_news" and isinstance(result.data, list):
             self.news = result.data
 
 
@@ -97,18 +69,16 @@ class ChatService:
     def __init__(
         self,
         llama_stack_client: LlamaStackClient,
-        vector_store_client: Optional[VectorStoreClient] = None,
         openai_client: Optional[LlamaStackClient] = None,
         agent_service: Optional[AgentService] = None,
         news_vector_store: Optional[NewsVectorStoreService] = None,
     ):
         self.llama_stack_client = llama_stack_client
         self.openai_client: LlamaStackClient = openai_client or llama_stack_client
-        self.vector_store_client = vector_store_client
         self.agent_service = agent_service or AgentService(llama_stack_client)
         self.news_vector_store = news_vector_store
         self._guardrails = GuardrailPolicy()
-        self._rag = RagContextProvider(llama_stack_client, vector_store_client)
+        self._rag = RagContextProvider(llama_stack_client)
 
     def reply(
         self,
@@ -117,16 +87,22 @@ class ChatService:
         vector_store_id: Optional[str] = None,
         use_vllm: bool = True,
         scenario_id: Optional[str] = None,
+        impact_result: Optional[dict[str, Any]] = None,
     ) -> dict:
         shortcut = self._early_reply(user_input, chat_history)
         if shortcut is not None:
             return shortcut
 
         turn = self._prepare_llm_turn(
-            user_input, chat_history, vector_store_id, use_vllm, scenario_id
+            user_input,
+            chat_history,
+            vector_store_id,
+            use_vllm,
+            scenario_id,
+            impact_result,
         )
         self._log_llm_routing(turn.client, use_vllm, streaming=False)
-        tracker = self._new_tool_tracker(turn.latest, vector_store_id, scenario_id)
+        tracker = self._new_tool_tracker(turn.latest, vector_store_id)
         llm_result = turn.client.ask_with_tools(
             turn.latest,
             context=turn.context,
@@ -157,6 +133,7 @@ class ChatService:
         vector_store_id: Optional[str] = None,
         use_vllm: bool = True,
         scenario_id: Optional[str] = None,
+        impact_result: Optional[dict[str, Any]] = None,
     ) -> Iterator[dict[str, Any]]:
         """Yield SSE-friendly chat events (guardrails, route shortcuts, or LLM+tools stream)."""
         shortcut = self._early_reply(user_input, chat_history)
@@ -165,10 +142,15 @@ class ChatService:
             return
 
         turn = self._prepare_llm_turn(
-            user_input, chat_history, vector_store_id, use_vllm, scenario_id
+            user_input,
+            chat_history,
+            vector_store_id,
+            use_vllm,
+            scenario_id,
+            impact_result,
         )
         self._log_llm_routing(turn.client, use_vllm, streaming=True)
-        tracker = self._new_tool_tracker(turn.latest, vector_store_id, scenario_id)
+        tracker = self._new_tool_tracker(turn.latest, vector_store_id)
         for event in turn.client.ask_stream_with_tools(
             turn.latest,
             context=turn.context,
@@ -186,12 +168,10 @@ class ChatService:
         self,
         latest: str,
         vector_store_id: Optional[str],
-        scenario_id: Optional[str],
     ) -> _ToolSideEffects:
         return _ToolSideEffects(
             latest_user=latest,
             vector_store_id=(vector_store_id or "").strip(),
-            scenario_id=(scenario_id or "").strip(),
             agent_service=self.agent_service,
         )
 
@@ -212,8 +192,6 @@ class ChatService:
         primary = self._primary_tool_name(tracker.names)
         if primary:
             payload["tool"] = primary
-        if tracker.simulation is not None:
-            payload["simulation"] = tracker.simulation
         if tracker.news is not None:
             payload["news"] = tracker.news
         return payload
@@ -239,6 +217,7 @@ class ChatService:
         vector_store_id: Optional[str],
         use_vllm: bool,
         scenario_id: Optional[str] = None,
+        impact_result: Optional[dict[str, Any]] = None,
     ) -> _PreparedChatTurn:
         history = chat_history if isinstance(chat_history, list) else []
         latest = self._latest_user_text(history, user_input)
@@ -250,7 +229,11 @@ class ChatService:
             client=client,
             context=context,
             conversation=conversation,
-            scenario_context=scenario_context_block(scenario_id),
+            scenario_context=scenario_context_block(
+                scenario_id or "",
+                impact=impact_result,
+                user_text=latest,
+            ),
         )
 
     @staticmethod

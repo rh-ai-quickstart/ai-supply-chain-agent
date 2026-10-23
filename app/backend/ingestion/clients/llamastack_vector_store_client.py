@@ -9,11 +9,8 @@ logger = logging.getLogger(__name__)
 class LlamaStackVectorStoreClient:
     """Client for LlamaStack's OpenAI-compatible vector store and file APIs.
 
-    Unlike VectorStoreClient (which writes to PGVector directly via LangChain),
-    this client delegates storage entirely to LlamaStack.  It exposes three
-    operations — create a vector store, upload a file, and attach the file to a
-    store — which together let LlamaStack handle chunking, embedding, and
-    persistence on the server side.
+    Delegates chunking, embedding, and storage to LlamaStack via the vector
+    stores / files API.
     """
 
     def __init__(self) -> None:

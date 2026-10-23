@@ -1,8 +1,6 @@
 import PropTypes from "prop-types";
 import { useEffect, useRef, useState } from "react";
 import { InfoTooltip } from "./InfoTooltip";
-import { formatCompletionSummary } from "../utils/chatCompletionMeta.js";
-import { safeJsonStringify } from "../utils/safeJsonStringify.js";
 import { ChatMarkdownBody } from "./ChatMarkdownBody.jsx";
 
 function messageBubbleClassName(role, compact) {
@@ -103,38 +101,15 @@ export function ChatBar({
       {chatMessages.length === 0 ? (
         <p className="muted">No chat messages yet.</p>
       ) : (
-        chatMessages.map((message, index) => {
-          const hasCompletion =
-            message.role === "ai" &&
-            message.completion &&
-            Object.keys(message.completion).length > 0;
-          const completionSummary = hasCompletion ? formatCompletionSummary(message.completion) : "";
-          return (
+        chatMessages.map((message, index) => (
             <div key={`${message.role}-${index}`} className={messageBubbleClassName(message.role, compact)}>
               {message.role === "ai" ? (
-                <>
-                  {["general_simulation", "fetch_news", "knowledge_base"].includes(message.tool) ? (
-                    <p className="muted chat-tool-badge">Used tool: {message.tool}</p>
-                  ) : null}
-                  <ChatMarkdownBody content={message.content} compact={compact} />
-                  {hasCompletion && message.completion ? (
-                    <div className="chat-completion-meta">
-                      {completionSummary ? <p className="chat-completion-summary">{completionSummary}</p> : null}
-                      {!compact ? (
-                        <details className="chat-completion-details">
-                          <summary>Response details</summary>
-                          <pre>{safeJsonStringify(message.completion)}</pre>
-                        </details>
-                      ) : null}
-                    </div>
-                  ) : null}
-                </>
+                <ChatMarkdownBody content={message.content} compact={compact} />
               ) : (
                 message.content
               )}
             </div>
-          );
-        })
+          ))
       )}
       {chatLoading ? <p className="muted">Thinking…</p> : null}
       {chatError ? <p className="error">{chatError}</p> : null}

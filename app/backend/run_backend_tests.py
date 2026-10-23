@@ -8,6 +8,7 @@ breaks imports, so this script runs two ``pytest`` invocations.
 
 from __future__ import annotations
 
+import importlib.util
 import subprocess
 import sys
 from pathlib import Path
@@ -29,11 +30,27 @@ _COV_BASE = [
 ]
 
 
+def _pytest_cov_available() -> bool:
+    return importlib.util.find_spec("pytest_cov") is not None
+
+
 def main() -> int:
     extra = sys.argv[1:]
     use_cov = "--no-cov" not in extra
     if use_cov:
         extra = [a for a in extra if a != "--no-cov"]
+
+    if use_cov and not _pytest_cov_available():
+        print(
+            "ERROR: pytest-cov is not installed for "
+            f"{sys.executable}.\n"
+            "Install backend test deps, then re-run:\n"
+            "  python -m pip install -r app/backend/requirements-dev.txt\n"
+            "Or skip coverage for this run:\n"
+            "  make test-backend BACKEND_TEST='python run_backend_tests.py --no-cov'",
+            file=sys.stderr,
+        )
+        return 2
 
     api_cov = (
         ["--cov=api", f"--cov-config={_ROOT / 'pytest.ini'}", *_COV_BASE]

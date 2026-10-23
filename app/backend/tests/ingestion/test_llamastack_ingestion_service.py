@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, call
 
 import pytest
 
-from config import IngestConfig, IngestionStrategy
+from config import IngestConfig
 from services.llamastack_ingestion_service import (
     LlamaStackIngestionService,
     _vector_store_name_for_file,
@@ -16,7 +16,6 @@ def test_run_raises_when_directory_missing(tmp_path):
     client = MagicMock()
     svc = LlamaStackIngestionService(client)
     cfg = IngestConfig(
-        strategy=IngestionStrategy.LLAMASTACK,
         knowledge_base_dir=str(tmp_path / "missing"),
         glob="**/*.txt",
     )
@@ -36,7 +35,6 @@ def test_run_counts_successful_uploads(tmp_path):
 
     svc = LlamaStackIngestionService(client)
     cfg = IngestConfig(
-        strategy=IngestionStrategy.LLAMASTACK,
         knowledge_base_dir=str(kb),
         glob="*.txt",
     )
@@ -58,7 +56,6 @@ def test_run_creates_one_store_per_file(tmp_path):
 
     svc = LlamaStackIngestionService(client)
     cfg = IngestConfig(
-        strategy=IngestionStrategy.LLAMASTACK,
         knowledge_base_dir=str(kb),
         glob="*.txt",
     )
@@ -93,7 +90,6 @@ def test_run_uploads_all_files_with_source_filename_metadata(tmp_path):
 
     svc = LlamaStackIngestionService(client)
     cfg = IngestConfig(
-        strategy=IngestionStrategy.LLAMASTACK,
         knowledge_base_dir=str(kb),
         glob="*.txt",
     )
@@ -118,7 +114,6 @@ def test_run_returns_zero_when_all_store_creations_fail(tmp_path):
 
     svc = LlamaStackIngestionService(client)
     cfg = IngestConfig(
-        strategy=IngestionStrategy.LLAMASTACK,
         knowledge_base_dir=str(kb),
         glob="*.txt",
     )
@@ -139,7 +134,6 @@ def test_run_cleans_up_store_when_upload_fails(tmp_path):
 
     svc = LlamaStackIngestionService(client)
     cfg = IngestConfig(
-        strategy=IngestionStrategy.LLAMASTACK,
         knowledge_base_dir=str(kb),
         glob="*.txt",
     )

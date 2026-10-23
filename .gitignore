@@ -45,3 +45,7 @@ helm/secrets.yaml
 .cursor/
 venv/
 app/backend/venv/
+
+
+# Local customer network YAML (copy from data/supply-chain-network.example.yaml)
+data/supply-chain-network.yaml

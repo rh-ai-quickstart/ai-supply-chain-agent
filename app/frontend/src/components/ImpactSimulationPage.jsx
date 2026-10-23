@@ -1,9 +1,11 @@
 import PropTypes from "prop-types";
-import { useCallback } from "react";
+import { useCallback, useEffect } from "react";
 import { ImpactMapPanel } from "./ImpactMapPanel";
 import { ImpactQueryPanel } from "./ImpactQueryPanel";
 import { ImpactResultsPanel } from "./ImpactResultsPanel";
+import { SupplyChainKpiBar } from "./SupplyChainKpiBar";
 import { useImpactSimulation } from "../hooks/useImpactSimulation";
+import { useSupplyChainKpis } from "../hooks/useSupplyChainKpis";
 
 export function ImpactSimulationPage({
   initialScenarioId = "",
@@ -12,6 +14,7 @@ export function ImpactSimulationPage({
   chatSimulation = null,
   chatLoading = false,
   onSendPrompt,
+  onImpactResultChange,
 }) {
   const sim = useImpactSimulation({
     initialScenarioId,
@@ -19,6 +22,15 @@ export function ImpactSimulationPage({
     chatSimulation,
     chatLoading,
   });
+  const kpiState = useSupplyChainKpis({
+    scenarioId: sim.scenarioId,
+    impactResult: sim.result,
+    chatLoading,
+  });
+
+  useEffect(() => {
+    onImpactResultChange?.(sim.result);
+  }, [onImpactResultChange, sim.result]);
 
   const handleRunSuggestedPrompt = useCallback(
     (prompt) => {
@@ -37,13 +49,23 @@ export function ImpactSimulationPage({
   }, [onOpenCreateScenario]);
 
   return (
-    <main className="dashboard-grid impact-simulation-grid">
+    <div className="simulation-stack">
+      <SupplyChainKpiBar
+        kpis={kpiState.kpis}
+        loading={kpiState.loading}
+        error={kpiState.error}
+      />
+
+      <main className="dashboard-grid impact-simulation-grid">
       <ImpactQueryPanel
         scenarios={sim.scenarios}
         scenariosLoading={sim.scenariosLoading}
         scenariosError={sim.scenariosError}
         scenarioId={sim.scenarioId}
         onChangeScenarioId={sim.handleChangeScenarioId}
+        companyOptions={sim.companyOptions}
+        companyId={sim.companyId}
+        onChangeCompanyId={sim.handleChangeCompanyId}
         mapMode={sim.mapMode}
         onChangeMapMode={sim.handleMapModeChange}
         onRunSuggestedPrompt={handleRunSuggestedPrompt}
@@ -65,6 +87,7 @@ export function ImpactSimulationPage({
           selectedDiversionKey={sim.selectedDiversionKey}
           diversionFocusNonce={sim.diversionFocusNonce}
           valueByEntity={sim.valueByEntity}
+          supplyChainIndexes={sim.supplyChainIndexes}
           currency={sim.currency}
           loading={sim.mapLoading}
           error={sim.mapError}
@@ -79,7 +102,8 @@ export function ImpactSimulationPage({
         onFocusDiversion={sim.handleFocusDiversion}
         focusedDiversionKey={sim.selectedDiversionKey}
       />
-    </main>
+      </main>
+    </div>
   );
 }
 
@@ -90,4 +114,5 @@ ImpactSimulationPage.propTypes = {
   chatSimulation: PropTypes.object,
   chatLoading: PropTypes.bool,
   onSendPrompt: PropTypes.func,
+  onImpactResultChange: PropTypes.func,
 };

@@ -23,12 +23,9 @@ def _vector_store_name_for_file(file_path: Path) -> str:
 class LlamaStackIngestionService:
     """Server-side ingestion that delegates chunking, embedding, and storage to LlamaStack.
 
-    The existing IngestionService performs all these steps client-side with
-    LangChain and writes directly to PGVector.  This service instead uploads
-    the raw knowledge-base files to LlamaStack's OpenAI-compatible
+    Uploads raw knowledge-base files to LlamaStack's OpenAI-compatible
     ``vector_stores`` / ``files`` API and lets the server handle the full
-    pipeline, which keeps the client thin and leverages whatever chunking
-    and embedding strategy LlamaStack is configured with.
+    pipeline.
 
     Creates one vector store per matched file. Store names are derived from the
     source filename stem so the simulation UI can map scenarios (UK airspace,

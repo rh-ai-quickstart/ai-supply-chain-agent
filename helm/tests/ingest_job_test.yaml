@@ -4,19 +4,12 @@ templates:
 release:
   name: supply-chain-dashboard
 tests:
-  - it: renders post-install hook job with ingest env
+  - it: renders post-install hook job with llamastack ingest env
     set:
       ingest.enabled: true
-      ingest.strategy: llamastack
       ingest.knowledgeBaseDir: knowledge_base
-      ingest.dropOld: "true"
-      backend.pgvectorSecretName: pgvector
       backend.env.LLAMA_STACK_URL: "http://llamastack:8321"
-      backend.env.EMBED_MODEL: "all-MiniLM-L6-v2"
-      backend.env.PG_HOST: postgres
-      backend.env.PG_PORT: "5432"
-      backend.env.PG_USER: sim
-      backend.env.PG_DB: sim
+      general-simulation.llama-stack.enabled: true
     asserts:
       - isKind:
           of: Job
@@ -32,32 +25,33 @@ tests:
       - contains:
           path: spec.template.spec.containers[0].env
           content:
-            name: INGEST_STRATEGY
-            value: llamastack
+            name: LLAMA_STACK_URL
+            value: "http://llamastack:8321"
       - contains:
           path: spec.template.spec.containers[0].env
           content:
-            name: PG_PASSWORD
-            valueFrom:
-              secretKeyRef:
-                name: pgvector
-                key: password
+            name: VECTOR_STORE_PROVIDER
+            value: "pgvector"
       - notExists:
           path: spec.template.spec.containers[0].securityContext.runAsUser
       - equal:
           path: spec.template.spec.securityContext.runAsNonRoot
           value: true
 
+  - it: skips llamastack wait when general-simulation llama-stack is disabled
+    set:
+      ingest.enabled: true
+      general-simulation.llama-stack.enabled: false
+      backend.env.LLAMA_STACK_URL: "http://llamastack:8321"
+    asserts:
+      - notExists:
+          path: spec.template.spec.initContainers
+
   - it: keeps failed jobs by default for log inspection
     set:
       ingest.enabled: true
-      ingest.strategy: llamastack
+      general-simulation.llama-stack.enabled: true
       backend.env.LLAMA_STACK_URL: "http://llamastack:8321"
-      backend.env.EMBED_MODEL: "all-MiniLM-L6-v2"
-      backend.env.PG_HOST: postgres
-      backend.env.PG_PORT: "5432"
-      backend.env.PG_USER: sim
-      backend.env.PG_DB: sim
     asserts:
       - notExists:
           path: metadata.annotations["helm.sh/hook-delete-policy"]
@@ -65,14 +59,9 @@ tests:
   - it: renders hook-delete-policy when configured
     set:
       ingest.enabled: true
-      ingest.strategy: llamastack
       ingest.hookDeletePolicy: before-hook-creation
+      general-simulation.llama-stack.enabled: true
       backend.env.LLAMA_STACK_URL: "http://llamastack:8321"
-      backend.env.EMBED_MODEL: "all-MiniLM-L6-v2"
-      backend.env.PG_HOST: postgres
-      backend.env.PG_PORT: "5432"
-      backend.env.PG_USER: sim
-      backend.env.PG_DB: sim
     asserts:
       - equal:
           path: metadata.annotations["helm.sh/hook-delete-policy"]

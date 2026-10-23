@@ -269,7 +269,7 @@ describe("ChatBar", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
-  it("renders completion details in collapsed preview when modal closed", () => {
+  it("hides completion / token metadata in collapsed preview", () => {
     render(
       <ChatBar
         chatInput=""
@@ -281,18 +281,20 @@ describe("ChatBar", () => {
             role: "ai",
             content: "answer",
             completion: {
-              agent: "test",
-              scenario_id: "s1",
-              affected_entities: ["e1"],
-              solver: { score: 0.5 },
+              model: "external-model/llama-scout-17b",
+              usage: { total_tokens: 1532, prompt_tokens: 1504, completion_tokens: 28 },
+              choices: [{ finish_reason: "stop" }],
             },
           },
         ]}
       />
     );
-    // Dialog is not open by default; collapsed preview is rendered
     const container = document.querySelector(".chat-bar-preview");
     expect(container).toBeInTheDocument();
+    expect(screen.getByText("answer")).toBeInTheDocument();
+    expect(screen.queryByText(/tokens/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Response details/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/llama-scout/i)).not.toBeInTheDocument();
   });
 
   it("renders collapsed preview when messages exist and modal closed", () => {
@@ -329,8 +331,8 @@ describe("ChatBar", () => {
     expect(onChangeChatInput).toHaveBeenCalledWith("hello");
   });
 
-  it.each(["general_simulation", "fetch_news", "knowledge_base"])(
-    "shows tool badge for %s",
+  it.each(["general_simulation", "fetch_news", "knowledge_base", "news_knowledge_base"])(
+    "does not show tool badge for %s",
     (tool) => {
       render(
         <ChatBar
@@ -344,9 +346,32 @@ describe("ChatBar", () => {
           ]}
         />,
       );
-      expect(screen.getByText(`Used tool: ${tool}`)).toBeInTheDocument();
+      expect(screen.getByText("Done.")).toBeInTheDocument();
+      expect(screen.queryByText(`Used tool: ${tool}`)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Used tool:/i)).not.toBeInTheDocument();
     },
   );
+
+  it("strips leaked tool-call brackets from assistant markdown", () => {
+    render(
+      <ChatBar
+        chatInput=""
+        onChangeChatInput={vi.fn()}
+        onSubmitChat={vi.fn()}
+        chatLoading={false}
+        chatMessages={[
+          {
+            role: "ai",
+            content:
+              'I can search for articles.\n\n[news_knowledge_base(query="supply chain disruptions", max_results="5")]',
+          },
+        ]}
+      />,
+    );
+    expect(screen.getByText(/I can search for articles/i)).toBeInTheDocument();
+    expect(screen.queryByText(/news_knowledge_base/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/max_results/i)).not.toBeInTheDocument();
+  });
 
   it("does not show the clear button when there are no messages", () => {
     render(

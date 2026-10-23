@@ -44,8 +44,9 @@ The Impact Map and **Live Flights** UI read **seeded PostGIS geometries** from g
 
 ```bash
 make seed-gen-sim
-# optional: many live aircraft via laptop egress (OpenSky reachable from your machine)
-make seed-opensky-live GEN_SIM_NAMESPACE=supply-chain-dashboard
+# network YAML files + live aircraft from helm/values.yaml `seed`
+# (default: data/supply-chain-network.example.yaml and 50 OpenSky flights)
+make seed-opensky GEN_SIM_NAMESPACE=supply-chain-dashboard
 # or both:
 make seed
 ```
@@ -90,6 +91,7 @@ The **frontend** is built with a proxy pointing at this Route (same-origin `/api
 | `GET` | `/api/v1/general-simulation/scenarios` | Scenario IDs for the picker |
 | `POST` | `/api/v1/general-simulation/query` | Natural-language impact query (`question`, `scenario_id`) |
 | `GET` | `/api/v1/general-simulation/entities/geojson` | Map features (bbox / scenario filters) |
+| `GET` | `/api/v1/kpis` | Simulated supply-chain KPI bar (inventory / on-time / turnover / lost sales / reorder); see [KPIS.md](./KPIS.md) |
 | `POST` | `/api/v1/chat` | RAG chat (`input`, `chat_history`, optional `vector_store_id`; UI uses SSE streaming) |
 | `GET` | `/api/v1/vector_stores` | Llama Stack vector stores (chat knowledge-base picker) |
 | `GET` / `POST` | `/api/v1/knowledge-bases` | List UI-upload catalog / upload files (multipart) |
@@ -136,7 +138,7 @@ A **React + Vite** single-page app served by nginx. It is the operator UI for th
 oc get route supply-chain-dashboard-frontend -n supply-chain-dashboard
 ```
 
-Open the **https** URL in a browser. Use **Simulation** (`#/simulation`) for the map and impact queries. Seed map data with `make seed-gen-sim` (and optionally `make seed-opensky-live`) against the dashboard namespace before expecting markers.
+Open the **https** URL in a browser. Use **Simulation** (`#/simulation`) for the map and impact queries. Seed map data with `make seed-gen-sim`, then `make seed-opensky` (YAML files and flight cap from the `seed` block in `helm/values.yaml`), against the dashboard namespace before expecting markers.
 
 ### Layout and interactions
 
@@ -148,10 +150,11 @@ Open the **https** URL in a browser. Use **Simulation** (`#/simulation`) for the
 **Simulation view** (main grid)
 
 1. **News ticker** (header, right side) — RSS headlines from `/api/v1/news`; click a headline to read the article or create a scenario from that story
-2. **Impact query** (left) — **Map view** toggle (**Live Flights** default = world fit, or **Scenario focus** = camera framed to the selected scenario bbox); pick a scenario (UK Airspace Closure, Port Strike LA, Suez Blockage, …) to run it; **Create scenario** opens a modal to describe a disruption in natural language; suggested prompts send follow-up questions through chat
-3. **Map** (center) — Leaflet markers for seeded demo / live-seeded OpenSky entities; entity count and color legend in the panel
-4. **Impact results** (right) — answer, score / value at risk, affected entities, diversions
-5. **Chat bar** (bottom) — streaming RAG chat; the active knowledge-base name is shown above the input; vector store auto-matched to the active scenario when possible
+2. **KPI bar** — in-stock, on-time, turnover, lost sales, and reorder metrics from `GET /api/v1/kpis` (seeded inventory + disruption overlay). Formulas: [KPIS.md](./KPIS.md)
+3. **Impact query** (left) — **Map view** toggle (**Live Flights** default = world fit, or **Scenario focus** = camera framed to the selected scenario bbox); pick a scenario (UK Airspace Closure, Port Strike LA, Suez Blockage, …) to run it; **Create scenario** opens a modal to describe a disruption in natural language; suggested prompts send follow-up questions through chat
+4. **Map** (center) — Leaflet markers for seeded demo / live-seeded OpenSky entities; entity count and color legend in the panel
+5. **Impact results** (right) — answer, score / value at risk, affected entities, diversions
+6. **Chat bar** (bottom) — streaming RAG chat; the active knowledge-base name is shown above the input; vector store auto-matched to the active scenario when possible
 
 **Knowledge bases view**
 
@@ -176,7 +179,7 @@ Open the **https** URL in a browser. Use **Simulation** (`#/simulation`) for the
 ## Suggested walkthrough
 
 1. Open the **frontend Route** and confirm the Simulation view loads (backend healthy).
-2. Seed demo data: `make seed-gen-sim` (add `make seed-opensky-live` if you want denser live aircraft).
+2. Seed demo data: `make seed-gen-sim`, then `make seed-opensky` for the network YAML and live flights configured under `seed` in `helm/values.yaml`.
 3. Select **Port Strike LA** (or UK Airspace Closure / Suez Blockage) to run the scenario — review entities and diversions on the map and in Impact results.
 4. Ask the chat: *“Summarize current critical alerts.”* (vector store may auto-select after ingest).
 5. Open **Knowledge bases**, upload a short `.txt`, then ask a question grounded in that content.
