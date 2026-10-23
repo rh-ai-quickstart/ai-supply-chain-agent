@@ -1,5 +1,7 @@
 {{- if .Values.backend.enabled }}
 {{- $genSim := index .Values "general-simulation" }}
+{{- $llamaStack := index $genSim "llama-stack" | default dict }}
+{{- $waitForLlamaStack := $llamaStack.enabled | default false }}
 {{- $stackModel := required "general-simulation.api.models.generation is required (gen-sim owns model selection)" $genSim.api.models.generation }}
 apiVersion: apps/v1
 kind: Deployment
@@ -23,8 +25,12 @@ spec:
         runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
+        {{- with .Values.backend.podSecurityContext }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- if $waitForLlamaStack }}
       initContainers:
-        # Backend talks to Llama Stack (and gen-sim API), not Postgres directly.
+        # Only when gen-sim llama-stack is enabled (Kind leaves it off).
         # Gen-sim owns Postgres readiness for its own API pod.
         - name: wait-for-llamastack
           image: quay.io/quay/busybox:latest
@@ -32,6 +38,9 @@ spec:
             allowPrivilegeEscalation: false
             capabilities:
               drop: [ALL]
+            {{- with .Values.backend.containerSecurityContext }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
           command:
             - sh
             - -c
@@ -42,12 +51,16 @@ spec:
                 sleep 5
               done
               echo "llamastack is up."
+      {{- end }}
       containers:
         - name: backend
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
               drop: [ALL]
+            {{- with .Values.backend.containerSecurityContext }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
           image: {{ include "supply-chain.containerImage" (dict "image" .Values.backend.image "global" .Values.global) | quote }}
           imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
           ports:

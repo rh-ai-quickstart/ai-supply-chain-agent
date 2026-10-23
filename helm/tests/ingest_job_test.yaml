@@ -9,6 +9,7 @@ tests:
       ingest.enabled: true
       ingest.knowledgeBaseDir: knowledge_base
       backend.env.LLAMA_STACK_URL: "http://llamastack:8321"
+      general-simulation.llama-stack.enabled: true
     asserts:
       - isKind:
           of: Job
@@ -37,9 +38,19 @@ tests:
           path: spec.template.spec.securityContext.runAsNonRoot
           value: true
 
+  - it: skips llamastack wait when general-simulation llama-stack is disabled
+    set:
+      ingest.enabled: true
+      general-simulation.llama-stack.enabled: false
+      backend.env.LLAMA_STACK_URL: "http://llamastack:8321"
+    asserts:
+      - notExists:
+          path: spec.template.spec.initContainers
+
   - it: keeps failed jobs by default for log inspection
     set:
       ingest.enabled: true
+      general-simulation.llama-stack.enabled: true
       backend.env.LLAMA_STACK_URL: "http://llamastack:8321"
     asserts:
       - notExists:
@@ -49,6 +60,7 @@ tests:
     set:
       ingest.enabled: true
       ingest.hookDeletePolicy: before-hook-creation
+      general-simulation.llama-stack.enabled: true
       backend.env.LLAMA_STACK_URL: "http://llamastack:8321"
     asserts:
       - equal:

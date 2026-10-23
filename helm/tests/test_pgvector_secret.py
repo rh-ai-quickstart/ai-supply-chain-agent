@@ -267,6 +267,8 @@ def test_kind_overlay_does_not_require_pgvector_or_neo4j_sa() -> None:
     neo4j_sa = None
     neo4j_run_as_user = None
     postgres_run_as_user = None
+    backend_init_names: list[str] = []
+    backend_run_as_user = None
     gen_sim_images = _collect_gen_sim_images(manifest)
     for doc in docs:
         kind = doc.get("kind")
@@ -278,6 +280,13 @@ def test_kind_overlay_does_not_require_pgvector_or_neo4j_sa() -> None:
         if kind == "StatefulSet" and name == "postgres":
             pod_spec = doc["spec"]["template"]["spec"]
             postgres_run_as_user = (pod_spec.get("securityContext") or {}).get("runAsUser")
+        if kind == "Deployment" and name and str(name).endswith("-backend"):
+            pod_spec = doc["spec"]["template"]["spec"]
+            backend_run_as_user = (pod_spec.get("securityContext") or {}).get("runAsUser")
+            backend_init_names = [
+                (c.get("name") or "")
+                for c in (pod_spec.get("initContainers") or [])
+            ]
 
     assert neo4j_sa == "default", (
         f"Kind Neo4j StatefulSet must use ServiceAccount default, got {neo4j_sa!r}"
@@ -287,6 +296,12 @@ def test_kind_overlay_does_not_require_pgvector_or_neo4j_sa() -> None:
     )
     assert postgres_run_as_user == 999, (
         f"Kind postgres must set numeric runAsUser 999, got {postgres_run_as_user!r}"
+    )
+    assert "wait-for-llamastack" not in backend_init_names, (
+        "Kind disables llama-stack — backend must not wait for llamastack"
+    )
+    assert backend_run_as_user == 1001, (
+        f"Kind backend must set numeric runAsUser 1001, got {backend_run_as_user!r}"
     )
     assert gen_sim_images, "Kind overlay must render general-sim platform images"
     assert all(image.startswith("quay.io/") for image in gen_sim_images), (

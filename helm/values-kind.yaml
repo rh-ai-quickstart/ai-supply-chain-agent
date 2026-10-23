@@ -23,7 +23,14 @@ backend:
     enabled: false
   image:
     pullPolicy: IfNotPresent
+  # Match Containerfile USER 1001. Required if llama-stack wait init (busybox)
+  # is re-enabled — Kind has no OpenShift SCC to inject a UID under runAsNonRoot.
+  podSecurityContext:
+    runAsUser: 1001
+  containerSecurityContext:
+    runAsUser: 1001
   env:
+    # Llama Stack is disabled below; backend skips wait-for-llamastack.
     LLAMA_STACK_URL: http://llamastack:8321
 
 frontend:

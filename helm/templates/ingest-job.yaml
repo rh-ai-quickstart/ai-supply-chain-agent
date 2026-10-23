@@ -1,5 +1,7 @@
 {{- if .Values.ingest.enabled }}
 {{- $genSim := index .Values "general-simulation" }}
+{{- $llamaStack := index $genSim "llama-stack" | default dict }}
+{{- $waitForLlamaStack := $llamaStack.enabled | default false }}
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -33,7 +35,11 @@ spec:
         runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
+        {{- with .Values.ingest.podSecurityContext }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
 
+      {{- if $waitForLlamaStack }}
       # ── Init containers: block until Llama Stack is accepting traffic ──
       initContainers:
         - name: wait-for-llamastack
@@ -42,6 +48,9 @@ spec:
             allowPrivilegeEscalation: false
             capabilities:
               drop: [ALL]
+            {{- with .Values.ingest.containerSecurityContext }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
           command:
             - sh
             - -c
@@ -52,6 +61,7 @@ spec:
                 sleep 5
               done
               echo "llamastack is up."
+      {{- end }}
 
       # ── Main ingest container ────────────────────────────────────────────
       containers:
@@ -60,6 +70,9 @@ spec:
             allowPrivilegeEscalation: false
             capabilities:
               drop: [ALL]
+            {{- with .Values.ingest.containerSecurityContext }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
           image: {{ include "supply-chain.containerImage" (dict "image" .Values.ingest.image "global" .Values.global) | quote }}
           imagePullPolicy: {{ .Values.ingest.image.pullPolicy }}
           command: ["python", "main.py"]

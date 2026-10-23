@@ -145,6 +145,10 @@ backend:
     name: ai-supply-chain-agent-backend
     tag: ""
     pullPolicy: Always
+  # Empty on OpenShift (restricted SCC assigns UID). Kind may set runAsUser
+  # (busybox wait-for-llamastack is root without a numeric UID).
+  podSecurityContext: {}
+  containerSecurityContext: {}
   service:
     port: 5001
   route:
@@ -166,6 +170,9 @@ ingest:
   # Set to true to run the knowledge-base ingestion Job on every
   # helm install / upgrade.
   enabled: true
+  # Empty on OpenShift. Kind may set runAsUser for busybox wait init.
+  podSecurityContext: {}
+  containerSecurityContext: {}
   # Hook deletion policy on the post-install/post-upgrade Job. Leave empty to
   # keep Completed/Failed Jobs (and their Pods) so you can read logs after a
   # failed run; set to "before-hook-creation" to auto-delete the prior Job.
