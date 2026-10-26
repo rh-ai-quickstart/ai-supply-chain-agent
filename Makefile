@@ -8,9 +8,12 @@ REGISTRY_GEN_SIM   ?= quay.io/rh-ai-quickstart
 BACKEND_IMAGE      ?= $(REGISTRY)/ai-supply-chain-agent-backend
 INGEST_IMAGE       ?= $(REGISTRY)/ai-supply-chain-agent-ingestion
 FRONTEND_IMAGE     ?= $(REGISTRY)/ai-supply-chain-agent-frontend
-BACKEND_TAG        ?= dev
-INGEST_TAG         ?= dev
-FRONTEND_TAG       ?= dev
+CURRENT_GIT_BRANCH := $(shell git branch --show-current 2>/dev/null)
+CHART_APP_VERSION = $(shell awk -F '"' '/^appVersion:/ { if (NF >= 3 && $$2 != "") print $$2; exit }' "$(HELM_CHART)/Chart.yaml")
+DEFAULT_IMAGE_TAG = $(if $(filter main,$(CURRENT_GIT_BRANCH)),$(CHART_APP_VERSION),$(CHART_APP_VERSION)-dev)
+BACKEND_TAG        ?= $(DEFAULT_IMAGE_TAG)
+INGEST_TAG         ?= $(DEFAULT_IMAGE_TAG)
+FRONTEND_TAG       ?= $(DEFAULT_IMAGE_TAG)
 # Default: submodule gitlink short SHA. Override with GEN_SIM_TAG=<tag>.
 GEN_SIM_TAG ?= $(shell git rev-parse --short $$(git rev-parse HEAD:vendor/general-simulation 2>/dev/null) 2>/dev/null)
 ifeq ($(strip $(GEN_SIM_TAG)),)
@@ -100,6 +103,7 @@ help:
 	@echo "    push-frontend      Push the frontend image"
 	@echo ""
 	@echo "  Build & Push:"
+	@echo "    version            Print the release version from helm/Chart.yaml"
 	@echo "    build-and-push     Build and push all images (latest tag)"
 	@echo "    release            Build and push all images"
 	@echo "    release-backend    Build and push the backend image"
@@ -180,6 +184,14 @@ help:
 	@echo "    MODEL_URL          $(MODEL_URL)  (install-full: external-model url)"
 	@echo "    API_KEY            (install-full: external-model apiToken)"
 	@echo ""
+
+# ============================================================
+# Release version
+# ============================================================
+.PHONY: version
+version:
+	@test -n "$(CHART_APP_VERSION)" || { echo "Could not read appVersion from $(HELM_CHART)/Chart.yaml" >&2; exit 1; }
+	@printf '%s\n' "$(CHART_APP_VERSION)"
 
 # ============================================================
 # Build targets
