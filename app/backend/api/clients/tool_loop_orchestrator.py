@@ -12,8 +12,9 @@ from collections.abc import Callable, Iterator
 from typing import Any
 
 from clients.chat_completion_client import EMPTY_COMPLETION_ANSWER, NO_ENDPOINT_ANSWER, LlamaStackChatClient
-from logging_config import getLogger
 from openai import APIError
+
+from logging_config import getLogger
 
 logger = getLogger(__name__)
 

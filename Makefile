@@ -56,6 +56,8 @@ HELM_RELEASE   ?= supply-chain-dashboard
 NAMESPACE      ?= supply-chain-dashboard
 VALUES_FILE    ?= $(HELM_CHART)/values.yaml
 KIND_VALUES_FILE ?= $(HELM_CHART)/values-kind.yaml
+HELM_PLUGINS   := $(CURDIR)/.helm-plugins
+export HELM_PLUGINS
 
 # --- Podman ---
 BUILD_PLATFORM ?= linux/amd64
@@ -287,6 +289,13 @@ login:
 # Test targets
 # ============================================================
 
+.PHONY: deps-all
+deps-all:
+	@echo ">>> Installing backend and frontend dependencies..."
+	python -m pip install --upgrade pip
+	python -m pip install -r app/backend/requirements-dev.txt
+	cd app/frontend && pnpm install --frozen-lockfile
+
 BACKEND_TEST ?= python run_backend_tests.py
 FRONTEND_TEST ?= pnpm test:coverage
 HELM_TEST ?= make helm-test
@@ -294,6 +303,10 @@ HELM_TEST ?= make helm-test
 .PHONY: test
 test: test-backend test-frontend test-helm
 	@echo ">>> All tests passed."
+
+.PHONY: test-all
+test-all: test-backend test-frontend
+	@echo ">>> Backend and frontend tests passed."
 
 .PHONY: test-backend-deps
 test-backend-deps:
@@ -309,6 +322,11 @@ test-backend:
 test-frontend:
 	@echo ">>> Running frontend tests..."
 	cd app/frontend && $(FRONTEND_TEST)
+
+.PHONY: build-frontend-app
+build-frontend-app:
+	@echo ">>> Building frontend production bundle..."
+	cd app/frontend && pnpm run build
 
 .PHONY: test-helm
 test-helm: helm-test
@@ -360,10 +378,7 @@ lint-frontend:
 	cd app/frontend && pnpm run lint
 
 .PHONY: lint-helm
-lint-helm:
-	@echo ">>> Linting Helm chart..."
-	@set -eu; \
-	yamllint helm/templates/ 2>/dev/null || echo ">>> (yamllint not installed, skipping)"
+lint-helm: helm-lint
 
 # ============================================================
 # Helm targets
@@ -425,6 +440,17 @@ helm-test: helm-deps
 	helm unittest $(HELM_CHART)
 	@echo ">>> Validating pgvector Secret password wiring"
 	python3 $(HELM_CHART)/tests/test_pgvector_secret.py
+
+.PHONY: helm-export-validate-demo
+helm-export-validate-demo: helm-deps
+	@set -eu; \
+	RENDERED_MANIFESTS="$$(mktemp "$${TMPDIR:-/tmp}/supply-chain-rendered.XXXXXX.yaml")"; \
+	trap 'rm -f "$$RENDERED_MANIFESTS"' EXIT; \
+	helm template $(HELM_RELEASE) $(HELM_CHART) \
+		--namespace ci-demo \
+		-f $(VALUES_FILE) \
+		$(HELM_IMAGE_SETS) > "$$RENDERED_MANIFESTS"; \
+	kubeconform -strict -summary -skip Route "$$RENDERED_MANIFESTS"
 
 .PHONY: helm-render
 helm-render: helm-deps

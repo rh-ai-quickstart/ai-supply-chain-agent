@@ -8,8 +8,9 @@ import xml.etree.ElementTree as ET
 from email.utils import parsedate_to_datetime
 from typing import Any, Optional
 
-from logging_config import getLogger
 import requests
+
+from logging_config import getLogger
 
 logger = getLogger(__name__)
 

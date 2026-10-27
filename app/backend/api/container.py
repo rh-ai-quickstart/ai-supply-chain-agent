@@ -12,7 +12,6 @@ from __future__ import annotations
 from clients.general_simulation_client import GeneralSimulationClient
 from clients.llama_stack_client import LlamaStackClient
 from clients.news_client import NewsClient
-from logging_config import getLogger
 from repositories.knowledge_base_repository import KnowledgeBaseRepository
 from services.agent_service import AgentService
 from services.chat_service import ChatService
@@ -23,6 +22,8 @@ from services.news_vector_store_service import NewsVectorStoreService
 from services.readiness_service import ReadinessService
 from services.scenario_create_service import ScenarioCreateService
 from settings import Settings
+
+from logging_config import getLogger
 
 logger = getLogger(__name__)
 
