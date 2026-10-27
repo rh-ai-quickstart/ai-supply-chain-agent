@@ -12,7 +12,6 @@ from collections.abc import Iterator
 from dataclasses import dataclass, field
 from typing import Any
 
-from logging_config import getLogger
 from openai import APIError, OpenAI
 from tenacity import (
     retry,
@@ -21,6 +20,8 @@ from tenacity import (
     stop_after_attempt,
     wait_exponential,
 )
+
+from logging_config import getLogger
 
 logger = getLogger(__name__)
 

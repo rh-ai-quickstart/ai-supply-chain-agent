@@ -8,9 +8,11 @@ need to depend on the chat-completion or tool-loop surfaces.
 from __future__ import annotations
 
 import io
+from typing import Any
+
+from openai import APIError, OpenAI
 
 from logging_config import getLogger
-from openai import APIError, OpenAI
 
 logger = getLogger(__name__)
 
