@@ -5,6 +5,7 @@
 # --- Registry & Image Config ---
 REGISTRY           ?= quay.io/rh-ai-quickstart
 REGISTRY_GEN_SIM   ?= quay.io/rh-ai-quickstart
+BASE_VERSION       ?= 0.1.0
 BACKEND_IMAGE      ?= $(REGISTRY)/ai-supply-chain-agent-backend
 INGEST_IMAGE       ?= $(REGISTRY)/ai-supply-chain-agent-ingestion
 FRONTEND_IMAGE     ?= $(REGISTRY)/ai-supply-chain-agent-frontend
