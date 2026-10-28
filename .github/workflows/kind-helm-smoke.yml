@@ -54,6 +54,8 @@ jobs:
 
       - name: Install helm-unittest plugin
         run: helm plugin install https://github.com/helm-unittest/helm-unittest --version 1.0.3
+        env:
+          HELM_PLUGINS: ${{ github.workspace }}/.helm-plugins
 
       - name: Helm chart lint and unit tests
         run: make helm-test

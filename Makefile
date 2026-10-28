@@ -4,12 +4,17 @@
 
 # --- Registry & Image Config ---
 REGISTRY        ?= quay.io/rh-ai-quickstart
+BASE_VERSION    ?= 0.1.0
 BACKEND_IMAGE      ?= $(REGISTRY)/ai-supply-chain-agent-backend
 INGEST_IMAGE       ?= $(REGISTRY)/ai-supply-chain-agent-ingestion
 FRONTEND_IMAGE     ?= $(REGISTRY)/ai-supply-chain-agent-frontend
-BACKEND_TAG        ?= dev
-INGEST_TAG         ?= dev
-FRONTEND_TAG       ?= dev
+# By default, use the chart appVersion on main and appVersion-dev elsewhere.
+CURRENT_GIT_BRANCH := $(shell git branch --show-current 2>/dev/null)
+CHART_APP_VERSION = $(shell awk -F '"' '/^appVersion:/ { if (NF >= 3 && $$2 != "") print $$2; exit }' "$(HELM_CHART)/Chart.yaml")
+DEFAULT_IMAGE_TAG = $(if $(filter main,$(CURRENT_GIT_BRANCH)),$(CHART_APP_VERSION),$(CHART_APP_VERSION)-dev)
+BACKEND_TAG        ?= $(DEFAULT_IMAGE_TAG)
+INGEST_TAG         ?= $(DEFAULT_IMAGE_TAG)
+FRONTEND_TAG       ?= $(DEFAULT_IMAGE_TAG)
 GEN_SIM_TAG        ?= $(BACKEND_TAG)
 GEN_SIM_APP_IMAGE  ?= $(REGISTRY)/general-sim-api:$(GEN_SIM_TAG)
 GEN_SIM_POSTGRES_IMAGE ?= $(REGISTRY)/general-sim-postgres:$(GEN_SIM_TAG)
@@ -38,6 +43,8 @@ HELM_RELEASE   ?= supply-chain-dashboard
 NAMESPACE      ?= supply-chain-dashboard
 VALUES_FILE    ?= $(HELM_CHART)/values.yaml
 KIND_VALUES_FILE ?= $(HELM_CHART)/values-kind.yaml
+HELM_PLUGINS   := $(CURDIR)/.helm-plugins
+export HELM_PLUGINS
 
 # --- Podman ---
 BUILD_PLATFORM ?= linux/amd64
@@ -85,6 +92,7 @@ help:
 	@echo "    push-frontend      Push the frontend image"
 	@echo ""
 	@echo "  Build & Push:"
+	@echo "    version            Print the release version from helm/Chart.yaml"
 	@echo "    build-and-push     Build and push all images (latest tag)"
 	@echo "    release            Build and push all images"
 	@echo "    release-backend    Build and push the backend image"
@@ -163,6 +171,14 @@ help:
 	@echo "    MODEL_URL          $(MODEL_URL)  (install-full: external-model url)"
 	@echo "    API_KEY            (install-full: external-model apiToken)"
 	@echo ""
+
+# ============================================================
+# Release version
+# ============================================================
+.PHONY: version
+version:
+	@test -n "$(CHART_APP_VERSION)" || { echo "Could not read appVersion from $(HELM_CHART)/Chart.yaml" >&2; exit 1; }
+	@printf '%s\n' "$(CHART_APP_VERSION)"
 
 # ============================================================
 # Build targets
@@ -258,6 +274,13 @@ login:
 # Test targets
 # ============================================================
 
+.PHONY: deps-all
+deps-all:
+	@echo ">>> Installing backend and frontend dependencies..."
+	python -m pip install --upgrade pip
+	python -m pip install -r app/backend/requirements-dev.txt
+	cd app/frontend && pnpm install --frozen-lockfile
+
 BACKEND_TEST ?= python run_backend_tests.py
 FRONTEND_TEST ?= pnpm test:coverage
 HELM_TEST ?= make helm-test
@@ -265,6 +288,10 @@ HELM_TEST ?= make helm-test
 .PHONY: test
 test: test-backend test-frontend test-helm
 	@echo ">>> All tests passed."
+
+.PHONY: test-all
+test-all: test-backend test-frontend
+	@echo ">>> Backend and frontend tests passed."
 
 .PHONY: test-backend-deps
 test-backend-deps:
@@ -280,6 +307,11 @@ test-backend:
 test-frontend:
 	@echo ">>> Running frontend tests..."
 	cd app/frontend && $(FRONTEND_TEST)
+
+.PHONY: build-frontend-app
+build-frontend-app:
+	@echo ">>> Building frontend production bundle..."
+	cd app/frontend && pnpm run build
 
 .PHONY: test-helm
 test-helm: helm-test
@@ -331,10 +363,7 @@ lint-frontend:
 	cd app/frontend && pnpm run lint
 
 .PHONY: lint-helm
-lint-helm:
-	@echo ">>> Linting Helm chart..."
-	@set -eu; \
-	yamllint helm/templates/ 2>/dev/null || echo ">>> (yamllint not installed, skipping)"
+lint-helm: helm-lint
 
 # ============================================================
 # Helm targets
@@ -396,6 +425,17 @@ helm-test: helm-deps
 	helm unittest $(HELM_CHART)
 	@echo ">>> Validating pgvector Secret password wiring"
 	python3 $(HELM_CHART)/tests/test_pgvector_secret.py
+
+.PHONY: helm-export-validate-demo
+helm-export-validate-demo: helm-deps
+	@set -eu; \
+	RENDERED_MANIFESTS="$$(mktemp "$${TMPDIR:-/tmp}/supply-chain-rendered.XXXXXX.yaml")"; \
+	trap 'rm -f "$$RENDERED_MANIFESTS"' EXIT; \
+	helm template $(HELM_RELEASE) $(HELM_CHART) \
+		--namespace ci-demo \
+		-f $(VALUES_FILE) \
+		$(HELM_IMAGE_SETS) > "$$RENDERED_MANIFESTS"; \
+	kubeconform -strict -summary -skip Route "$$RENDERED_MANIFESTS"
 
 .PHONY: helm-render
 helm-render: helm-deps
