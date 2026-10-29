@@ -57,6 +57,12 @@ HELM_RELEASE   ?= supply-chain-dashboard
 NAMESPACE      ?= supply-chain-dashboard
 VALUES_FILE    ?= $(HELM_CHART)/values.yaml
 KIND_VALUES_FILE ?= $(HELM_CHART)/values-kind.yaml
+KIND_FULL_VALUES_FILE ?= $(HELM_CHART)/values-kind-full.yaml
+KIND_EXTRA_VALUES_FILES ?=
+KIND_EXTRA_VALUES_ARGS = $(foreach values_file,$(KIND_EXTRA_VALUES_FILES),-f $(values_file))
+INGEST_VALUES_FILES ?= $(VALUES_FILE)
+INGEST_VALUES_ARGS = $(foreach values_file,$(INGEST_VALUES_FILES),-f $(values_file))
+INGEST_IMAGE_SETS ?= $(HELM_IMAGE_SETS)
 HELM_PLUGINS   := $(CURDIR)/.helm-plugins
 export HELM_PLUGINS
 
@@ -144,15 +150,16 @@ help:
 	@echo "    k8s-namespace      Create/set kubectl namespace (NAMESPACE)"
 	@echo "    kind-verify          Post-deploy checks (port-forward + curl; Kind cluster must be up)"
 	@echo "    kind-verify-e2e      kind-verify + Playwright UI tests (RUN_UI_E2E=1)"
+	@echo "    test-short-e2e      PR Playwright UI E2E tests (RUN_UI_E2E=1)"
 	@echo "    kind-preflight       Check Podman VM / Kind node RAM before local smoke"
 	@echo "    local-kind-smoke-test  Full local Kind smoke (cluster + images + helm-install-kind + verify)"
 	@echo ""
 	@echo "  E2E UI (Playwright):"
 	@echo "    e2e-ui-install       Install pytest-playwright and Chromium"
-	@echo "    e2e-ui               Run browser E2E tests (needs SUPPLY_CHAIN_UI_ENDPOINT)"
+	@echo "    e2e-ui               Run browser E2E tests (RUN_MODEL_E2E=1 enables live model chat test)"
 	@echo ""
 	@echo "  Ingest:"
-	@echo "    ingest             Run the knowledge-base ingestion Job on OpenShift"
+	@echo "    ingest             Run the knowledge-base ingestion Job"
 	@echo "    ingest-logs        Tail logs from the most recent ingest Job pod"
 	@echo "    ingest-status      Show the status of the ingest Job"
 	@echo ""
@@ -164,6 +171,7 @@ help:
 	@echo ""
 	@echo "  Full install:"
 	@echo "    install-full       install + ingest + seed (NAMESPACE, MODEL_ID, MODEL_URL, API_KEY)"
+	@echo "    install-full-kind  Kind install + ingest + seed (Llama Stack embedding path)"
 	@echo ""
 	@echo "  Utilities:"
 	@echo "    login              Log in to the container registry via podman"
@@ -588,6 +596,11 @@ kind-preflight:
 kind-verify-e2e: e2e-ui-install
 	@RUN_UI_E2E=1 bash ./scripts/ci/kind-verify-deployment.sh
 
+# PR-facing UI E2E command. Dependency installation is a separate workflow step.
+.PHONY: test-short-e2e
+test-short-e2e:
+	@RUN_UI_E2E=1 bash ./scripts/ci/kind-verify-deployment.sh
+
 .PHONY: local-kind-smoke-test
 local-kind-smoke-test:
 	@bash ./scripts/local-kind-smoke-test.sh $(LOCAL_KIND_SMOKE_ARGS)
@@ -644,6 +657,7 @@ helm-install-kind: helm-deps k8s-namespace
 		$(HELM_CREATE_NAMESPACE) \
 		-f $(VALUES_FILE) \
 		-f $(KIND_VALUES_FILE) \
+		$(KIND_EXTRA_VALUES_ARGS) \
 		$(SECRETS_FLAGS) \
 		$(HELM_KIND_IMAGE_SETS) \
 		$(HELM_EXTRA_ARGS) \
@@ -705,16 +719,16 @@ oc-status:
 # Ingest targets
 # ============================================================
 
-# Run the ingestion Job as a one-off oc run (no Helm required).
+# Render and run the ingestion Job; values and image sets can be overridden for profiles.
 .PHONY: ingest
 ingest:
 	@echo ">>> Running knowledge-base ingestion job in namespace: $(NAMESPACE)"
 	@set -eu; \
 	helm template $(HELM_RELEASE) $(HELM_CHART) \
 		--namespace $(NAMESPACE) \
-		-f $(VALUES_FILE) \
+		$(INGEST_VALUES_ARGS) \
 		$(SECRETS_FLAGS) \
-		$(HELM_IMAGE_SETS) \
+		$(INGEST_IMAGE_SETS) \
 		--set ingest.enabled=true \
 		$(HELM_EXTRA_ARGS) \
 		--show-only templates/ingest-job.yaml \
@@ -809,6 +823,20 @@ install-full:
 	$(MAKE) seed
 	$(MAKE) ingest
 	@echo ">>> install-full complete (install + ingest + seed)"
+
+# Kind equivalent of install-full. Uses the Kind values and local image
+# repositories, then runs the same demo/network seeding and KB ingestion steps.
+# KB ingestion uses Llama Stack's embedding provider and does not need the
+# external text-generation model credentials used by install-full.
+.PHONY: install-full-kind
+install-full-kind: helm-deps
+	$(MAKE) --no-print-directory helm-install-kind \
+		KIND_EXTRA_VALUES_FILES="$(KIND_FULL_VALUES_FILE)"
+	$(MAKE) --no-print-directory seed VALUES_FILE=$(KIND_FULL_VALUES_FILE)
+	$(MAKE) --no-print-directory ingest \
+		INGEST_VALUES_FILES="$(VALUES_FILE) $(KIND_VALUES_FILE) $(KIND_FULL_VALUES_FILE)" \
+		INGEST_IMAGE_SETS="$(HELM_KIND_IMAGE_SETS)"
+	@echo ">>> install-full-kind complete (Kind install + ingest + seed)"
 
 # ============================================================
 # Quality gate

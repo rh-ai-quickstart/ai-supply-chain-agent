@@ -32,19 +32,12 @@ jobs:
     name: Create promotion PR
     runs-on: ubuntu-latest
     steps:
-      - name: Generate GitHub App token
-        id: app-token
-        uses: actions/create-github-app-token@v2
-        with:
-          app-id: ${{ secrets.PR_CREATION_APP_ID }}
-          private-key: ${{ secrets.PR_CREATION_APP_PRIVATE_KEY }}
-
       - name: Check out development
         uses: actions/checkout@v5
         with:
           ref: development
           fetch-depth: 0
-          token: ${{ steps.app-token.outputs.token }}
+          token: ${{ github.token }}
 
       - name: Check promotion commits
         id: commits
@@ -154,7 +147,7 @@ jobs:
       - name: Create promotion pull request
         if: steps.commits.outputs.has-commits == 'true'
         env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_TOKEN: ${{ github.token }}
           BRANCH: ${{ steps.branch.outputs.name }}
           PR_TITLE: ${{ inputs.pr_title }}
           PR_DESCRIPTION: ${{ inputs.pr_description }}
