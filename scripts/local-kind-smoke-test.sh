@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Local Kind Helm smoke — same path as .github/workflows/kind-helm-smoke.yml
+# Local Kind Helm smoke for development and debugging.
 #
 # Creates a Kind cluster (Podman) with a localhost:5001 registry, builds and
 # pushes supply-chain images, installs with helm/values-kind.yaml, then runs

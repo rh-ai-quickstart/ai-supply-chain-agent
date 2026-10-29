@@ -95,7 +95,7 @@ CI and local developers can install with `helm/values-kind.yaml` (disables OpenS
 
 | Environment | Minimum RAM | Notes |
 |-------------|-------------|-------|
-| GHA `ubuntu-latest` | ~7Gi allocatable | Used by `.github/workflows/kind-helm-smoke.yml` |
+| GHA `ubuntu-latest` | ~7Gi allocatable | Used by `.github/workflows/pr-e2e-tests.yml` |
 | Local Podman + Kind | **8Gi Podman VM** | Neo4j requests 2Gi (official chart minimum) |
 
 Neo4j cannot be reduced below 2Gi per the upstream `neo4j/neo4j` chart. Disabling Neo4j would break `general-sim-api` and the scenarios integration test.
