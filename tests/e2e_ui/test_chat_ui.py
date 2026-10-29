@@ -5,6 +5,7 @@ Chat UI E2E tests — off-topic guardrail (parity with kind-verify-deployment.sh
 import os
 import re
 import time
+from pathlib import Path
 
 import pytest
 from playwright.sync_api import Page, expect
@@ -89,3 +90,30 @@ class TestChatUI:
 
         # The scenario context (KB status) from before the chat still shows.
         expect(page.locator(".chat-kb-status__text").first).to_have_text(kb_before)
+
+
+@pytest.mark.skipif(
+    os.getenv("RUN_MODEL_E2E", "").lower() not in {"1", "true"},
+    reason="Set RUN_MODEL_E2E=1 to run the live generation model test",
+)
+def test_live_model_chat_returns_response(page: Page):
+    """Exercise the deployed generation model through the browser chat flow."""
+    screenshot_path = Path("test-results/model-chat-response.png")
+    screenshot_path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        _send_chat_message(
+            page,
+            "Is there anything in the news that could affect my supply chain?",
+        )
+        _wait_for_ai_reply(page, re.compile(r"\S.{19,}", re.DOTALL))
+
+        reply = page.locator(".chat-message.ai").last.inner_text().strip()
+        assert len(reply) >= 20, f"Expected a substantive model response, got: {reply!r}"
+        assert "I am restricted to supply chain topics only" not in reply
+        expect(page.locator(".chat-log-display .error")).to_have_count(0)
+        expect(page.get_by_label("Chat input")).to_be_enabled(
+            timeout=CHAT_RESPONSE_TIMEOUT
+        )
+    finally:
+        if not page.is_closed():
+            page.screenshot(path=str(screenshot_path), full_page=True)

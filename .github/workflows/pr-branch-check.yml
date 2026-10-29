@@ -1,0 +1,24 @@
+name: Require development branch for main PRs
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate-pr-branch:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          PR_SOURCE_BRANCH="${{ github.event.pull_request.head.ref }}"
+          PR_SOURCE_REPO="${{ github.event.pull_request.head.repo.full_name }}"
+          TARGET_REPO="${{ github.repository }}"
+          if [ "${PR_SOURCE_REPO}" != "${TARGET_REPO}" ]; then
+            echo "::error::PR must come from the same repository"
+            exit 1
+          fi
+          if [ "${PR_SOURCE_BRANCH}" = "development" ] || [[ "${PR_SOURCE_BRANCH}" =~ ^dev-[a-f0-9]+$ ]]; then
+            echo "OK"
+          else
+            echo "::error::PR must come from development or dev-<commit>"
+            exit 1
+          fi

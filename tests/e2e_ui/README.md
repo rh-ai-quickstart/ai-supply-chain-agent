@@ -39,15 +39,24 @@ pytest tests/e2e_ui/ -v --headed --slowmo 500 --browser chromium
 |----------|---------|-------------|
 | `SUPPLY_CHAIN_UI_ENDPOINT` | `http://127.0.0.1:18080` | Frontend base URL |
 | `BACKEND_HEALTH_URL` | `http://127.0.0.1:15001/healthz` | Backend liveness (session fixture) |
-| `SKIP_MODEL_TESTS` | `false` | Set `true` to skip chat tests that call the LLM |
+| `SKIP_MODEL_TESTS` | `false` | Set `true` to skip the chat UI guardrail tests |
+| `RUN_MODEL_E2E` | unset | Set `1` to include a live generation-model chat test; requires a deployed, configured model |
 | `E2E_CHAT_TIMEOUT_MS` | `120000` | Max wait for chat replies |
+
+Run the optional live model test against a deployment with generation-model access:
+
+```bash
+RUN_MODEL_E2E=1 make e2e-ui
+```
+
+That test always saves a screenshot to `test-results/model-chat-response.png`.
 
 ## Test files
 
 | File | Coverage |
 |------|----------|
 | `test_impact_simulation_ui.py` | Header, Simulation / KB nav, scenario panel, suggested prompts, Create scenario modal, All Flights default, chat input |
-| `test_chat_ui.py` | Off-topic guardrail |
+| `test_chat_ui.py` | Off-topic guardrail; optional live model response when `RUN_MODEL_E2E=1` |
 | `test_knowledge_bases_ui.py` | Nav + `#/knowledge-bases` hash route |
 
 Current SPA routes: `#/simulation`, `#/knowledge-bases`. Prefer unit tests under `app/frontend/src/**/*.test.*` for map/results deep coverage; this suite is chrome + chat smoke for Kind.

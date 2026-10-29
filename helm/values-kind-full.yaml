@@ -1,0 +1,30 @@
+# Full Kind profile, layered after values-kind.yaml.
+# Enables the Llama Stack embedding path and app KB ingest job while retaining
+# Kind's route, storage, and container security overrides. External generation
+# remains disabled because current E2E tests and KB ingestion do not call it.
+
+ingest:
+  enabled: true
+
+general-simulation:
+  global:
+    models:
+      external-model:
+        enabled: false
+  llama-stack:
+    enabled: true
+    resources:
+      requests:
+        cpu: 250m
+        memory: 1Gi
+      limits:
+        memory: 3Gi
+
+# Keep the offline network fixture, but avoid OpenSky calls from CI runners.
+seed:
+  networkFiles:
+    - data/supply-chain-network.example.yaml
+  opensky:
+    enabled: false
+    max: 50
+    timeoutSeconds: 60

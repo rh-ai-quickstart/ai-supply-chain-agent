@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Post-deploy checks for Kind + Helm install (used by kind-helm-smoke workflow).
+# Post-deploy checks for Kind + Helm install (used by pr-e2e-tests workflow).
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"

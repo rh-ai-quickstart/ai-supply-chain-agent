@@ -6,9 +6,10 @@ import re
 from typing import Any
 
 import openai
-from logging_config import getLogger
 from clients.llama_stack_client import LlamaStackClient
 from repositories.knowledge_base_repository import KnowledgeBaseRepository
+
+from logging_config import getLogger
 
 logger = getLogger(__name__)
 

@@ -4,12 +4,17 @@
 
 # --- Registry & Image Config ---
 REGISTRY        ?= quay.io/rh-ai-quickstart
+BASE_VERSION    ?= 0.1.0
 BACKEND_IMAGE      ?= $(REGISTRY)/ai-supply-chain-agent-backend
 INGEST_IMAGE       ?= $(REGISTRY)/ai-supply-chain-agent-ingestion
 FRONTEND_IMAGE     ?= $(REGISTRY)/ai-supply-chain-agent-frontend
-BACKEND_TAG        ?= dev
-INGEST_TAG         ?= dev
-FRONTEND_TAG       ?= dev
+# By default, use the chart appVersion on main and appVersion-dev elsewhere.
+CURRENT_GIT_BRANCH := $(shell git branch --show-current 2>/dev/null)
+CHART_APP_VERSION = $(shell awk -F '"' '/^appVersion:/ { if (NF >= 3 && $$2 != "") print $$2; exit }' "$(HELM_CHART)/Chart.yaml")
+DEFAULT_IMAGE_TAG = $(if $(filter main,$(CURRENT_GIT_BRANCH)),$(CHART_APP_VERSION),$(CHART_APP_VERSION)-dev)
+BACKEND_TAG        ?= $(DEFAULT_IMAGE_TAG)
+INGEST_TAG         ?= $(DEFAULT_IMAGE_TAG)
+FRONTEND_TAG       ?= $(DEFAULT_IMAGE_TAG)
 GEN_SIM_TAG        ?= $(BACKEND_TAG)
 GEN_SIM_APP_IMAGE  ?= $(REGISTRY)/general-sim-api:$(GEN_SIM_TAG)
 GEN_SIM_POSTGRES_IMAGE ?= $(REGISTRY)/general-sim-postgres:$(GEN_SIM_TAG)
@@ -38,6 +43,14 @@ HELM_RELEASE   ?= supply-chain-dashboard
 NAMESPACE      ?= supply-chain-dashboard
 VALUES_FILE    ?= $(HELM_CHART)/values.yaml
 KIND_VALUES_FILE ?= $(HELM_CHART)/values-kind.yaml
+KIND_FULL_VALUES_FILE ?= $(HELM_CHART)/values-kind-full.yaml
+KIND_EXTRA_VALUES_FILES ?=
+KIND_EXTRA_VALUES_ARGS = $(foreach values_file,$(KIND_EXTRA_VALUES_FILES),-f $(values_file))
+INGEST_VALUES_FILES ?= $(VALUES_FILE)
+INGEST_VALUES_ARGS = $(foreach values_file,$(INGEST_VALUES_FILES),-f $(values_file))
+INGEST_IMAGE_SETS ?= $(HELM_IMAGE_SETS)
+HELM_PLUGINS   := $(CURDIR)/.helm-plugins
+export HELM_PLUGINS
 
 # --- Podman ---
 BUILD_PLATFORM ?= linux/amd64
@@ -85,6 +98,7 @@ help:
 	@echo "    push-frontend      Push the frontend image"
 	@echo ""
 	@echo "  Build & Push:"
+	@echo "    version            Print the release version from helm/Chart.yaml"
 	@echo "    build-and-push     Build and push all images (latest tag)"
 	@echo "    release            Build and push all images"
 	@echo "    release-backend    Build and push the backend image"
@@ -122,15 +136,16 @@ help:
 	@echo "    k8s-namespace      Create/set kubectl namespace (NAMESPACE)"
 	@echo "    kind-verify          Post-deploy checks (port-forward + curl; Kind cluster must be up)"
 	@echo "    kind-verify-e2e      kind-verify + Playwright UI tests (RUN_UI_E2E=1)"
+	@echo "    test-short-e2e      PR Playwright UI E2E tests (RUN_UI_E2E=1)"
 	@echo "    kind-preflight       Check Podman VM / Kind node RAM before local smoke"
 	@echo "    local-kind-smoke-test  Full local Kind smoke (cluster + images + helm-install-kind + verify)"
 	@echo ""
 	@echo "  E2E UI (Playwright):"
 	@echo "    e2e-ui-install       Install pytest-playwright and Chromium"
-	@echo "    e2e-ui               Run browser E2E tests (needs SUPPLY_CHAIN_UI_ENDPOINT)"
+	@echo "    e2e-ui               Run browser E2E tests (RUN_MODEL_E2E=1 enables live model chat test)"
 	@echo ""
 	@echo "  Ingest:"
-	@echo "    ingest             Run the knowledge-base ingestion Job on OpenShift"
+	@echo "    ingest             Run the knowledge-base ingestion Job"
 	@echo "    ingest-logs        Tail logs from the most recent ingest Job pod"
 	@echo "    ingest-status      Show the status of the ingest Job"
 	@echo ""
@@ -142,6 +157,7 @@ help:
 	@echo ""
 	@echo "  Full install:"
 	@echo "    install-full       install + ingest + seed (NAMESPACE, MODEL_ID, MODEL_URL, API_KEY)"
+	@echo "    install-full-kind  Kind install + ingest + seed (Llama Stack embedding path)"
 	@echo ""
 	@echo "  Utilities:"
 	@echo "    login              Log in to the container registry via podman"
@@ -163,6 +179,14 @@ help:
 	@echo "    MODEL_URL          $(MODEL_URL)  (install-full: external-model url)"
 	@echo "    API_KEY            (install-full: external-model apiToken)"
 	@echo ""
+
+# ============================================================
+# Release version
+# ============================================================
+.PHONY: version
+version:
+	@test -n "$(CHART_APP_VERSION)" || { echo "Could not read appVersion from $(HELM_CHART)/Chart.yaml" >&2; exit 1; }
+	@printf '%s\n' "$(CHART_APP_VERSION)"
 
 # ============================================================
 # Build targets
@@ -258,6 +282,13 @@ login:
 # Test targets
 # ============================================================
 
+.PHONY: deps-all
+deps-all:
+	@echo ">>> Installing backend and frontend dependencies..."
+	python -m pip install --upgrade pip
+	python -m pip install -r app/backend/requirements-dev.txt
+	cd app/frontend && pnpm install --frozen-lockfile
+
 BACKEND_TEST ?= python run_backend_tests.py
 FRONTEND_TEST ?= pnpm test:coverage
 HELM_TEST ?= make helm-test
@@ -265,6 +296,10 @@ HELM_TEST ?= make helm-test
 .PHONY: test
 test: test-backend test-frontend test-helm
 	@echo ">>> All tests passed."
+
+.PHONY: test-all
+test-all: test-backend test-frontend
+	@echo ">>> Backend and frontend tests passed."
 
 .PHONY: test-backend-deps
 test-backend-deps:
@@ -280,6 +315,11 @@ test-backend:
 test-frontend:
 	@echo ">>> Running frontend tests..."
 	cd app/frontend && $(FRONTEND_TEST)
+
+.PHONY: build-frontend-app
+build-frontend-app:
+	@echo ">>> Building frontend production bundle..."
+	cd app/frontend && pnpm run build
 
 .PHONY: test-helm
 test-helm: helm-test
@@ -331,10 +371,7 @@ lint-frontend:
 	cd app/frontend && pnpm run lint
 
 .PHONY: lint-helm
-lint-helm:
-	@echo ">>> Linting Helm chart..."
-	@set -eu; \
-	yamllint helm/templates/ 2>/dev/null || echo ">>> (yamllint not installed, skipping)"
+lint-helm: helm-lint
 
 # ============================================================
 # Helm targets
@@ -396,6 +433,17 @@ helm-test: helm-deps
 	helm unittest $(HELM_CHART)
 	@echo ">>> Validating pgvector Secret password wiring"
 	python3 $(HELM_CHART)/tests/test_pgvector_secret.py
+
+.PHONY: helm-export-validate-demo
+helm-export-validate-demo: helm-deps
+	@set -eu; \
+	RENDERED_MANIFESTS="$$(mktemp "$${TMPDIR:-/tmp}/supply-chain-rendered.XXXXXX.yaml")"; \
+	trap 'rm -f "$$RENDERED_MANIFESTS"' EXIT; \
+	helm template $(HELM_RELEASE) $(HELM_CHART) \
+		--namespace ci-demo \
+		-f $(VALUES_FILE) \
+		$(HELM_IMAGE_SETS) > "$$RENDERED_MANIFESTS"; \
+	kubeconform -strict -summary -skip Route "$$RENDERED_MANIFESTS"
 
 .PHONY: helm-render
 helm-render: helm-deps
@@ -532,6 +580,11 @@ kind-preflight:
 kind-verify-e2e: e2e-ui-install
 	@RUN_UI_E2E=1 bash ./scripts/ci/kind-verify-deployment.sh
 
+# PR-facing UI E2E command. Dependency installation is a separate workflow step.
+.PHONY: test-short-e2e
+test-short-e2e:
+	@RUN_UI_E2E=1 bash ./scripts/ci/kind-verify-deployment.sh
+
 .PHONY: local-kind-smoke-test
 local-kind-smoke-test:
 	@bash ./scripts/local-kind-smoke-test.sh $(LOCAL_KIND_SMOKE_ARGS)
@@ -588,6 +641,7 @@ helm-install-kind: helm-deps k8s-namespace
 		$(HELM_CREATE_NAMESPACE) \
 		-f $(VALUES_FILE) \
 		-f $(KIND_VALUES_FILE) \
+		$(KIND_EXTRA_VALUES_ARGS) \
 		$(SECRETS_FLAGS) \
 		$(HELM_KIND_IMAGE_SETS) \
 		$(HELM_EXTRA_ARGS) \
@@ -649,16 +703,16 @@ oc-status:
 # Ingest targets
 # ============================================================
 
-# Run the ingestion Job as a one-off oc run (no Helm required).
+# Render and run the ingestion Job; values and image sets can be overridden for profiles.
 .PHONY: ingest
 ingest:
 	@echo ">>> Running knowledge-base ingestion job in namespace: $(NAMESPACE)"
 	@set -eu; \
 	helm template $(HELM_RELEASE) $(HELM_CHART) \
 		--namespace $(NAMESPACE) \
-		-f $(VALUES_FILE) \
+		$(INGEST_VALUES_ARGS) \
 		$(SECRETS_FLAGS) \
-		$(HELM_IMAGE_SETS) \
+		$(INGEST_IMAGE_SETS) \
 		--set ingest.enabled=true \
 		$(HELM_EXTRA_ARGS) \
 		--show-only templates/ingest-job.yaml \
@@ -753,6 +807,20 @@ install-full:
 	$(MAKE) seed
 	$(MAKE) ingest
 	@echo ">>> install-full complete (install + ingest + seed)"
+
+# Kind equivalent of install-full. Uses the Kind values and local image
+# repositories, then runs the same demo/network seeding and KB ingestion steps.
+# KB ingestion uses Llama Stack's embedding provider and does not need the
+# external text-generation model credentials used by install-full.
+.PHONY: install-full-kind
+install-full-kind: helm-deps
+	$(MAKE) --no-print-directory helm-install-kind \
+		KIND_EXTRA_VALUES_FILES="$(KIND_FULL_VALUES_FILE)"
+	$(MAKE) --no-print-directory seed VALUES_FILE=$(KIND_FULL_VALUES_FILE)
+	$(MAKE) --no-print-directory ingest \
+		INGEST_VALUES_FILES="$(VALUES_FILE) $(KIND_VALUES_FILE) $(KIND_FULL_VALUES_FILE)" \
+		INGEST_IMAGE_SETS="$(HELM_KIND_IMAGE_SETS)"
+	@echo ">>> install-full-kind complete (Kind install + ingest + seed)"
 
 # ============================================================
 # Quality gate

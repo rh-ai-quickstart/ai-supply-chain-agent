@@ -1,0 +1,95 @@
+name: Pull Request - End-to-End Tests
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - "app/backend/**"
+      - "app/frontend/**"
+      - "helm/**"
+      - "vendor/general-simulation/**"
+      - ".gitmodules"
+      - "scripts/ci/**"
+      - "tests/e2e_ui/**"
+      - "Makefile"
+      - ".github/actions/**"
+      - ".github/workflows/pr-e2e-tests.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
+env:
+  NAMESPACE: supply-chain-dashboard
+  HELM_RELEASE: supply-chain-dashboard
+
+jobs:
+  e2e-tests:
+    name: Kind E2E tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22.x"
+
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.19.4
+
+      - name: Setup and deploy PR branch on Kind
+        uses: ./.github/actions/setup-and-deploy
+        timeout-minutes: 45
+        with:
+          repo_url: https://github.com/${{ github.event.pull_request.head.repo.full_name || github.repository }}
+          ref: ${{ github.event.pull_request.head.ref || github.ref_name }}
+          submodules: "true"
+          namespace: ${{ env.NAMESPACE }}
+          use_kind: "true"
+          build_images: "true"
+          kind_pre_deploy_command: "make helm-deps"
+          build_images_command: "make kind-build-images REGISTRY=localhost:5001"
+          push_images_command: "make kind-push-images REGISTRY=localhost:5001 PUSH_EXTRA_ARGS=--tls-verify=false"
+          deploy_command: "make helm-install-kind"
+
+      - name: Wait for app deployments
+        shell: bash
+        run: |
+          kubectl wait --namespace "$NAMESPACE" \
+            --for=condition=available \
+            "deployment/${HELM_RELEASE}-backend" \
+            --timeout=300s
+          kubectl wait --namespace "$NAMESPACE" \
+            --for=condition=available \
+            "deployment/${HELM_RELEASE}-frontend" \
+            --timeout=300s
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Playwright UI test dependencies and run E2E suite
+        uses: ./.github/actions/run-quickstart-tests
+        timeout-minutes: 30
+        with:
+          pre_test_command: "make e2e-ui-install"
+          test_command: "make test-short-e2e"
+          upload_results: "test-results"
+          upload_retention_days: 30
+        env:
+          NAMESPACE: ${{ env.NAMESPACE }}
+          HELM_RELEASE: ${{ env.HELM_RELEASE }}
+          SKIP_MODEL_TESTS: "false"
+
+      - name: Cleanup Kind deployment
+        if: always()
+        uses: ./.github/actions/cleanup
+        with:
+          cleanup_command: "make helm-uninstall"

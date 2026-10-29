@@ -1,0 +1,12 @@
+{
+  "replacements": [
+    {
+      "rule": "makefile_base_version",
+      "paths": ["Makefile"]
+    },
+    {
+      "rule": "chart_app_version",
+      "paths": ["helm/Chart.yaml"]
+    }
+  ]
+}
