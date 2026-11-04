@@ -1,0 +1,153 @@
+{
+  "suite_version": "seeded-disruptions-v1-news",
+  "description": "Scenario-based browser evaluation of the agent under seeded supply-chain disruptions.",
+  "scenarios": [
+    {
+      "scenario_id": "supply-chain-port-strike-la",
+      "label": "Port Strike LA",
+      "impact_question": "Port of Los Angeles and Long Beach are closed by a strike. Which vessels, cargo, and inland facilities are affected, and what is the estimated cost of impact?",
+      "expected_kb_name_terms": ["port", "strike", "los angeles", "shipping"],
+      "forbidden_terms": ["UK airspace closure", "NATS GPS failure", "Suez Canal blockage"],
+      "turns": [
+        {
+          "id": "port-impact-summary",
+          "category": "impact_summary",
+          "question": "Summarize the impact. List up to three affected entity IDs, and state the total value at risk with its currency.",
+          "check_value_at_risk": true
+        },
+        {
+          "id": "port-highest-value",
+          "category": "impact_follow_up",
+          "question": "Which affected entity has the highest individual value at risk? Give its entity ID and value, or say if that information is not available.",
+          "check_top_value_entity": true
+        },
+        {
+          "id": "port-evidence-boundary",
+          "category": "evidence_and_mitigation",
+          "question": "What is the impact of the strike, and what should we verify before choosing an alternative port or route?",
+          "requires_kb_context": true,
+          "expected_facts": [
+            "The disruption affects the Ports of Los Angeles and Long Beach.",
+            "The answer distinguishes the current impact snapshot from assumptions or additional information needed for a mitigation decision."
+          ],
+          "kb_expected_facts": [
+            "The knowledge base names Oakland and Prince Rupert as reroute options and says they add multi-day rail delays and higher inland freight costs."
+          ]
+        },
+        {
+          "id": "port-kb-resilience-facts",
+          "category": "knowledge_base_retrieval",
+          "question": "How soon could fast-moving SKUs face shortages at dependent inland distribution centers? If we reroute through Oakland or Prince Rupert, what tradeoffs and other preparations should we consider?",
+          "requires_kb_context": true,
+          "kb_expected_facts": [
+            "The knowledge base estimates fast-moving SKU inventory shortfalls at dependent inland distribution centers within approximately 72 hours.",
+            "The knowledge base names Oakland and Prince Rupert as reroute options.",
+            "The knowledge base says those options add multi-day rail delays and higher inland freight costs.",
+            "The knowledge base identifies pre-negotiated alternate gateways, safety stock at inland hubs, and flexible intermodal contracts as resilience measures."
+          ]
+        },
+        {
+          "id": "news-supply-chain-risk",
+          "category": "news_retrieval",
+          "question": "Is there anything in the news that could affect my supply chain?",
+          "expected_tools": ["news_knowledge_base", "fetch_news"],
+          "expected_facts": [
+            "The answer summarizes current news that may affect supply chains, or clearly states that no relevant news was found."
+          ]
+        }
+      ]
+    },
+    {
+      "scenario_id": "supply-chain-suez-blockage",
+      "label": "Suez Blockage",
+      "impact_question": "The Suez Canal is blocked. Which vessels and cargoes are delayed, what is the impact on European ports, and what is the estimated cost of impact?",
+      "expected_kb_name_terms": ["suez", "canal", "shipping", "vessel"],
+      "forbidden_terms": ["UK airspace closure", "NATS GPS failure", "Port Strike LA"],
+      "turns": [
+        {
+          "id": "suez-impact-summary",
+          "category": "impact_summary",
+          "question": "Summarize the impact. List up to three affected entity IDs, and state the total value at risk with its currency.",
+          "check_value_at_risk": true
+        },
+        {
+          "id": "suez-highest-value",
+          "category": "impact_follow_up",
+          "question": "Which affected entity has the highest individual value at risk? Give its entity ID and value, or say if that information is not available.",
+          "check_top_value_entity": true
+        },
+        {
+          "id": "suez-evidence-boundary",
+          "category": "evidence_and_mitigation",
+          "question": "What is the impact of the Suez Canal blockage, and what should we verify before choosing a reroute?",
+          "requires_kb_context": true,
+          "expected_facts": [
+            "The active disruption is a blockage of the Suez Canal.",
+            "The answer distinguishes the current impact snapshot from assumptions or additional information needed for a rerouting decision."
+          ],
+          "kb_expected_facts": [
+            "The knowledge base estimates that a Cape of Good Hope reroute adds roughly 12 to 15 days and significant extra fuel burn.",
+            "The knowledge base recommends safety stock at key European hubs such as Rotterdam.",
+            "The knowledge base lists pre-planned Cape routings and bunker hedges as mitigation measures."
+          ]
+        },
+        {
+          "id": "suez-kb-cape-reroute",
+          "category": "knowledge_base_retrieval",
+          "question": "How much extra transit time might rerouting around the Cape of Good Hope add, and what preparations could help European hubs absorb the disruption?",
+          "requires_kb_context": true,
+          "kb_expected_facts": [
+            "The knowledge base estimates that routing around the Cape of Good Hope adds roughly 12 to 15 days of transit time.",
+            "The knowledge base recommends safety stock at key European hubs such as Rotterdam.",
+            "The knowledge base says multi-source suppliers, such as near-shore or Mediterranean alternatives, reduce exposure to reliance on a single Asia-Europe sea lane."
+          ]
+        }
+      ]
+    },
+    {
+      "scenario_id": "opensky-uk-closure-001",
+      "label": "UK Airspace Closure",
+      "impact_question": "UK airspace is closed due to a NATS GPS failure. Which aircraft are affected, what diversions should be issued, and what is the estimated cost of impact?",
+      "expected_kb_name_terms": ["uk", "airspace", "flight", "aviation", "nats"],
+      "forbidden_terms": ["Port Strike LA", "Ports of Los Angeles", "Suez Canal blockage"],
+      "turns": [
+        {
+          "id": "uk-impact-summary",
+          "category": "impact_summary",
+          "question": "Summarize the impact. List up to three affected entity IDs, and state the total value at risk with its currency.",
+          "check_value_at_risk": true
+        },
+        {
+          "id": "uk-highest-value",
+          "category": "impact_follow_up",
+          "question": "Which affected entity has the highest individual value at risk? Give its entity ID and value, or say if that information is not available.",
+          "check_top_value_entity": true
+        },
+        {
+          "id": "uk-evidence-boundary",
+          "category": "evidence_and_mitigation",
+          "question": "What is the impact of the UK airspace closure, and what should operators verify before issuing diversions?",
+          "requires_kb_context": true,
+          "expected_facts": [
+            "The active disruption is a UK airspace closure caused by a NATS GPS failure.",
+            "The answer distinguishes the current impact snapshot from assumptions or additional information needed before issuing a diversion."
+          ],
+          "kb_expected_facts": [
+            "The knowledge base says carriers should have pre-approved diversion airports and fuel contingencies.",
+            "The knowledge base warns that alternate European airports may be constrained by ramp capacity, customs, and crew duty-time limits."
+          ]
+        },
+        {
+          "id": "uk-kb-closure-scope",
+          "category": "knowledge_base_retrieval",
+          "question": "Which flight information regions are affected, and which inbound airports have suspended operations?",
+          "requires_kb_context": true,
+          "kb_expected_facts": [
+            "The knowledge base identifies the London FIR and Scottish FIR as affected.",
+            "The knowledge base says inbound operations at LHR, LGW, MAN, and EDI are suspended."
+          ]
+        }
+      ]
+    }
+  ]
+}

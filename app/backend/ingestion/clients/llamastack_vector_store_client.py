@@ -1,5 +1,6 @@
 import logging
 import os
+import time
 
 from openai import OpenAI
 
@@ -83,6 +84,66 @@ class LlamaStackVectorStoreClient:
         logger.info(
             "Attached file %s to vector store %s", file_id, vector_store_id
         )
+
+    def wait_for_file_processing(
+        self,
+        vector_store_id: str,
+        file_id: str,
+        *,
+        timeout_seconds: int = 300,
+        poll_interval_seconds: int = 5,
+    ):
+        """Wait for LlamaStack to finish indexing an attached file.
+
+        The attach endpoint may return HTTP 200 even if asynchronous parsing or
+        embedding later fails, so ingestion must inspect the file status.
+        """
+        deadline = time.monotonic() + max(1, timeout_seconds)
+        poll_interval = max(1, poll_interval_seconds)
+
+        while True:
+            file_status = self._client.vector_stores.files.retrieve(
+                vector_store_id=vector_store_id,
+                file_id=file_id,
+            )
+            status = getattr(file_status, "status", "unknown")
+
+            if status == "completed":
+                logger.info(
+                    "File indexing completed file=%s store=%s usage_bytes=%s",
+                    file_id,
+                    vector_store_id,
+                    getattr(file_status, "usage_bytes", None),
+                )
+                return file_status
+
+            if status in {"failed", "cancelled"}:
+                last_error = getattr(file_status, "last_error", None)
+                if isinstance(last_error, dict):
+                    error_detail = last_error.get("message") or last_error.get("code")
+                else:
+                    error_detail = getattr(last_error, "message", None)
+                detail = f": {error_detail}" if error_detail else ""
+                raise RuntimeError(
+                    f"LlamaStack file indexing {status} for file {file_id} "
+                    f"in vector store {vector_store_id}{detail}"
+                )
+
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise TimeoutError(
+                    f"Timed out after {timeout_seconds}s waiting for LlamaStack "
+                    f"to index file {file_id} in vector store {vector_store_id}; "
+                    f"last status={status!r}"
+                )
+
+            logger.info(
+                "Waiting for LlamaStack file indexing file=%s store=%s status=%s",
+                file_id,
+                vector_store_id,
+                status,
+            )
+            time.sleep(min(poll_interval, remaining))
 
     def delete_vector_store(self, vector_store_id: str) -> None:
         """Delete a vector store by id. Used for cleanup on partial ingestion failure."""

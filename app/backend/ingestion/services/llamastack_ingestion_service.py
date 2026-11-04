@@ -65,19 +65,22 @@ class LlamaStackIngestionService:
             try:
                 vector_store_id = self._client.create_vector_store(store_name)
             except (openai.APIError, OSError) as exc:
-                logger.error(
-                    "Failed to create vector store '%s' for '%s': %s",
-                    store_name,
-                    file_path,
-                    exc,
-                )
-                continue
+                raise RuntimeError(
+                    f"Failed to create vector store '{store_name}' for "
+                    f"'{file_path}': {exc}"
+                ) from exc
 
             try:
                 file_id = self._client.upload_file(
                     str(file_path), source_filename=file_path.name
                 )
                 self._client.attach_file_to_store(vector_store_id, file_id)
+                self._client.wait_for_file_processing(
+                    vector_store_id,
+                    file_id,
+                    timeout_seconds=config.file_status_timeout_seconds,
+                    poll_interval_seconds=config.file_status_poll_interval_seconds,
+                )
                 uploaded += 1
                 logger.info(
                     "Ingested '%s' into vector store '%s' (%s)",
@@ -85,7 +88,7 @@ class LlamaStackIngestionService:
                     store_name,
                     vector_store_id,
                 )
-            except (openai.APIError, OSError) as exc:
+            except Exception as exc:
                 logger.error(
                     "Failed to ingest '%s' (store name '%s'): %s",
                     file_path,
@@ -99,6 +102,10 @@ class LlamaStackIngestionService:
                         "Could not clean up vector store '%s' after failed ingest",
                         vector_store_id,
                     )
+                raise RuntimeError(
+                    f"Failed to ingest '{file_path}' into vector store "
+                    f"'{store_name}': {exc}"
+                ) from exc
 
         logger.info(
             "Pipeline finished — %d/%d file(s) ingested (one vector store per file).",
