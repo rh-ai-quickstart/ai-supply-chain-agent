@@ -413,18 +413,16 @@ When you click one of the headlines in the live newsfeed it will help you create
 
 #### Modifying the application
 
-By default the deployment uses images that have been pre-built and pushed to the rh-ai-quickstart organization in quay.io. If you would
-like to modify or build on top of the quickstart you can easily build your modified images and push them to your own namespace by
-setting the REGISTRY environment variable.
+By default the deployment uses images that have been pre-built and pushed to the rh-ai-quickstart organization in quay.io. Quickstart images use `REGISTRY`; general-simulation images use `REGISTRY_GEN_SIM` and default `GEN_SIM_TAG` to the committed submodule short SHA (override with `GEN_SIM_TAG=<tag>`).
 
-To build and push images instead of using the default Quay images run:
+To build and push quickstart images instead of using the default Quay images run:
 
 ```
 make build
 make release REGISTRY=quay.io/<your-org>
 ```
 
-You will then need to run `make helm-uninstall` followed by `make helm-install ...` (where ... are the options you used as explained earlier) after having set REGISTRY=quay.io/<your-org> (where ... are the options you used as explained earlier).
+You will then need to run `make helm-uninstall` followed by `make helm-install ...` (where ... are the options you used as explained earlier) after having set `REGISTRY=quay.io/<your-org>` (and `REGISTRY_GEN_SIM` / `GEN_SIM_TAG` if needed).
 
 ### Delete
 

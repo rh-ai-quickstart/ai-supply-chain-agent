@@ -3,34 +3,35 @@
 # ============================================================
 
 # --- Registry & Image Config ---
-REGISTRY        ?= quay.io/rh-ai-quickstart
+REGISTRY           ?= quay.io/rh-ai-quickstart
+REGISTRY_GEN_SIM   ?= quay.io/rh-ai-quickstart
 BACKEND_IMAGE      ?= $(REGISTRY)/ai-supply-chain-agent-backend
 INGEST_IMAGE       ?= $(REGISTRY)/ai-supply-chain-agent-ingestion
 FRONTEND_IMAGE     ?= $(REGISTRY)/ai-supply-chain-agent-frontend
 BACKEND_TAG        ?= dev
 INGEST_TAG         ?= dev
 FRONTEND_TAG       ?= dev
-GEN_SIM_TAG        ?= $(BACKEND_TAG)
-GEN_SIM_APP_IMAGE  ?= $(REGISTRY)/general-sim-api:$(GEN_SIM_TAG)
-GEN_SIM_POSTGRES_IMAGE ?= $(REGISTRY)/general-sim-postgres:$(GEN_SIM_TAG)
+# Default: submodule gitlink short SHA. Override with GEN_SIM_TAG=<tag>.
+GEN_SIM_TAG ?= $(shell git rev-parse --short $$(git rev-parse HEAD:vendor/general-simulation 2>/dev/null) 2>/dev/null)
+ifeq ($(strip $(GEN_SIM_TAG)),)
+$(error GEN_SIM_TAG could not be resolved from vendor/general-simulation gitlink; set GEN_SIM_TAG=<tag> explicitly)
+endif
+GEN_SIM_NEO4J_IMAGE ?= $(REGISTRY_GEN_SIM)/general-sim-neo4j:$(GEN_SIM_TAG)
 
-# Helm --set flags for container images (supply-chain chart).
+# Parent global bleeds into gen-sim; pin it to REGISTRY_GEN_SIM/GEN_SIM_TAG and
+# set supply-chain images via explicit repository+tag.
 HELM_IMAGE_SETS = \
-	--set global.registry=$(REGISTRY) \
-	--set global.imageTag=$(BACKEND_TAG) \
-	--set backend.image.tag=$(BACKEND_TAG) \
-	--set frontend.image.tag=$(FRONTEND_TAG) \
-	--set ingest.image.tag=$(INGEST_TAG)
-
-# Kind: supply-chain images from local registry via image.repository (avoids
-# Helm global.registry bleed into the general-simulation subchart).
-HELM_KIND_IMAGE_SETS = \
+	--set global.registry=$(REGISTRY_GEN_SIM) \
+	--set global.imageTag=$(GEN_SIM_TAG) \
 	--set backend.image.repository=$(REGISTRY)/ai-supply-chain-agent-backend \
 	--set backend.image.tag=$(BACKEND_TAG) \
 	--set frontend.image.repository=$(REGISTRY)/ai-supply-chain-agent-frontend \
 	--set frontend.image.tag=$(FRONTEND_TAG) \
 	--set ingest.image.repository=$(REGISTRY)/ai-supply-chain-agent-ingestion \
-	--set ingest.image.tag=$(INGEST_TAG)
+	--set ingest.image.tag=$(INGEST_TAG) \
+	--set general-simulation.neo4j.image.customImage=$(GEN_SIM_NEO4J_IMAGE)
+
+HELM_KIND_IMAGE_SETS = $(HELM_IMAGE_SETS)
 
 # --- Helm Config ---
 HELM_CHART     ?= ./helm
@@ -149,8 +150,9 @@ help:
 	@echo "    clean              Remove locally built images"
 	@echo ""
 	@echo "  Overridable variables (e.g. make build-backend BACKEND_TAG=v2):"
-	@echo "    GEN_SIM_TAG        $(GEN_SIM_TAG)"
 	@echo "    REGISTRY           $(REGISTRY)"
+	@echo "    REGISTRY_GEN_SIM   $(REGISTRY_GEN_SIM)"
+	@echo "    GEN_SIM_TAG        $(GEN_SIM_TAG)"
 	@echo "    BACKEND_TAG        $(BACKEND_TAG)"
 	@echo "    INGEST_TAG         $(INGEST_TAG)"
 	@echo "    FRONTEND_TAG       $(FRONTEND_TAG)"
