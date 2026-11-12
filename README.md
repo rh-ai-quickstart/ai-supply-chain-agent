@@ -413,7 +413,7 @@ When you click one of the headlines in the live newsfeed it will help you create
 
 #### Modifying the application
 
-By default the deployment uses images that have been pre-built and pushed to the rh-ai-quickstart organization in quay.io. Quickstart images use `REGISTRY`; general-simulation images use `REGISTRY_GEN_SIM` and default `GEN_SIM_TAG` to the committed submodule short SHA (override with `GEN_SIM_TAG=<tag>`).
+By default the deployment uses images that have been pre-built and pushed to the rh-ai-quickstart organization in quay.io. Quickstart images use `REGISTRY`; general-simulation images use `REGISTRY_GEN_SIM` and default `GEN_SIM_TAG` to the committed submodule short SHA (override with `GEN_SIM_TAG=<tag>`). Kind installs use `GEN_SIM_KIND_TAG` (default `latest`) until commit-SHA tags are published.
 
 To build and push quickstart images instead of using the default Quay images run:
 

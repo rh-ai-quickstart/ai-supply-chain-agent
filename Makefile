@@ -17,6 +17,11 @@ ifeq ($(strip $(GEN_SIM_TAG)),)
 $(error GEN_SIM_TAG could not be resolved from vendor/general-simulation gitlink; set GEN_SIM_TAG=<tag> explicitly)
 endif
 GEN_SIM_NEO4J_IMAGE ?= $(REGISTRY_GEN_SIM)/general-sim-neo4j:$(GEN_SIM_TAG)
+# Kind pulls published platform images from REGISTRY_GEN_SIM. Commit-SHA tags
+# may not exist on the registry yet, so Kind defaults to latest (override with
+# GEN_SIM_KIND_TAG=<sha> once those tags are published).
+GEN_SIM_KIND_TAG ?= latest
+GEN_SIM_KIND_NEO4J_IMAGE ?= $(REGISTRY_GEN_SIM)/general-sim-neo4j:$(GEN_SIM_KIND_TAG)
 
 # Parent global bleeds into gen-sim; pin it to REGISTRY_GEN_SIM/GEN_SIM_TAG and
 # set supply-chain images via explicit repository+tag.
@@ -31,7 +36,16 @@ HELM_IMAGE_SETS = \
 	--set ingest.image.tag=$(INGEST_TAG) \
 	--set general-simulation.neo4j.image.customImage=$(GEN_SIM_NEO4J_IMAGE)
 
-HELM_KIND_IMAGE_SETS = $(HELM_IMAGE_SETS)
+HELM_KIND_IMAGE_SETS = \
+	--set global.registry=$(REGISTRY_GEN_SIM) \
+	--set global.imageTag=$(GEN_SIM_KIND_TAG) \
+	--set backend.image.repository=$(REGISTRY)/ai-supply-chain-agent-backend \
+	--set backend.image.tag=$(BACKEND_TAG) \
+	--set frontend.image.repository=$(REGISTRY)/ai-supply-chain-agent-frontend \
+	--set frontend.image.tag=$(FRONTEND_TAG) \
+	--set ingest.image.repository=$(REGISTRY)/ai-supply-chain-agent-ingestion \
+	--set ingest.image.tag=$(INGEST_TAG) \
+	--set general-simulation.neo4j.image.customImage=$(GEN_SIM_KIND_NEO4J_IMAGE)
 
 # --- Helm Config ---
 HELM_CHART     ?= ./helm
@@ -153,6 +167,7 @@ help:
 	@echo "    REGISTRY           $(REGISTRY)"
 	@echo "    REGISTRY_GEN_SIM   $(REGISTRY_GEN_SIM)"
 	@echo "    GEN_SIM_TAG        $(GEN_SIM_TAG)"
+	@echo "    GEN_SIM_KIND_TAG   $(GEN_SIM_KIND_TAG)"
 	@echo "    BACKEND_TAG        $(BACKEND_TAG)"
 	@echo "    INGEST_TAG         $(INGEST_TAG)"
 	@echo "    FRONTEND_TAG       $(FRONTEND_TAG)"
