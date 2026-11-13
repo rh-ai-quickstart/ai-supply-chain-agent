@@ -76,6 +76,17 @@ MAAS_VALUES_FILE ?= $(HELM_CHART)/values-maas.yaml
 HELM_EXTRA_ARGS ?=
 GENERAL_SIM_CHART_DIR ?= $(CURDIR)/vendor/general-simulation/deploy/helm
 
+# Optional deployment-time switch for backend MLflow tracing. When unset,
+# leave tracing settings from VALUES_FILE unchanged.
+ENABLE_EVALS_VALUE = $(strip $(ENABLE_EVALS))
+HELM_EVALS_ARGS =
+ifneq ($(ENABLE_EVALS_VALUE),)
+HELM_EVALS_ARGS += --set backend.tracing.enabled=$(ENABLE_EVALS_VALUE)
+ifeq ($(ENABLE_EVALS_VALUE),true)
+HELM_EVALS_ARGS += --set-string backend.tracing.trackingUri=$(MLFLOW_TRACKING_URI)
+endif
+endif
+
 # --create-namespace always issues a namespaces create call (checked by RBAC
 # before Kubernetes checks whether it already exists), so an installer scoped
 # to namespace-admin on a pre-provisioned namespace needs this cleared, e.g.
@@ -156,7 +167,12 @@ help:
 	@echo ""
 	@echo "  E2E UI (Playwright):"
 	@echo "    e2e-ui-install       Install pytest-playwright and Chromium"
-	@echo "    e2e-ui               Run browser E2E tests (RUN_MODEL_E2E=1 enables live model chat test)"
+	@echo "    e2e-ui               Run browser E2E tests (needs SUPPLY_CHAIN_UI_ENDPOINT; RUN_MODEL_E2E=1 enables live model chat)"
+	@echo "  Disruption evaluation (separate from tests/e2e_ui):"
+	@echo "    eval-ui-install      Install evaluation Playwright/MLflow dependencies"
+	@echo "    eval-ui              Run the scenario evaluation through the deployed UI"
+	@echo "    run-eval             Run eval; auto-discovers frontend Route unless EVAL_UI_URL is set"
+	@echo "    download-eval        Download evaluation artifacts by MLflow run name"
 	@echo ""
 	@echo "  Ingest:"
 	@echo "    ingest             Run the knowledge-base ingestion Job"
@@ -191,6 +207,9 @@ help:
 	@echo "    GENERAL_SIM_DIR    $(GENERAL_SIM_DIR)"
 	@echo "    HELM_RELEASE       $(HELM_RELEASE)"
 	@echo "    VALUES_FILE        $(VALUES_FILE)  (Helm install and seed.networkFiles / seed.opensky)"
+	@echo "    EVAL_UI_PYTHON_VERSION $(EVAL_UI_PYTHON_VERSION)  (eval runner Python minor version)"
+	@echo "    ENABLE_EVALS       $(if $(ENABLE_EVALS_VALUE),$(ENABLE_EVALS_VALUE),(unset; use values file))"
+	@echo "    MLFLOW_TRACKING_URI required with ENABLE_EVALS=true; MLflow route URL"
 	@echo "    MODEL_ID           $(MODEL_ID)  (install-full: external-model id)"
 	@echo "    MODEL_URL          $(MODEL_URL)  (install-full: external-model url)"
 	@echo "    API_KEY            (install-full: external-model apiToken)"
@@ -461,8 +480,13 @@ helm-export-validate-demo: helm-deps
 		$(HELM_IMAGE_SETS) > "$$RENDERED_MANIFESTS"; \
 	kubeconform -strict -summary -skip Route "$$RENDERED_MANIFESTS"
 
+.PHONY: validate-evals-deploy
+validate-evals-deploy:
+	@case "$(ENABLE_EVALS_VALUE)" in ""|true|false) ;; *) echo "ENABLE_EVALS must be true or false" >&2; exit 2 ;; esac
+	@if [ "$(ENABLE_EVALS_VALUE)" = "true" ] && [ -z "$(strip $(MLFLOW_TRACKING_URI))" ]; then echo "MLFLOW_TRACKING_URI is required when ENABLE_EVALS=true" >&2; exit 2; fi
+
 .PHONY: helm-render
-helm-render: helm-deps
+helm-render: helm-deps validate-evals-deploy
 	@echo ">>> Rendering Helm templates (namespace: $(NAMESPACE), registry: $(REGISTRY))"
 	@echo ">>> Secrets file: $(if $(SECRETS_FLAGS),$(SECRETS_FILE) (found),not found - see secrets.example.yaml)"
 	helm template $(HELM_RELEASE) $(HELM_CHART) \
@@ -470,10 +494,11 @@ helm-render: helm-deps
 		-f $(VALUES_FILE) \
 		$(SECRETS_FLAGS) \
 		$(HELM_IMAGE_SETS) \
-		$(HELM_EXTRA_ARGS)
+		$(HELM_EXTRA_ARGS) \
+		$(HELM_EVALS_ARGS)
 
 .PHONY: helm-install
-helm-install: helm-deps
+helm-install: helm-deps validate-evals-deploy
 	@set -eu; \
 	echo ">>> [helm-install] 1/3 Installing Helm release: $(HELM_RELEASE) in namespace: $(NAMESPACE)"; \
 	echo ">>> Registry: $(REGISTRY) (backend=$(BACKEND_TAG) frontend=$(FRONTEND_TAG) ingest=$(INGEST_TAG))"; \
@@ -485,6 +510,7 @@ helm-install: helm-deps
 		$(SECRETS_FLAGS) \
 		$(HELM_IMAGE_SETS) \
 		$(HELM_EXTRA_ARGS) \
+		$(HELM_EVALS_ARGS) \
 		--wait \
 		--timeout 10m; \
 	echo ""; \
@@ -512,7 +538,7 @@ helm-install: helm-deps
 	echo ">>> [helm-install] complete"
 
 .PHONY: helm-upgrade
-helm-upgrade: helm-deps
+helm-upgrade: helm-deps validate-evals-deploy
 	@echo ">>> Upgrading Helm release: $(HELM_RELEASE) in namespace: $(NAMESPACE)"
 	@echo ">>> Registry: $(REGISTRY) (backend=$(BACKEND_TAG) frontend=$(FRONTEND_TAG) ingest=$(INGEST_TAG))"
 	@echo ">>> Secrets file: $(if $(SECRETS_FLAGS),$(SECRETS_FILE) (found),not found - see secrets.example.yaml)"
@@ -522,11 +548,12 @@ helm-upgrade: helm-deps
 		$(SECRETS_FLAGS) \
 		$(HELM_IMAGE_SETS) \
 		$(HELM_EXTRA_ARGS) \
+		$(HELM_EVALS_ARGS) \
 		--wait \
 		--timeout 10m
 
 .PHONY: helm-upgrade-install
-helm-upgrade-install: helm-deps
+helm-upgrade-install: helm-deps validate-evals-deploy
 	@echo ">>> Installing/upgrading Helm release: $(HELM_RELEASE) in namespace: $(NAMESPACE)"
 	@echo ">>> Registry: $(REGISTRY) (backend=$(BACKEND_TAG) frontend=$(FRONTEND_TAG) ingest=$(INGEST_TAG))"
 	@echo ">>> Secrets file: $(if $(SECRETS_FLAGS),$(SECRETS_FILE) (found),not found - see secrets.example.yaml)"
@@ -537,6 +564,7 @@ helm-upgrade-install: helm-deps
 		$(SECRETS_FLAGS) \
 		$(HELM_IMAGE_SETS) \
 		$(HELM_EXTRA_ARGS) \
+		$(HELM_EVALS_ARGS) \
 		--wait \
 		--timeout 15m
 	@$(MAKE) --no-print-directory print-routes
@@ -649,8 +677,125 @@ e2e-ui: e2e-ui-install
 	fi; \
 	$(E2E_UI_TEST_CMD)
 
+EVAL_UI_PYTHON_VERSION ?= 3.13
+EVAL_UI_BASE_PYTHON ?= python$(EVAL_UI_PYTHON_VERSION)
+EVAL_UI_VENV ?= evaluation/ui/.venv-py$(subst .,,$(EVAL_UI_PYTHON_VERSION))
+EVAL_UI_VENV_PYTHON = $(EVAL_UI_VENV)/bin/python
+EVAL_UI_INSTALL_STAMP = $(EVAL_UI_VENV)/.install-stamp
+EVAL_UI_BROWSER_DIR = $(abspath $(EVAL_UI_VENV))/ms-playwright
+EVAL_UI_ARGS ?=
+EVAL_JUDGE_TIMEOUT_SECONDS ?= 180
+EVAL_JUDGE_MAX_CONCURRENT_SCORERS ?= 1
+RUN_EVAL_MLFLOW_TOKEN_INPUT := $(MLFLOW_TRACKING_TOKEN)
+RUN_EVAL_MLFLOW_WORKSPACE_INPUT := $(MLFLOW_WORKSPACE)
+# Prefer an explicitly supplied URL; otherwise discover the OpenShift Route
+# for this Helm release and namespace.
+EVAL_UI_URL_INPUT := $(EVAL_UI_URL)
+EVAL_UI_ROUTE_HOST = $(shell oc get route $(HELM_RELEASE)-frontend -n $(NAMESPACE) -o jsonpath='{.spec.host}' 2>/dev/null)
+
+.PHONY: eval-ui-install
+eval-ui-install: $(EVAL_UI_INSTALL_STAMP)
+
+$(EVAL_UI_INSTALL_STAMP): evaluation/ui/requirements.txt
+	@command -v "$(EVAL_UI_BASE_PYTHON)" >/dev/null 2>&1 || { echo "Python interpreter '$(EVAL_UI_BASE_PYTHON)' not found; install it or set EVAL_UI_BASE_PYTHON" >&2; exit 2; }
+	"$(EVAL_UI_BASE_PYTHON)" -m venv $(EVAL_UI_VENV)
+	$(EVAL_UI_VENV_PYTHON) -m pip install -r evaluation/ui/requirements.txt
+	PLAYWRIGHT_BROWSERS_PATH=$(EVAL_UI_BROWSER_DIR) $(EVAL_UI_VENV_PYTHON) -m playwright install chromium
+	touch $(EVAL_UI_INSTALL_STAMP)
+
+.PHONY: eval-ui
+eval-ui: $(EVAL_UI_INSTALL_STAMP)
+	PLAYWRIGHT_BROWSERS_PATH=$(EVAL_UI_BROWSER_DIR) $(EVAL_UI_VENV_PYTHON) -m evaluation.ui.run_eval $(EVAL_UI_ARGS)
+
+.PHONY: run-eval _run-eval
+# Preserve an explicit experiment override; otherwise read the deployment's
+# timestamped experiment from the backend pod template in the target namespace.
+EVAL_MLFLOW_EXPERIMENT_OVERRIDE := $(EVAL_MLFLOW_EXPERIMENT)
+
+run-eval:
+	@for deployment in $(HELM_RELEASE)-backend $(HELM_RELEASE)-frontend; do \
+		if ! oc get deployment "$$deployment" -n "$(NAMESPACE)" >/dev/null 2>&1; then \
+			echo "Quickstart $(HELM_RELEASE) is not deployed in namespace $(NAMESPACE) (deployment $$deployment is missing or inaccessible). Check NAMESPACE, HELM_RELEASE, and your oc login/context." >&2; \
+			exit 1; \
+		fi; \
+	done
+	@$(if $(strip $(EVAL_UI_URL_INPUT)),:,$(if $(strip $(EVAL_UI_ROUTE_HOST)),:,echo "EVAL_UI_URL is unset and Route $(HELM_RELEASE)-frontend was not found in namespace $(NAMESPACE); set EVAL_UI_URL or pass the correct NAMESPACE and HELM_RELEASE" >&2; exit 1))
+	@$(if $(strip $(EVAL_JUDGE_MODEL_URL)),:,echo "EVAL_JUDGE_MODEL_URL is required (for example, https://<MaaS-route>/v1)" >&2; exit 1)
+	@$(if $(strip $(EVAL_JUDGE_MODEL_ID)),:,echo "EVAL_JUDGE_MODEL_ID is required (the model ID exposed by MaaS)" >&2; exit 1)
+	@$(if $(strip $(EVAL_JUDGE_API_KEY)),:,echo "EVAL_JUDGE_API_KEY is required for the judge endpoint" >&2; exit 1)
+	@if ! env -u OPENAI_API_KEY -u EVAL_JUDGE_API_KEY $(MAKE) --no-print-directory eval-ui-install; then exit 1; fi
+	@$(MAKE) --no-print-directory _run-eval
+
+.PHONY: rerun-eval-only _rerun-eval-only
+rerun-eval-only:
+	@$(if $(strip $(MLFLOW_TRACKING_URI)),:,echo "MLFLOW_TRACKING_URI is required" >&2; exit 1)
+	@$(if $(strip $(EVAL_JUDGE_MODEL_URL)),:,echo "EVAL_JUDGE_MODEL_URL is required (for example, https://<MaaS-route>/v1)" >&2; exit 1)
+	@$(if $(strip $(EVAL_JUDGE_MODEL_ID)),:,echo "EVAL_JUDGE_MODEL_ID is required (the model ID exposed by MaaS)" >&2; exit 1)
+	@$(if $(strip $(EVAL_JUDGE_API_KEY)),:,echo "EVAL_JUDGE_API_KEY is required for the judge endpoint" >&2; exit 1)
+	@test -x "$(EVAL_UI_VENV_PYTHON)" || { echo "Evaluation Python environment is missing; run make eval-ui-install once" >&2; exit 1; }
+	@$(MAKE) --no-print-directory _rerun-eval-only
+
+_rerun-eval-only: export MLFLOW_TRACKING_URI := $(MLFLOW_TRACKING_URI)
+_rerun-eval-only: export EVAL_JUDGE_MODEL := openai:/$(EVAL_JUDGE_MODEL_ID)
+_rerun-eval-only: export EVAL_JUDGE_MODEL_URL := $(EVAL_JUDGE_MODEL_URL)
+_rerun-eval-only: export EVAL_JUDGE_API_KEY := $(EVAL_JUDGE_API_KEY)
+_rerun-eval-only: export EVAL_SOURCE_RUN_ID := $(EVAL_SOURCE_RUN_ID)
+_rerun-eval-only: export OPENAI_API_KEY := $(EVAL_JUDGE_API_KEY)
+_rerun-eval-only: export MLFLOW_GENAI_EVAL_LLM_TIMEOUT := $(EVAL_JUDGE_TIMEOUT_SECONDS)
+_rerun-eval-only: export MLFLOW_GENAI_EVAL_MAX_WORKERS := $(EVAL_JUDGE_MAX_CONCURRENT_SCORERS)
+_rerun-eval-only: export MLFLOW_GENAI_EVAL_MAX_SCORER_WORKERS := $(EVAL_JUDGE_MAX_CONCURRENT_SCORERS)
+_rerun-eval-only: export MLFLOW_TRACKING_AUTH := kubernetes-namespaced
+_rerun-eval-only: export MLFLOW_TRACKING_TOKEN = $(if $(strip $(RUN_EVAL_MLFLOW_TOKEN_INPUT)),$(RUN_EVAL_MLFLOW_TOKEN_INPUT),$(shell oc whoami --show-token 2>/dev/null))
+_rerun-eval-only: export MLFLOW_WORKSPACE = $(if $(strip $(RUN_EVAL_MLFLOW_WORKSPACE_INPUT)),$(RUN_EVAL_MLFLOW_WORKSPACE_INPUT),$(shell oc project -q 2>/dev/null))
+ifneq ($(strip $(EVAL_OUTPUT_DIR)),)
+_rerun-eval-only: export EVAL_OUTPUT_DIR := $(EVAL_OUTPUT_DIR)
+endif
+_rerun-eval-only:
+	@PLAYWRIGHT_BROWSERS_PATH=$(EVAL_UI_BROWSER_DIR) $(EVAL_UI_VENV_PYTHON) -m evaluation.ui.run_eval --rerun-eval-only
+
+EVAL_DOWNLOAD_DIR ?= /tmp/supply-chain-agent-eval-artifacts
+
+.PHONY: download-eval _download-eval
+download-eval:
+	@$(if $(strip $(EVAL_RUN_NAME)),:,echo "EVAL_RUN_NAME is required (use make download-eval EVAL_RUN_NAME=<mlflow-run-name>)" >&2; exit 2)
+	@$(if $(strip $(MLFLOW_TRACKING_URI)),:,echo "MLFLOW_TRACKING_URI is required" >&2; exit 2)
+	@test -x "$(EVAL_UI_VENV_PYTHON)" || { echo "Evaluation Python environment is missing; run make eval-ui-install once" >&2; exit 2; }
+	@$(MAKE) --no-print-directory _download-eval
+
+_download-eval: export MLFLOW_TRACKING_URI := $(MLFLOW_TRACKING_URI)
+_download-eval: export MLFLOW_TRACKING_AUTH := kubernetes-namespaced
+_download-eval: export MLFLOW_TRACKING_TOKEN = $(if $(strip $(RUN_EVAL_MLFLOW_TOKEN_INPUT)),$(RUN_EVAL_MLFLOW_TOKEN_INPUT),$(shell oc whoami --show-token 2>/dev/null))
+_download-eval: export MLFLOW_WORKSPACE = $(if $(strip $(RUN_EVAL_MLFLOW_WORKSPACE_INPUT)),$(RUN_EVAL_MLFLOW_WORKSPACE_INPUT),$(shell oc project -q 2>/dev/null))
+_download-eval: export EVAL_RUN_NAME := $(EVAL_RUN_NAME)
+_download-eval: export EVAL_DOWNLOAD_DIR := $(EVAL_DOWNLOAD_DIR)
+_download-eval:
+	@$(EVAL_UI_VENV_PYTHON) -m evaluation.ui.download_eval
+
+_run-eval: export EVAL_UI_URL = $(if $(strip $(EVAL_UI_URL_INPUT)),$(EVAL_UI_URL_INPUT),$(if $(strip $(EVAL_UI_ROUTE_HOST)),https://$(EVAL_UI_ROUTE_HOST),))
+_run-eval: export EVAL_MLFLOW_EXPERIMENT := $(if $(strip $(EVAL_MLFLOW_EXPERIMENT_OVERRIDE)),$(EVAL_MLFLOW_EXPERIMENT_OVERRIDE),$(or $(shell oc get deployment $(HELM_RELEASE)-backend -n $(NAMESPACE) -o go-template='{{range .spec.template.spec.containers}}{{range .env}}{{if eq .name "MLFLOW_TRACE_EXPERIMENT"}}{{.value}}{{end}}{{end}}{{end}}' 2>/dev/null),supply-chain-disruption-evals))
+_run-eval: export EVAL_JUDGE_MODEL := openai:/$(EVAL_JUDGE_MODEL_ID)
+_run-eval: export EVAL_JUDGE_MODEL_URL := $(EVAL_JUDGE_MODEL_URL)
+_run-eval: export EVAL_JUDGE_MODEL_ID := $(EVAL_JUDGE_MODEL_ID)
+_run-eval: export OPENAI_API_KEY := $(EVAL_JUDGE_API_KEY)
+_run-eval: export MLFLOW_GENAI_EVAL_LLM_TIMEOUT := $(EVAL_JUDGE_TIMEOUT_SECONDS)
+_run-eval: export MLFLOW_GENAI_EVAL_MAX_WORKERS := $(EVAL_JUDGE_MAX_CONCURRENT_SCORERS)
+_run-eval: export MLFLOW_GENAI_EVAL_MAX_SCORER_WORKERS := $(EVAL_JUDGE_MAX_CONCURRENT_SCORERS)
+_run-eval: export MLFLOW_TRACKING_AUTH := kubernetes-namespaced
+# MLflow's Kubernetes auth provider may not resolve every OpenShift kubeconfig
+# credential plugin. Prefer explicit user values, otherwise use the active oc
+# login; in-cluster Workbenches can fall back to their service-account files.
+_run-eval: export MLFLOW_TRACKING_TOKEN = $(if $(strip $(RUN_EVAL_MLFLOW_TOKEN_INPUT)),$(RUN_EVAL_MLFLOW_TOKEN_INPUT),$(shell oc whoami --show-token 2>/dev/null))
+_run-eval: export MLFLOW_WORKSPACE = $(if $(strip $(RUN_EVAL_MLFLOW_WORKSPACE_INPUT)),$(RUN_EVAL_MLFLOW_WORKSPACE_INPUT),$(shell oc project -q 2>/dev/null))
+_run-eval:
+	@if [ -z "$$EVAL_UI_URL" ]; then echo "EVAL_UI_URL is unset and Route $(HELM_RELEASE)-frontend was not found in namespace $(NAMESPACE); set EVAL_UI_URL or pass the correct NAMESPACE and HELM_RELEASE" >&2; exit 1; fi
+	@echo ">>> Evaluating UI at $$EVAL_UI_URL"
+	@echo ">>> MLflow experiment: $$EVAL_MLFLOW_EXPERIMENT"
+	@if [ -z "$$EVAL_JUDGE_MODEL" ]; then echo "EVAL_JUDGE_MODEL is required" >&2; exit 1; fi
+	@if [ -z "$$OPENAI_API_KEY" ]; then echo "EVAL_JUDGE_API_KEY is required for the judge endpoint" >&2; exit 1; fi
+	@PLAYWRIGHT_BROWSERS_PATH=$(EVAL_UI_BROWSER_DIR) $(EVAL_UI_VENV_PYTHON) -m evaluation.ui.run_eval $(EVAL_UI_ARGS)
+
 .PHONY: helm-install-kind
-helm-install-kind: helm-deps k8s-namespace
+helm-install-kind: helm-deps k8s-namespace validate-evals-deploy
 	@echo ">>> Installing $(HELM_RELEASE) on Kind/Kubernetes (namespace: $(NAMESPACE), registry: $(REGISTRY))"
 	helm upgrade --install $(HELM_RELEASE) $(HELM_CHART) \
 		--namespace $(NAMESPACE) \
@@ -661,6 +806,7 @@ helm-install-kind: helm-deps k8s-namespace
 		$(SECRETS_FLAGS) \
 		$(HELM_KIND_IMAGE_SETS) \
 		$(HELM_EXTRA_ARGS) \
+		$(HELM_EVALS_ARGS) \
 		--wait \
 		--timeout 15m
 
@@ -733,7 +879,7 @@ ingest:
 		$(HELM_EXTRA_ARGS) \
 		--show-only templates/ingest-job.yaml \
 	| sed 's/name: $(HELM_RELEASE)-ingest/name: ingest-job/; s/post-install,post-upgrade/post-install/; /helm.sh\/hook/d; /helm.sh\/hook-weight/d' \
-	| oc apply -f -; \
+	| oc apply -n $(NAMESPACE) -f -; \
 	oc wait --for=condition=complete job/ingest-job -n $(NAMESPACE) --timeout=10m; \
 	oc logs job/ingest-job -n $(NAMESPACE) --all-containers; \
 	oc delete job ingest-job -n $(NAMESPACE) --ignore-not-found

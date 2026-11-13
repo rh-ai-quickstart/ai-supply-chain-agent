@@ -65,6 +65,11 @@ class Settings:
     git_commit: str = "unknown"
     build_time: str = "unknown"
 
+    # Optional MLflow OpenAI SDK autologging for backend model calls.
+    mlflow_tracing_enabled: bool = False
+    mlflow_tracking_uri: str | None = None
+    mlflow_trace_experiment: str = "supply-chain-disruption-evals"
+
     @classmethod
     def from_env(cls) -> "Settings":
         return cls(
@@ -92,4 +97,9 @@ class Settings:
             ),
             git_commit=os.getenv("GIT_COMMIT", "unknown"),
             build_time=os.getenv("BUILD_TIME", "unknown"),
+            mlflow_tracing_enabled=_env_bool("MLFLOW_TRACING_ENABLED", default=False),
+            mlflow_tracking_uri=os.getenv("MLFLOW_TRACKING_URI") or None,
+            mlflow_trace_experiment=os.getenv(
+                "MLFLOW_TRACE_EXPERIMENT", "supply-chain-disruption-evals"
+            ),
         )

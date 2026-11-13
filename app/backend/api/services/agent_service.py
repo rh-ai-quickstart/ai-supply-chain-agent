@@ -1,3 +1,4 @@
+from contextlib import nullcontext
 from dataclasses import dataclass
 from typing import Any, Callable, Optional
 
@@ -62,10 +63,12 @@ class AgentService:
         llama_stack_client: LlamaStackClient,
         news_client: NewsClient | None = None,
         news_vector_store: NewsVectorStoreService | None = None,
+        mlflow_tracing: Any = None,
     ):
         self._llama_client = llama_stack_client
         self._news_service = NewsService(client=news_client or NewsClient())
         self._news_vector_store = news_vector_store
+        self._mlflow_tracing = mlflow_tracing
         self._tools: dict[str, ToolSpec] = {}
         self._register_tools()
 
@@ -75,8 +78,9 @@ class AgentService:
             description=(
                 "Search the recent news knowledge base for relevant, up-to-date news "
                 "articles about supply chains, logistics, trade, and disruptions. "
-                "Use for questions about the latest news, current events, or recent "
-                "disruptions affecting the supply chain."
+                "Use only when the user asks for news or current events, or when timely "
+                "information is necessary and not already supplied. Never mention this "
+                "tool or its arguments in the visible answer."
             ),
             parameters={
                 "type": "object",
@@ -101,7 +105,9 @@ class AgentService:
             name="knowledge_base",
             description=(
                 "Search the knowledge base for relevant supply chain information "
-                "from uploaded documents."
+                "from uploaded documents. Use only when the supplied context is missing "
+                "information needed to answer. Never mention this tool or its arguments "
+                "in the visible answer."
             ),
             parameters=_default_kb_params(),
             fn=self._run_knowledge_base,
@@ -216,11 +222,33 @@ class AgentService:
         if not vector_store_id:
             return ToolResult(success=False, output="", error="vector_store_id is required")
 
-        context = self._llama_client.search_vector_store(
-            vector_store_id,
-            query.strip(),
-            max_num_results=max_results,
+        span_context = (
+            self._mlflow_tracing.span(
+                name="knowledge_base.tool_search",
+                span_type="RETRIEVER",
+                inputs={"query": query.strip(), "vector_store_id": vector_store_id},
+            )
+            if self._mlflow_tracing is not None
+            else nullcontext(None)
         )
+        with span_context as span:
+            context = self._llama_client.search_vector_store(
+                vector_store_id,
+                query.strip(),
+                max_num_results=max_results,
+            )
+            if span is not None:
+                chunks = (
+                    [
+                        {
+                            "page_content": context,
+                            "metadata": {"vector_store_id": vector_store_id},
+                        }
+                    ]
+                    if context
+                    else []
+                )
+                span.set_outputs(chunks)
         if not context:
             return ToolResult(
                 success=True,

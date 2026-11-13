@@ -82,6 +82,10 @@ spec:
               value: {{ .Values.ingest.knowledgeBaseDir | quote }}
             - name: INGEST_GLOB
               value: {{ .Values.ingest.glob | quote }}
+            - name: INGEST_FILE_STATUS_TIMEOUT_SECONDS
+              value: {{ .Values.ingest.fileStatusTimeoutSeconds | quote }}
+            - name: INGEST_FILE_STATUS_POLL_INTERVAL_SECONDS
+              value: {{ .Values.ingest.fileStatusPollIntervalSeconds | quote }}
             - name: LLAMA_STACK_URL
               value: {{ .Values.backend.env.LLAMA_STACK_URL | quote }}
             - name: VECTOR_STORE_PROVIDER
