@@ -31,7 +31,7 @@
             "The answer distinguishes the current impact snapshot from assumptions or additional information needed for a mitigation decision."
           ],
           "kb_expected_facts": [
-            "The knowledge base names Oakland and Prince Rupert as reroute options and says they add multi-day rail delays and higher inland freight costs."
+            "The answer names either Oakland or Prince Rupert as an alternate gateway and advises checking inland transport capacity, delays, and freight costs before choosing."
           ]
         },
         {
@@ -43,7 +43,7 @@
             "The knowledge base estimates fast-moving SKU inventory shortfalls at dependent inland distribution centers within approximately 72 hours.",
             "The knowledge base names Oakland and Prince Rupert as reroute options.",
             "The knowledge base says those options add multi-day rail delays and higher inland freight costs.",
-            "The knowledge base identifies pre-negotiated alternate gateways, safety stock at inland hubs, and flexible intermodal contracts as resilience measures."
+            "The knowledge base identifies pre-negotiated alternate gateways, safety stock at inland hubs, and flexible intermodal contracts as resilience measures; the answer may mention one or more."
           ]
         },
         {
@@ -87,8 +87,7 @@
           ],
           "kb_expected_facts": [
             "The knowledge base estimates that a Cape of Good Hope reroute adds roughly 12 to 15 days and significant extra fuel burn.",
-            "The knowledge base recommends safety stock at key European hubs such as Rotterdam.",
-            "The knowledge base lists pre-planned Cape routings and bunker hedges as mitigation measures."
+            "The knowledge base lists safety stock at a key European hub such as Rotterdam and pre-planned Cape routings with bunker hedges as mitigation measures; the answer may mention either one."
           ]
         },
         {

@@ -20,7 +20,7 @@ spec:
       labels:
         app: {{ .Release.Name }}-backend
     spec:
-      serviceAccountName: default
+      serviceAccountName: {{ if .Values.backend.tracing.enabled }}{{ .Release.Name }}-backend{{ else }}default{{ end }}
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}

@@ -12,8 +12,8 @@ or evaluator container image to build.
   MLflow tracking endpoint.
 - The backend deployment can reach that endpoint and has MLflow's
   `mlflow-operator-mlflow-integration` role bound to its service account in
-  the application namespace. The Helm chart creates this namespace-scoped
-  RoleBinding when backend tracing is enabled.
+  the application namespace. When tracing is enabled, the Helm chart creates a
+  dedicated backend ServiceAccount and namespace-scoped RoleBinding for it.
 - The Workbench can reach the frontend route and the disruption knowledge base
   is available.
 - A judge model endpoint and its provider credential are available to the
@@ -22,8 +22,9 @@ or evaluator container image to build.
 MLflow stores experiment metadata in its configured backend and trace/artifact
 data in the platform's configured artifact store. The Workbench and backend
 need tracking access; neither needs namespace-admin privileges for MLflow.
-Namespace admin can configure the application and namespace RoleBinding when
-the operator-provided ClusterRole is present and bindable.
+Namespace admin can create the ServiceAccount and configure the namespace
+RoleBinding when the operator-provided ClusterRole is present and bindable; no
+cluster-scoped RBAC resource is added.
 
 ## Enable backend tracing
 

@@ -11,6 +11,6 @@ roleRef:
   name: mlflow-operator-mlflow-integration
 subjects:
   - kind: ServiceAccount
-    name: default
+    name: {{ .Release.Name }}-backend
     namespace: {{ .Release.Namespace }}
 {{- end }}

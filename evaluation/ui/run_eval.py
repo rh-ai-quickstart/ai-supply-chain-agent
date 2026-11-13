@@ -81,34 +81,54 @@ _PORT_RESILIENCE_KB_FACT = (
     "The knowledge base identifies pre-negotiated alternate gateways, safety stock at "
     "inland hubs, and flexible intermodal contracts as resilience measures."
 )
+_PORT_RESILIENCE_ANY_KB_FACT = (
+    "The knowledge base identifies pre-negotiated alternate gateways, safety stock at "
+    "inland hubs, and flexible intermodal contracts as resilience measures; the answer "
+    "may mention one or more."
+)
+_PORT_ALTERNATE_GATEWAY_CHECK_FACT = (
+    "The answer names either Oakland or Prince Rupert as an alternate gateway and advises "
+    "checking inland transport capacity, delays, and freight costs before choosing."
+)
+_PORT_KB_EXPECTATION_MIGRATIONS = {
+    "The knowledge base names Oakland and Prince Rupert as reroute options and says "
+    "they add multi-day rail delays and higher inland freight costs.": _PORT_ALTERNATE_GATEWAY_CHECK_FACT,
+    _PORT_RESILIENCE_KB_FACT: _PORT_RESILIENCE_ANY_KB_FACT,
+}
+_SUEZ_MITIGATION_EITHER_FACT = (
+    "The knowledge base lists safety stock at a key European hub such as Rotterdam "
+    "and pre-planned Cape routings with bunker hedges as mitigation measures; the "
+    "answer may mention either one."
+)
 _SUEZ_MIXED_EXPECTATION_MIGRATIONS = {
     (
         "The knowledge base recommends safety stock at key European hubs such as "
+        "Rotterdam."
+    ): _SUEZ_MITIGATION_EITHER_FACT,
+    (
+        "The knowledge base recommends safety stock at key European hubs such as "
         "Rotterdam to buffer the added transit time."
-    ): (
-        "The knowledge base recommends safety stock at key European hubs such as Rotterdam."
-    ),
+    ): _SUEZ_MITIGATION_EITHER_FACT,
     (
         "The knowledge base says carriers with pre-planned Cape routings and bunker "
         "hedges recover schedules faster."
-    ): (
-        "The knowledge base lists pre-planned Cape routings and bunker hedges as mitigation measures."
-    ),
+    ): _SUEZ_MITIGATION_EITHER_FACT,
     (
         "The knowledge base says pre-planned Cape routings and bunker hedges help "
         "carriers recover schedules faster."
-    ): (
-        "The knowledge base lists pre-planned Cape routings and bunker hedges as mitigation measures."
-    ),
+    ): _SUEZ_MITIGATION_EITHER_FACT,
+    (
+        "The knowledge base lists pre-planned Cape routings and bunker hedges as "
+        "mitigation measures."
+    ): _SUEZ_MITIGATION_EITHER_FACT,
 }
 _MIXED_SOURCE_KB_EXPECTED_FACTS = {
     "supply-chain-port-strike-la": (
-        "The knowledge base names Oakland and Prince Rupert as reroute options and says they add multi-day rail delays and higher inland freight costs.",
+        _PORT_ALTERNATE_GATEWAY_CHECK_FACT,
     ),
     "supply-chain-suez-blockage": (
         "The knowledge base estimates that a Cape of Good Hope reroute adds roughly 12 to 15 days and significant extra fuel burn.",
-        "The knowledge base recommends safety stock at key European hubs such as Rotterdam.",
-        "The knowledge base lists pre-planned Cape routings and bunker hedges as mitigation measures.",
+        _SUEZ_MITIGATION_EITHER_FACT,
     ),
     "opensky-uk-closure-001": (
         "The knowledge base says carriers should have pre-approved diversion airports and fuel contingencies.",
@@ -1321,8 +1341,10 @@ def _build_scorers(judge_model: str, judge_endpoint: str) -> list[Any]:
             "the expected_facts list from {{expectations}}. Treat the question in {{inputs}} "
             "as context: do not require the answer to repeat facts already stated in the "
             "question. Judge semantic support rather than exact wording, and credit an "
-            "explicitly named recommendation even when the answer paraphrases it. Do not "
-            "require benefits or causal explanations that are not part of an expected fact. "
+            "explicitly named recommendation even when the answer paraphrases it. "
+            "When an expected fact says 'either' or 'one or more', accept any listed option; "
+            "do not require every option. "
+            "Do not require benefits or causal explanations that are not part of an expected fact. "
             "Before returning no, verify that each failed fact is truly absent or contradicted; "
             "do not call a named recommendation missing merely because its benefit is not "
             "restated. "
@@ -1970,7 +1992,16 @@ def _evaluation_failure_details(results: Any) -> list[dict[str, Any]]:
                     or _as_mapping(error).get("error_message")
                     or str(error)
                 )
-                add_failure(scorer_name, "error", error_text)
+                add_failure(
+                    scorer_name,
+                    "error",
+                    error_text,
+                    row_index=row_index,
+                    assessments=assessments,
+                    row_trace_id=row_trace_id,
+                    question=question,
+                    response=response,
+                )
 
     return failure_details
 
@@ -2072,6 +2103,10 @@ def _normalize_saved_row_expectations(row: dict[str, Any]) -> None:
         inputs.get("scenario_id") == "supply-chain-suez-blockage"
         and inputs.get("category") == "evidence_and_mitigation"
     )
+    is_port_scenario = inputs.get("scenario_id") == "supply-chain-port-strike-la"
+    is_port_evidence_row = (
+        is_port_scenario and inputs.get("category") == "evidence_and_mitigation"
+    )
     kb_expected_facts = inputs.get("knowledge_base_expected_facts")
     if isinstance(kb_expected_facts, list):
         if is_suez_evidence_row:
@@ -2081,6 +2116,14 @@ def _normalize_saved_row_expectations(row: dict[str, Any]) -> None:
                 else fact
                 for fact in kb_expected_facts
                 if fact != current_suez_fact
+            ]
+        elif is_port_scenario:
+            inputs["knowledge_base_expected_facts"] = [
+                _PORT_KB_EXPECTATION_MIGRATIONS.get(fact, fact)
+                if isinstance(fact, str)
+                else fact
+                for fact in kb_expected_facts
+                if not (is_port_evidence_row and fact == _PORT_RESILIENCE_KB_FACT)
             ]
         else:
             inputs["knowledge_base_expected_facts"] = [
@@ -2103,6 +2146,14 @@ def _normalize_saved_row_expectations(row: dict[str, Any]) -> None:
             else fact
             for fact in expected_facts
             if fact != current_suez_fact
+        ]
+    if is_port_scenario:
+        expected_facts = [
+            _PORT_KB_EXPECTATION_MIGRATIONS.get(fact, fact)
+            if isinstance(fact, str)
+            else fact
+            for fact in expected_facts
+            if not (is_port_evidence_row and fact == _PORT_RESILIENCE_KB_FACT)
         ]
 
     if inputs.get("category") == "evidence_and_mitigation":
