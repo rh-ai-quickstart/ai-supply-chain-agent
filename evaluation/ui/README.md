@@ -176,6 +176,7 @@ MLflow run in the source run's experiment and stores the new scores and metrics
 as artifacts. It uses expectations saved with those rows and creates a fresh
 evaluation trace for each answer, linked to its source trace. This keeps each
 rerun's scores separate from older assessments without changing source traces.
+Run `make run-eval` first to use changed dataset expectations.
 It requires the evaluator Python environment created by
 `make eval-ui-install`; it does not install or launch Chromium. The saved rows
 must still be available on the machine that ran the original evaluation.
