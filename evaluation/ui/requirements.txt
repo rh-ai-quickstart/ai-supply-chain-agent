@@ -1,0 +1,3 @@
+# OpenShift AI 3.5 documents MLflow server 3.13 and SDK compatibility from 3.11.
+mlflow[kubernetes]==3.13.0
+playwright==1.48.0

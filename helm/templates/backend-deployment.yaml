@@ -3,6 +3,9 @@
 {{- $llamaStack := index $genSim "llama-stack" | default dict }}
 {{- $waitForLlamaStack := $llamaStack.enabled | default false }}
 {{- $stackModel := required "general-simulation.api.models.generation is required (gen-sim owns model selection)" $genSim.api.models.generation }}
+{{- $traceExperimentBase := .Values.backend.tracing.experiment | default "supply-chain-disruption-evals" }}
+{{- $traceDeploymentStamp := dateInZone "20060102T150405Z" now "UTC" }}
+{{- $traceExperiment := printf "%s-%s-r%d" $traceExperimentBase $traceDeploymentStamp .Release.Revision }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -17,6 +20,7 @@ spec:
       labels:
         app: {{ .Release.Name }}-backend
     spec:
+      serviceAccountName: {{ if .Values.backend.tracing.enabled }}{{ .Release.Name }}-backend{{ else }}default{{ end }}
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
@@ -99,4 +103,16 @@ spec:
               value: {{ .Values.backend.env.NEWS_FEED_URLS | default "" | quote }}
             - name: VECTOR_STORE_PROVIDER
               value: {{ .Values.backend.env.VECTOR_STORE_PROVIDER | default "pgvector" | quote }}
+            - name: MLFLOW_TRACING_ENABLED
+              value: {{ .Values.backend.tracing.enabled | default false | toString | quote }}
+            - name: MLFLOW_TRACE_EXPERIMENT
+              value: {{ $traceExperiment | quote }}
+            {{- if .Values.backend.tracing.enabled }}
+            - name: MLFLOW_TRACKING_URI
+              value: {{ required "backend.tracing.trackingUri is required when backend tracing is enabled" .Values.backend.tracing.trackingUri | quote }}
+            - name: MLFLOW_TRACKING_AUTH
+              value: kubernetes-namespaced
+            - name: MLFLOW_K8S_INTEGRATION
+              value: "true"
+            {{- end }}
 {{- end }}

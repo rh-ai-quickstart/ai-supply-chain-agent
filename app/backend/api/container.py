@@ -17,6 +17,7 @@ from services.agent_service import AgentService
 from services.chat_service import ChatService
 from services.general_simulation_service import GeneralSimulationService
 from services.kpi_service import KpiService
+from services.mlflow_tracing import MlflowTracing
 from services.news_service import NewsService
 from services.news_vector_store_service import NewsVectorStoreService
 from services.readiness_service import ReadinessService
@@ -70,6 +71,13 @@ class Container:
 
     def __init__(self, settings: Settings):
         self.settings = settings
+        self.mlflow_tracing = MlflowTracing(
+            enabled=settings.mlflow_tracing_enabled,
+            tracking_uri=settings.mlflow_tracking_uri,
+            experiment_name=settings.mlflow_trace_experiment,
+            git_commit=settings.git_commit,
+        )
+        self.mlflow_tracing.initialize()
 
         self.news_client = NewsClient(
             feed_urls_raw=settings.news_feed_urls_raw,
@@ -107,12 +115,14 @@ class Container:
             self.primary_llama_client,
             news_client=self.news_client,
             news_vector_store=self.news_vector_store_service,
+            mlflow_tracing=self.mlflow_tracing,
         )
         self.chat_service = ChatService(
             self.primary_llama_client,
             openai_client=self.openai_llama_client,
             agent_service=self.agent_service,
             news_vector_store=self.news_vector_store_service,
+            mlflow_tracing=self.mlflow_tracing,
         )
         self.scenario_create_service = ScenarioCreateService(
             llama_stack_client=self.primary_llama_client,

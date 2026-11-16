@@ -102,7 +102,7 @@ def test_run_uploads_all_files_with_source_filename_metadata(tmp_path):
     assert client.upload_file.call_args_list == expected_uploads
 
 
-def test_run_returns_zero_when_all_store_creations_fail(tmp_path):
+def test_run_raises_when_store_creation_fails(tmp_path):
     kb = tmp_path / "kb"
     kb.mkdir()
     (kb / "one.txt").write_text("hello", encoding="utf-8")
@@ -117,13 +117,13 @@ def test_run_returns_zero_when_all_store_creations_fail(tmp_path):
         knowledge_base_dir=str(kb),
         glob="*.txt",
     )
-    n = svc.run(cfg)
-    assert n == 0
+    with pytest.raises(RuntimeError, match="Failed to create vector store"):
+        svc.run(cfg)
     assert client.upload_file.call_count == 0
     assert client.attach_file_to_store.call_count == 0
 
 
-def test_run_cleans_up_store_when_upload_fails(tmp_path):
+def test_run_raises_and_cleans_up_store_when_upload_fails(tmp_path):
     kb = tmp_path / "kb"
     kb.mkdir()
     (kb / "one.txt").write_text("hello", encoding="utf-8")
@@ -137,8 +137,8 @@ def test_run_cleans_up_store_when_upload_fails(tmp_path):
         knowledge_base_dir=str(kb),
         glob="*.txt",
     )
-    n = svc.run(cfg)
-    assert n == 0
+    with pytest.raises(RuntimeError, match="Failed to ingest"):
+        svc.run(cfg)
     client.delete_vector_store.assert_called_once_with("vs1")
 
 

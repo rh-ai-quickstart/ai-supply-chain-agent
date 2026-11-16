@@ -1,4 +1,5 @@
 from collections.abc import Iterator
+from contextlib import nullcontext
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
@@ -41,7 +42,10 @@ class _ToolSideEffects:
         assert self.agent_service is not None
         bound = dict(args or {})
         if name == "knowledge_base":
-            if not (bound.get("vector_store_id") or "").strip() and self.vector_store_id:
+            # The model may supply a scenario slug (for example "suez-blockage")
+            # instead of the selected LlamaStack ID ("vs_..."). When the UI has
+            # selected a store, always use that canonical ID.
+            if self.vector_store_id:
                 bound["vector_store_id"] = self.vector_store_id
             if not (bound.get("query") or "").strip():
                 bound["query"] = self.latest_user
@@ -73,13 +77,17 @@ class ChatService:
         openai_client: Optional[LlamaStackClient] = None,
         agent_service: Optional[AgentService] = None,
         news_vector_store: Optional[NewsVectorStoreService] = None,
+        mlflow_tracing: Any = None,
     ):
         self.llama_stack_client = llama_stack_client
         self.openai_client: LlamaStackClient = openai_client or llama_stack_client
-        self.agent_service = agent_service or AgentService(llama_stack_client)
+        self.agent_service = agent_service or AgentService(
+            llama_stack_client, mlflow_tracing=mlflow_tracing
+        )
         self.news_vector_store = news_vector_store
+        self._mlflow_tracing = mlflow_tracing
         self._guardrails = GuardrailPolicy()
-        self._rag = RagContextProvider(llama_stack_client)
+        self._rag = RagContextProvider(llama_stack_client, tracing=mlflow_tracing)
 
     def reply(
         self,
@@ -94,38 +102,44 @@ class ChatService:
         if shortcut is not None:
             return shortcut
 
-        turn = self._prepare_llm_turn(
-            user_input,
-            chat_history,
-            vector_store_id,
-            use_vllm,
-            scenario_id,
-            impact_result,
-        )
-        self._log_llm_routing(turn.client, use_vllm, streaming=False)
-        tracker = self._new_tool_tracker(turn.latest, vector_store_id)
-        llm_result = turn.client.ask_with_tools(
-            turn.latest,
-            context=turn.context,
-            conversation_messages=turn.conversation,
-            tools=self.agent_service.openai_tools(),
-            execute_tool=tracker.execute,
-            scenario_context=turn.scenario_context,
-        )
-        answer = llm_result.get("answer", "")
-        logger.info(
-            "ChatService: answer received from LlamaStack[%s] model=%s tools=%s",
-            turn.client.label,
-            turn.client.model,
-            tracker.names,
-        )
-        return self._attach_tool_payload(
-            {
-                "answer": answer,
-                "completion": llm_result.get("completion"),
-            },
-            tracker,
-        )
+        with self._chat_span(
+            user_input, vector_store_id, scenario_id
+        ) as chat_span:
+            turn = self._prepare_llm_turn(
+                user_input,
+                chat_history,
+                vector_store_id,
+                use_vllm,
+                scenario_id,
+                impact_result,
+            )
+            self._log_llm_routing(turn.client, use_vllm, streaming=False)
+            tracker = self._new_tool_tracker(turn.latest, vector_store_id)
+            llm_result = turn.client.ask_with_tools(
+                turn.latest,
+                context=turn.context,
+                conversation_messages=turn.conversation,
+                tools=self.agent_service.openai_tools(),
+                execute_tool=tracker.execute,
+                scenario_context=turn.scenario_context,
+            )
+            answer = llm_result.get("answer", "")
+            logger.info(
+                "ChatService: answer received from LlamaStack[%s] model=%s tools=%s",
+                turn.client.label,
+                turn.client.model,
+                tracker.names,
+            )
+            response = self._attach_tool_payload(
+                {
+                    "answer": answer,
+                    "completion": llm_result.get("completion"),
+                },
+                tracker,
+            )
+            if chat_span is not None:
+                chat_span.set_outputs(answer)
+            return response
 
     def reply_stream(
         self,
@@ -142,28 +156,52 @@ class ChatService:
             yield {"type": "done", **shortcut}
             return
 
-        turn = self._prepare_llm_turn(
-            user_input,
-            chat_history,
-            vector_store_id,
-            use_vllm,
-            scenario_id,
-            impact_result,
+        with self._chat_span(
+            user_input, vector_store_id, scenario_id
+        ) as chat_span:
+            turn = self._prepare_llm_turn(
+                user_input,
+                chat_history,
+                vector_store_id,
+                use_vllm,
+                scenario_id,
+                impact_result,
+            )
+            self._log_llm_routing(turn.client, use_vllm, streaming=True)
+            tracker = self._new_tool_tracker(turn.latest, vector_store_id)
+            for event in turn.client.ask_stream_with_tools(
+                turn.latest,
+                context=turn.context,
+                conversation_messages=turn.conversation,
+                tools=self.agent_service.openai_tools(),
+                execute_tool=tracker.execute,
+                scenario_context=turn.scenario_context,
+            ):
+                if event.get("type") == "done":
+                    payload = self._attach_tool_payload({**event}, tracker)
+                    if chat_span is not None:
+                        chat_span.set_outputs(payload.get("answer", ""))
+                    yield payload
+                else:
+                    yield event
+
+    def _chat_span(
+        self,
+        user_input: str,
+        vector_store_id: Optional[str],
+        scenario_id: Optional[str],
+    ):
+        if self._mlflow_tracing is None:
+            return nullcontext(None)
+        return self._mlflow_tracing.span(
+            name="agent.chat",
+            span_type="CHAIN",
+            inputs={
+                "messages": [{"role": "user", "content": user_input}],
+                "scenario_id": scenario_id,
+                "vector_store_id": vector_store_id,
+            },
         )
-        self._log_llm_routing(turn.client, use_vllm, streaming=True)
-        tracker = self._new_tool_tracker(turn.latest, vector_store_id)
-        for event in turn.client.ask_stream_with_tools(
-            turn.latest,
-            context=turn.context,
-            conversation_messages=turn.conversation,
-            tools=self.agent_service.openai_tools(),
-            execute_tool=tracker.execute,
-            scenario_context=turn.scenario_context,
-        ):
-            if event.get("type") == "done":
-                yield self._attach_tool_payload({**event}, tracker)
-            else:
-                yield event
 
     def _new_tool_tracker(
         self,

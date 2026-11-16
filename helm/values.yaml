@@ -1,5 +1,6 @@
-# Image registry — override with: --set global.registry=quay.io/<your-org>
-# Propagates to supply-chain app images and the general-simulation subchart.
+# Default image registry. This global value is inherited by the
+# general-simulation subchart; Make deployment targets set app-owned image
+# repositories explicitly from REGISTRY instead of overriding this value.
 global:
   registry: quay.io/rh-ai-quickstart
   # Platform default (general-simulation postgres, api, bootstrap, …).
@@ -106,7 +107,7 @@ general-simulation:
       # Stack model id = <providerKey>/<model.id> (see global.models.external-model above).
       generation: external-model/Qwen3.6-35B-A3B
       # Llama Stack inline embedder — full stack model id (see GET /v1/models on llamastack).
-      embedding: sentence-transformers/nomic-ai/nomic-embed-text-v1.5
+      embedding: nomic-ai/nomic-embed-text-v1.5
       embeddingDimension: "768"
     postgres:
       user: sim
@@ -141,6 +142,14 @@ imagePullSecrets: []
 backend:
   enabled: true
   replicaCount: 1
+  tracing:
+    # Enable only for evaluation deployments; while enabled, all model calls
+    # made for chat requests handled by this backend are recorded in MLflow.
+    enabled: false
+    # Base name; Helm appends the UTC deployment timestamp and release revision.
+    experiment: supply-chain-disruption-evals
+    # OpenShift AI MLflow route base URL, for example https://gateway.example/mlflow.
+    trackingUri: ""
   image:
     name: ai-supply-chain-agent-backend
     tag: ""
@@ -186,6 +195,9 @@ ingest:
   knowledgeBaseDir: "knowledge_base"
   # File glob relative to knowledgeBaseDir.
   glob: "**/*.txt"
+  # Wait for asynchronous parsing/embedding before declaring ingestion success.
+  fileStatusTimeoutSeconds: 300
+  fileStatusPollIntervalSeconds: 5
 
 frontend:
   enabled: true

@@ -349,6 +349,9 @@ def test_system_prompt_answers_from_loaded_impact_snapshot():
 
     assert "Latest Impact Query result" in SYSTEM_PROMPT
     assert "value_breakdown" in SYSTEM_PROMPT
+    assert "structured tool-call field only" in SYSTEM_PROMPT
+    assert "Never include a tool name, arguments, bracketed call syntax" in SYSTEM_PROMPT
+    assert "without visible text" in SYSTEM_PROMPT
     assert "inventing simulation results" not in SYSTEM_PROMPT
     assert "rather than inventing" not in SYSTEM_PROMPT
 
