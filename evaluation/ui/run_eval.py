@@ -342,6 +342,7 @@ def _derive_expectations(
 
     expectations = {
         "expected_facts": expected_facts,
+        "optional_facts": turn.get("optional_facts", []),
         "expected_tool": turn.get("expected_tool", ""),
         "expected_tools": turn.get("expected_tools"),
         "expected_top_entity_id": expected_top_entity,
@@ -1167,7 +1168,10 @@ def _build_scorers(judge_model: str, judge_endpoint: str) -> list[Any]:
                     raise EvaluationError(
                         "Correctness cannot be evaluated because this row has no expected facts."
                     )
-                judge_expectations = {"expected_facts": expected_facts}
+                judge_expectations = {
+                    "expected_facts": expected_facts,
+                    "optional_facts": (expectations or {}).get("optional_facts", []),
+                }
                 judge_inputs = {
                     key: source_inputs[key]
                     for key in ("question", "scenario_id", "disruption", "category")
@@ -1279,8 +1283,11 @@ def _build_scorers(judge_model: str, judge_endpoint: str) -> list[Any]:
     scorers = [
         judge(
             "correctness",
-            "Check whether the assistant answer in {{outputs}} supports every fact in "
-            "the expected_facts list from {{expectations}}. Treat the question in {{inputs}} "
+            "Check whether the assistant answer in {{outputs}} supports every required fact in "
+            "the expected_facts list from {{expectations}}. Facts in optional_facts may be "
+            "mentioned in any subset, including none; their omission cannot fail correctness. "
+            "If the answer states an optional fact, it must be supported, and it need not state "
+            "the other optional facts. Treat the question in {{inputs}} "
             "as context: do not require the answer to repeat facts already stated in the "
             "question. Judge semantic support rather than exact wording, and credit an "
             "explicitly named recommendation even when the answer paraphrases it. "

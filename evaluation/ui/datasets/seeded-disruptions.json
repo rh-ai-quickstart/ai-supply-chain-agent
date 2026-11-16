@@ -86,8 +86,12 @@
             "The answer distinguishes the current impact snapshot from assumptions or additional information needed for a rerouting decision."
           ],
           "kb_expected_facts": [
+            "The knowledge base identifies added transit time and extra fuel burn as tradeoffs to verify when choosing a reroute."
+          ],
+          "optional_facts": [
             "The knowledge base estimates that a Cape of Good Hope reroute adds roughly 12 to 15 days and significant extra fuel burn.",
-            "The knowledge base lists safety stock at a key European hub such as Rotterdam and pre-planned Cape routings with bunker hedges as mitigation measures; the answer may mention either one."
+            "The knowledge base lists safety stock at a key European hub such as Rotterdam as a mitigation measure.",
+            "The knowledge base lists pre-planned Cape routings with bunker hedges as a mitigation measure."
           ]
         },
         {
