@@ -3,7 +3,7 @@ name: supply-chain-agent
 description: AI Supply Chain Agent — demo dashboard via general-simulation platform subchart
 type: application
 version: 0.2.0
-appVersion: "0.1.0"
+appVersion: "0.1.1"
 
 dependencies:
   # Postgres, Neo4j, Llama Stack, llm-service, API, and ingestion are owned by
