@@ -296,7 +296,8 @@ Requires OpenShift AI (KServe) when enabled. Per-model `device: gpu` overrides c
 | `api.llm.baseUrl` | `http://llamastack:8321/v1` | same | same |
 | `api.llm.apiKey` | `unused` | `unused` | `unused` |
 | `api.models.generation` | `openai/gpt-4o-mini` | `deepseek-r1-distill-qwen-1-5b/deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B` | **DeepSeek stack id** |
-| `api.models.embedding` | `nomic-ai/nomic-embed-text-v1.5` | same | same |
+| `api.models.embedding` | `sentence-transformers/nomic-ai/nomic-embed-text-v1.5` | same | same |
+| `api.models.embeddingProviderModelId` | unset (uses `api.models.embedding`) | `nomic-ai/nomic-embed-text-v1.5` | `nomic-ai/nomic-embed-text-v1.5` |
 | `api.models.embeddingDimension` | `"768"` | `"768"` | `"768"` |
 | `api.enabledDomains` | `aviation,shipping` | — | `aviation,shipping` |
 
@@ -334,7 +335,7 @@ Requires OpenShift AI (KServe) when enabled. Per-model `device: gpu` overrides c
 | `ingestion.llm.apiKey` | `unused` | — | `unused` |
 | `ingestion.llm.backend` | `openai` | — | `openai` |
 | `ingestion.models.generation` | `openai/gpt-4o-mini` | — | **`openai/gpt-4o-mini`** |
-| `ingestion.models.embedding` | `nomic-ai/nomic-embed-text-v1.5` | — | same |
+| `ingestion.models.embedding` | `sentence-transformers/nomic-ai/nomic-embed-text-v1.5` | — | same |
 | `ingestion.models.embeddingDimension` | `"768"` | — | `"768"` |
 | `ingestion.enabledDomains` | `aviation,shipping` | — | same |
 | `ingestion.adapterId` | `opensky_flights` | — | `opensky_flights` |

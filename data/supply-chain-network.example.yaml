@@ -26,6 +26,13 @@ airports:
     region: us_east
     lon: -73.78
     lat: 40.64
+  - id: airport-naples
+    name: "Naples International Airport"
+    iata: NAP
+    icao: LIRN
+    region: italy
+    lon: 14.29
+    lat: 40.89
 
 ports:
   - id: port-los-angeles
@@ -59,6 +66,38 @@ flights:
       - id: cargo-flight-baw177-electronics
         sku_ref: sku-overlay-electronics-01
         quantity: 10
+  # Synthetic demo traffic keeps Italy airspace scenarios populated when the
+  # capped live OpenSky sample contains no aircraft near Naples.
+  - id: flight-demo-lhr-naples
+    callsign: BAW534
+    route: LHR-NAP
+    origin: "United Kingdom"
+    status: airborne
+    lon: 14.18
+    lat: 40.76
+    revenue_usd: 125000
+    operating_cost_usd: 78000
+  - id: flight-demo-fra-naples
+    callsign: DLH336
+    route: FRA-NAP
+    origin: Germany
+    status: airborne
+    lon: 14.43
+    lat: 40.96
+    revenue_usd: 98000
+    operating_cost_usd: 61000
+
+cargo:
+  - id: cargo-flight-demo-lhr-naples-pharma
+    carrier_id: flight-demo-lhr-naples
+    commodity: pharmaceuticals
+    quantity: 6
+    unit_price_usd: 8500
+  - id: cargo-flight-demo-fra-naples-electronics
+    carrier_id: flight-demo-fra-naples
+    commodity: electronics
+    quantity: 15
+    unit_price_usd: 1200
 
 inventory_skus:
   - id: sku-overlay-pharma-01
@@ -87,6 +126,10 @@ inventory_skus:
 dependencies:
   - from: flight-baw177
     to: airport-jfk
+  - from: flight-demo-lhr-naples
+    to: airport-naples
+  - from: flight-demo-fra-naples
+    to: airport-naples
 
 # Matches the frontend UK Airspace Closure preset so impact queries work
 # without a prior seed-gen-sim run.

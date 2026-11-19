@@ -542,7 +542,7 @@ helm-upgrade: helm-deps validate-evals-deploy
 	@echo ">>> Upgrading Helm release: $(HELM_RELEASE) in namespace: $(NAMESPACE)"
 	@echo ">>> Registry: $(REGISTRY) (backend=$(BACKEND_TAG) frontend=$(FRONTEND_TAG) ingest=$(INGEST_TAG))"
 	@echo ">>> Secrets file: $(if $(SECRETS_FLAGS),$(SECRETS_FILE) (found),not found - see secrets.example.yaml)"
-	helm upgrade $(HELM_RELEASE) $(HELM_CHART) \
+	@helm upgrade $(HELM_RELEASE) $(HELM_CHART) \
 		--namespace $(NAMESPACE) \
 		-f $(VALUES_FILE) \
 		$(SECRETS_FLAGS) \
@@ -557,7 +557,7 @@ helm-upgrade-install: helm-deps validate-evals-deploy
 	@echo ">>> Installing/upgrading Helm release: $(HELM_RELEASE) in namespace: $(NAMESPACE)"
 	@echo ">>> Registry: $(REGISTRY) (backend=$(BACKEND_TAG) frontend=$(FRONTEND_TAG) ingest=$(INGEST_TAG))"
 	@echo ">>> Secrets file: $(if $(SECRETS_FLAGS),$(SECRETS_FILE) (found),not found - see secrets.example.yaml)"
-	helm upgrade --install $(HELM_RELEASE) $(HELM_CHART) \
+	@helm upgrade --install $(HELM_RELEASE) $(HELM_CHART) \
 		--namespace $(NAMESPACE) \
 		$(HELM_CREATE_NAMESPACE) \
 		-f $(VALUES_FILE) \
@@ -965,10 +965,15 @@ INSTALL_FULL_EXTRA_ARGS = \
 .PHONY: install-full
 install-full:
 	@echo ">>> Full install: install + ingest + seed (namespace: $(NAMESPACE))"
-	$(MAKE) install HELM_EXTRA_ARGS='$(INSTALL_FULL_EXTRA_ARGS)'
+	@$(MAKE) --no-print-directory install HELM_EXTRA_ARGS='$(INSTALL_FULL_EXTRA_ARGS)'
 	$(MAKE) seed
-	$(MAKE) ingest
 	@echo ">>> install-full complete (install + ingest + seed)"
+	@frontend_url=$$(oc get route $(HELM_RELEASE)-frontend -n $(NAMESPACE) -o jsonpath='{.spec.host}' 2>/dev/null); \
+	if [ -n "$$frontend_url" ]; then \
+		echo ">>> Open the UI: https://$$frontend_url"; \
+	else \
+		echo ">>> UI Route $(HELM_RELEASE)-frontend not found in namespace $(NAMESPACE)"; \
+	fi
 
 # Kind equivalent of install-full. Uses the Kind values and local image
 # repositories, then runs the same demo/network seeding and KB ingestion steps.
@@ -979,9 +984,6 @@ install-full-kind: helm-deps
 	$(MAKE) --no-print-directory helm-install-kind \
 		KIND_EXTRA_VALUES_FILES="$(KIND_FULL_VALUES_FILE)"
 	$(MAKE) --no-print-directory seed VALUES_FILE=$(KIND_FULL_VALUES_FILE)
-	$(MAKE) --no-print-directory ingest \
-		INGEST_VALUES_FILES="$(VALUES_FILE) $(KIND_VALUES_FILE) $(KIND_FULL_VALUES_FILE)" \
-		INGEST_IMAGE_SETS="$(HELM_KIND_IMAGE_SETS)"
 	@echo ">>> install-full-kind complete (Kind install + ingest + seed)"
 
 # ============================================================

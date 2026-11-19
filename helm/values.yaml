@@ -107,7 +107,8 @@ general-simulation:
       # Stack model id = <providerKey>/<model.id> (see global.models.external-model above).
       generation: external-model/Qwen3.6-35B-A3B
       # Llama Stack inline embedder — full stack model id (see GET /v1/models on llamastack).
-      embedding: nomic-ai/nomic-embed-text-v1.5
+      embedding: sentence-transformers/nomic-ai/nomic-embed-text-v1.5
+      embeddingProviderModelId: nomic-ai/nomic-embed-text-v1.5
       embeddingDimension: "768"
     postgres:
       user: sim
@@ -127,7 +128,7 @@ general-simulation:
       enabled: false
     models:
       generation: external-model/gpt-oss-120b
-      embedding: nomic-ai/nomic-embed-text-v1.5
+      embedding: sentence-transformers/nomic-ai/nomic-embed-text-v1.5
       embeddingDimension: "768"
     postgres:
       user: sim

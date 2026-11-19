@@ -31,8 +31,9 @@ export async function apiGet(path, { signal } = {}) {
   try {
     const response = await fetch(apiUrl(path), { signal });
     if (!response.ok) {
-      logger.warn("GET %s failed: %d %s", path, response.status, await response.text());
-      throw new Error(await errorMessageFromResponse(response));
+      const message = await errorMessageFromResponse(response);
+      logger.warn("GET %s failed: %d %s", path, response.status, message);
+      throw new Error(message);
     }
     logger.info("GET %s OK: %d", path, response.status);
     return response.json();
@@ -52,8 +53,9 @@ export async function apiPost(path, payload, { signal } = {}) {
       signal,
     });
     if (!response.ok) {
-      logger.warn("POST %s failed: %d %s", path, response.status, await response.text());
-      throw new Error(await errorMessageFromResponse(response));
+      const message = await errorMessageFromResponse(response);
+      logger.warn("POST %s failed: %d %s", path, response.status, message);
+      throw new Error(message);
     }
     logger.info("POST %s OK: %d", path, response.status);
     return response.json();
@@ -74,8 +76,9 @@ export async function apiPostStream(path, payload, onEvent, { signal } = {}) {
       signal,
     });
     if (!response.ok) {
-      logger.warn("POST_STREAM %s failed: %d %s", path, response.status, await response.text());
-      throw new Error(await errorMessageFromResponse(response));
+      const message = await errorMessageFromResponse(response);
+      logger.warn("POST_STREAM %s failed: %d %s", path, response.status, message);
+      throw new Error(message);
     }
     logger.info("POST_STREAM %s OK: %d, starting SSE", path, response.status);
     await consumeChatSseStream(response, (event) => {
@@ -106,8 +109,9 @@ export async function apiPostFormData(path, formData, { signal } = {}) {
       signal,
     });
     if (!response.ok) {
-      logger.warn("POST_FORM %s failed: %d %s", path, response.status, await response.text());
-      throw new Error(await errorMessageFromResponse(response));
+      const message = await errorMessageFromResponse(response);
+      logger.warn("POST_FORM %s failed: %d %s", path, response.status, message);
+      throw new Error(message);
     }
     logger.info("POST_FORM %s OK: %d", path, response.status);
     return response.json();

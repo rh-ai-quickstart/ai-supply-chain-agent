@@ -27,7 +27,10 @@ function _interpolate(fmt, args) {
   return fmt.replace(/%(s|d)/g, (_, type) => {
     if (i >= args.length) return "";
     const val = args[i];
-    if (type === "d") return Number(val).toString();
+    if (type === "d") {
+      i++;
+      return Number(val).toString();
+    }
     i++;
     return val;
   });
