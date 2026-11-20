@@ -2,9 +2,9 @@
 
 <!-- TITLE: Handle Supply Chain Disruptions with agentic AI -->
 
-Help logistics operators simulate disruptions and query risk documents with a agentic AI on Red Hat® OpenShift® AI.
+This AI quickstart helps logistics operators simulate disruptions and query risk documents with an agentic AI on Red Hat® OpenShift® AI.
 
-<!-- SHORT DESCRIPTION: Help logistics operators simulate disruptions and query risk documents with agentic AI on OpenShift AI. -->
+<!-- SHORT DESCRIPTION: This AI quickstart helps logistics operators simulate disruptions and query risk documents with an agentic AI on Red Hat® OpenShift® AI. -->
 
 ## Table of Contents
 
@@ -19,16 +19,15 @@ Help logistics operators simulate disruptions and query risk documents with a ag
   - [Prerequisites](#prerequisites)
   - [Installation](#installation)
     - [Deploy](#deploy-1)
-    - [Check pods, services, and routes](#check-pods-services-and-routes)
     - [Open the frontend Route URL](#open-the-frontend-route-url)
-    - [Seed Data](#seed-data)
-    - [Ingest knowledge bases](#ingest-knowledge-bases)
   - [Exploring the deployment](#exploring-the-deployment)
     - [Running Simulations](#running-simulations)
     - [Ask impact questions](#ask-impact-questions)
     - [Create a new Scenario](#create-a-new-scenario)
     - [Live News Feed](#live-news-feed)
-    - [Modifying the application](#modifying-the-application)
+    - [Evaluate the agent responses with MLflow (optional)](#evaluate-the-agent-responses-with-mlflow-optional)
+    - [Adapt flight data to your organization (optional)](#adapt-flight-data-to-your-organization-optional)
+    - [Modifying the application (optional)](#modifying-the-application-optional)
   - [Delete](#delete)
 - [Reference](#reference)
 - [Tags](#tags)
@@ -48,7 +47,7 @@ Typical use cases include operations centers modeling a Port of Los Angeles stri
 
 ### See it in action
 
-Checkout a live [video demo](https://www.loom.com/share/fd6dfe3b3f6a4dcb8aa48bcb6f3394ea)!
+Check out a live [video demo](https://www.loom.com/share/fd6dfe3b3f6a4dcb8aa48bcb6f3394ea)!
 
 ### Architecture diagrams
 
@@ -74,7 +73,7 @@ flowchart TB
 
     subgraph users["Operators"]
         U1["Browser — impact workspace"]:::rhOutline
-        U2["Laptop — make seed-opensky"]:::rhOutline
+        U2["Laptop — make install-full"]:::rhOutline
     end
 
     subgraph ocp["OpenShift cluster"]
@@ -142,22 +141,23 @@ flowchart TB
 
 - CPU: 4 vCPU
 - Memory: 16 GB
-- GPU: only required if running model locally. Size to model being used. 
 - Storage: 20 GB (PGVector + app)
-- Models: tested with - Qwen3.6-35B-A3B, Qwen3.8-27B
+- Models: tested with - [Llama-4-Scout-17B-16E](https://huggingface.co/meta-llama/Llama-4-Scout-17B-16E)
 
 ### Minimum software requirements
 
 Tested with OpenShift AI 3.4+ on OpenShift 4.21+.
 
-| Component | Tested version |
+| Component | Version / use |
 |-----------|----------------|
 | OpenShift | 4.21+ |
 | OpenShift AI | 3.4+ |
 | Helm | 3.14+ |
 | Python | 3.12 |
 | Node.js | 22 (frontend builds) |
-| `oc` CLI | Recommended for deploy status and troubleshooting |
+| Git | Required to clone the repository and submodule |
+| GNU Make | Required to run the `make` targets |
+| `oc` CLI | Required for deployment and troubleshooting |
 
 These need to be installed before deploying the quickstart.
 
@@ -170,7 +170,7 @@ This quickstart can be deployed by a user with:
 
 ## Deploy
 
-The quickstart uses these values by default (overridable on `make`, for example `make helm-install NAMESPACE=my-ns`):
+The quickstart uses these values by default (overridable on `make`, for example `make install-full NAMESPACE=my-ns`):
 
 | Setting | Default |
 |---------|---------|
@@ -188,14 +188,13 @@ Before deploying, ensure you have:
 - Access to a Red Hat OpenShift cluster with OpenShift AI 3.4+ installed
 - `oc` CLI installed and authenticated
 - `helm` CLI 3.14+ installed (`make` invokes Helm)
-- API token for your OpenAI-compatible model endpoint
+- API token for your OpenAI-compatible model endpoint. We have tested with
+  [Llama-4-Scout-17B-16E](https://huggingface.co/meta-llama/Llama-4-Scout-17B-16E) but
+  other equally capable models that support tool calling should work as well.
 - Network access from the cluster to the model endpoint
 - Outbound HTTPS so that the quickstart can access the RSS news feed
 
 ### Installation
-
-TODO: - add explanation of how to deploy with local models instead of external
-      models after we test/confirm that.
 
 #### Deploy
 
@@ -217,13 +216,15 @@ cp helm/secrets.example.yaml helm/secrets.yaml
 ```
 
 While you can put secrets into the copied file helm/secrets.yaml, we
-suggest you set them in the environment instead:
+suggest you set them in the environment instead. Replace these sample values with your model endpoint details:
 
 ```bash
-export MODEL_ID=<YOUR_MODEL_NAME>
-export MODEL_URL=<YOUR_MODEL_ENDPOINT>
-export API_KEY=<YOUR_API_KEY>
+export MODEL_ID="your-model-name"
+export MODEL_URL="https://your-model.example.com/v1"
+export API_KEY="your-api-key"
 ```
+
+> **Note**: Set `MODEL_URL` to the full endpoint URL, including the protocol and any required path (for example `https://my-model.example.com/v1`).
 
 3. Validate model access
 
@@ -244,82 +245,23 @@ oc run test-model-access --rm -it --restart=Never \
 
 4. Deploy
 
-If using an external model deploy with the following command:
+With the exported model settings, run:
 
 ```bash
-make helm-install HELM_EXTRA_ARGS='--set general-simulation.global.models.external-model.id=${MODEL_ID} --set general-simulation.global.models.external-model.url=${MODEL_URL} --set general-simulation.global.models.external-model.apiToken=${API_KEY} --set general-simulation.api.models.generation=external-model/${MODEL_ID} --set general-simulation.ingestion.models.generation=external-model/${MODEL_ID}'
+make install-full
 ```
-> **Note**: `general-simulation.global.models.external-model.url` should be the full URL including protocol and path if needed (for example `https://my-model.example.com/v1`).
+
+This installs the chart, seeds demo and flight data, and ingests the predefined knowledge bases. To use a non-default namespace, pass both `NAMESPACE` and `GEN_SIM_NAMESPACE`, for example `make install-full NAMESPACE=my-ns GEN_SIM_NAMESPACE=my-ns`.
 
 #### Open the frontend Route URL
 
-When the make helm-install completed the URL for the user interface was printed:
+The UI Route URL is printed during installation:
 
-![Routes Printed from make helm-install Command](/docs/images/after-helm-install.png)
+![Terminal output showing the frontend Route URL after installation](/docs/images/after-helm-install.png)
 
-Open the url, the initial page should look like:
-
-![Supply chain dashboard map before flight data has been seeded](/docs/images/initial_page_load.png)
-
-You will not yet see any flight data as we still need to seed flight information for the quickstart.
-
-#### Seed Data
-
-The step seeds default scenarios, the network YAML files listed in the Helm values file, and live flights from OpenSky. Since OpenSky often blocks access from hyperscalers, the flight pull runs on your client system and then writes into the quickstart.
-
-If you used a different namespace by setting NAMESPACE=XXX when you installed the quickstart you must use GEN_SIM_NAMESPACE=XXX in the command in this section.
-
-Which YAML files run, and how many live flights are imported, is the `seed` block in `helm/values.yaml` (or whichever file you pass as `VALUES_FILE`). `seed.networkFiles` is imported in order. `seed.opensky.max` is the number of live aircraft to keep (`0` means unlimited). Set `seed.opensky.enabled` to `false` to skip the OpenSky pull. The default imports `data/supply-chain-network.example.yaml` and 50 flights.
-
-First seed the scenarios:
-
-```bash
-make seed-gen-sim
-```
-
-Optionally merge custom airports, ports, flights, cargo, and SKU inventory from YAML (overlays the base demo; same entity ids upsert, new ids add). Copy the example, edit your local file (gitignored), or point `NETWORK_YAML` at another path. Schema reference: `data/supply-chain-network.example.yaml` (also mirrored in `vendor/general-simulation/tests/fixtures/supply_chain_network.example.yaml`).
-
-Cargo can be nested under `flights[]` / `vessels[]` (`carrier_id` inferred from the parent) or declared top-level with `carrier_id`. When `sku_ref` matches an `inventory_skus` id, `commodity` and `unit_price_usd` may be omitted and are filled from the SKU.
-
-```bash
-cp data/supply-chain-network.example.yaml data/supply-chain-network.yaml
-# Edit data/supply-chain-network.yaml as needed, then:
-make seed-customer-data
-# Use a workspace fork instead of the submodule (must include nested-cargo YAML support):
-GENERAL_SIM_DIR=../general-simulation make seed-customer-data
-```
-
-If `data/supply-chain-network.yaml` is missing, `make seed-customer-data` falls back to the committed example automatically.
-
-Next install flight data from the OpenSky Data API. 
-
-```bash
-make seed-opensky GEN_SIM_NAMESPACE=supply-chain-dashboard
-```
-
-You can run both with `make seed`. The OpenSky step fetches the configured number of live flights (as a representation of flights that your organization has shipments on) and inserts them into Postgres and Neo4j. It also assigns arbitrary cargo values to each flight for impact assessments. The YAML overlay is merged onto the demo data first (same entity ids upsert; new ids add).
-
-Once complete you should see a page like:
+After `make install-full` completes, open the URL. The map should show the seeded flight data:
 
 ![Supply chain dashboard map showing seeded flights with cargo markers](/docs/images/all-flights.png)
-
-Each icon is a single flight with cargo associated. 
-
-#### Ingest knowledge bases
-
-Next ingest the knowledge bases for the predefined scenarios:
-
-```bash
-make ingest
-make ingest-status
-make ingest-logs
-```
-
-Once ingestion is complete go to the knowledge base page located in the top bar navigation and verify there are three knowledge bases like in the image below. 
-
-![Knowledge base page listing the three pre-loaded knowledge bases](/docs/images/knowledge-bases.png)
-
-Each vector db is associated to a scenario providing relevant context.
 
 ### Exploring the deployment
 
@@ -329,33 +271,36 @@ In the left hand panel there are options for scenarios to run. Click `UK Airspac
 
 ![Left-hand panel listing selectable disruption scenarios, including UK Airspace Closure](/docs/images/scenario-panel.png)
 
-After the scenario runs you will notice the map zoom to the location of the event. Once zoomed in in the right panel you will be able to read the result. 
+After the scenario runs you will notice the map zoom to the location of the event.
 
 ![Map zoomed to the region impacted by the scenario](/docs/images/scenario-result.png)
+
+Once zoomed in, look at the right panel to see the impact results:
+
 ![Right-hand panel showing the calculated impact results after running the scenario](/docs/images/after-scenario.png)
 
-You should be able to select flight redirect for each flight which will show as follows on the map: 
+On that panel explore the different information the agent has provided for the scenario. For example, by opening the `Recommended diversions` section you can see the affected flights and then select a flight to see the recommended redirection:
 
 ![Map showing a suggested flight redirect route around the disrupted airspace](/docs/images/recomended-diversions.png)
 
-TODO: - add step to filter the impact based on a single company, showing how it can be more specific to your company, provided data that tags flights that you have cargo on.
-
 #### Ask impact questions
 
-After running the scenarios data is injected into the agents memory and you can ask follow up questions about that type of event. 
+After running the scenarios, data is injected into the agent's memory and you can ask follow up questions about the event:
 
-![Example Question 1](/docs/images/ai-chat.png)
+![AI assistant greeting with the active UK Airspace Closure scenario and available analysis features](/docs/images/ai-chat.png)
 
-![Example Question 2](/docs/images/second-chat-message.png)
+![AI assistant response with recovery recommendations for the UK Airspace Closure](/docs/images/second-chat-message.png)
+
+You can explore by asking your own questions.
 
 #### Create a new Scenario
 
-The quickstart includes a number of pre-define scenarios, however, you can extend it with scenarios that may be more relevant
+The quickstart includes a number of predefined scenarios, however, you can extend it with scenarios that may be more relevant
 to your organization.
 
-In the top bar of the application click the create scenario as show in:
+In the top bar of the application click the create scenario as shown in:
 
-![Click Scenario](/docs/images/new-scenario.png)
+![Scenario selection panel with the add-scenario button highlighted](/docs/images/new-scenario.png)
 
 Once you click on the `+` the page looks as follows:
 
@@ -363,8 +308,8 @@ Once you click on the `+` the page looks as follows:
 
 Create a scenario by using natural language like "Vesuvius erupts in Italy closing airspace"
 
-The LLM will then populate pre defined fields which you can further refine then accept. You will notice
-that the affect box will have been automatically filled in based on the scenario, in our case covering
+The agent will then populate predefined fields which you can further refine then accept. You will notice
+that the affected bounding box will have been automatically filled in based on the scenario, in our case covering
 Italy.
 
 ![Create scenario form auto-populated with fields and an affected bounding box covering Italy](/docs/images/after-create-scenario.png)
@@ -372,30 +317,32 @@ Italy.
 Once you select the "Create scenario" button it will save you the scenario and bring you back to the home page.
 You should now see the new scenario in addition to the pre-configured ones:
 
-![New Scenario In Menu](/docs/images/new-scenario-in-menu.png)
+![Scenario selector showing the newly added Etna Eruption Airspace Closure scenario](/docs/images/new-scenario-in-menu.png)
 
 Next select the "Knowledge bases" option, and you should see a screen like:
 
 ![Knowledge base page listing the three pre-loaded knowledge bases](/docs/images/knowledge-bases.png)
 
 Next, add a knowledge base which is related to the scenario you just created. Make the display name `italy_volcano_eruptions` and
-select the file `/docs/knowledge-bases/italy_volcano_eruptions.txt` using Choose Files.
+select the file `docs/knowledge-bases/italy_volcano_eruptions.txt` using Choose Files.
 
-Select `Create and injest` and you should see that a knowledge base was added:
+Select `Create and ingest` and you should see that a knowledge base was added:
 
-![New Knowledge Base Added](/docs/images/before-ingest.png)
+![Knowledge base upload form with a sample text file selected before ingestion](/docs/images/before-ingest.png)
+
+This knowledge base will be used by the agent when you trigger the new scenario.
 
 Now go back to the main page and select the newly added scenario:
 
-![New Knowledge Base Added](/docs/images/after-ingest.png)
+![Registered knowledge bases table showing the newly ingested text file](/docs/images/after-ingest.png)
 
-You will notice that the impact is centered on italy. You can now go and ask impact questions as shown
+You will notice that the impact is centered on Italy. You can now go and ask impact questions as shown
 earlier which will be grounded in the simulation for the new scenario and the knowledge base that was updated.
 
 #### Live News Feed
 
 In addition to the simulation results and knowledge bases, there is a RSS based live news feed which is injected into the context of the agent.
-This makes the agent aware of current events and you can converse about how they might effect your supply chain or the scenario you are exploring.
+This makes the agent aware of current events and you can converse about how they might affect your supply chain or the scenario you are exploring.
 
 Open the chat window and ask `Is there any news that might affect our supply chain?`. You should see a result like this which is grounded
 in the current news from the newsfeed:
@@ -411,18 +358,163 @@ When you click one of the headlines in the live newsfeed it will help you create
 
 ![Creation of scenario from news feed](/docs/images/live-newsfeed-create-scenario.png)
 
-#### Modifying the application
+#### Evaluate the agent responses with MLflow (optional)
 
-By default the deployment uses images that have been pre-built and pushed to the rh-ai-quickstart organization in quay.io. Quickstart images use `REGISTRY`; general-simulation images use `REGISTRY_GEN_SIM` and default `GEN_SIM_TAG` to the committed submodule short SHA (override with `GEN_SIM_TAG=<tag>`). Kind installs use `GEN_SIM_KIND_TAG` (default `latest`) until commit-SHA tags are published.
+So far we've focussed on the application itself. An important part of building an AI application is
+evaluating the responses from the agent. Unlike traditional applications we can't just check against
+a fixed expected response as the agent could generate many different equally valid responses. To
+handle variability we need to use a tool like [MLflow](https://mlflow.org/) which is integrated
+into [OpenShift AI](https://www.redhat.com/en/products/ai/openshift-ai).
 
-To build and push quickstart images instead of using the default Quay images run:
+With MLflow, you can trace backend chat requests and evaluate the agent's responses.
+This requires an OpenShift AI MLflow tracking server and an OpenAI-compatible judge model endpoint.
+
+To get the tracking URI from the default OpenShift AI MLflow resource named `mlflow` using oc run:
+
+```bash
+export MLFLOW_TRACKING_URI="$(oc get mlflow mlflow -o jsonpath='{.status.url}')"
+printf '%s\n' "$MLFLOW_TRACKING_URI"
+```
+
+Next set the values needed for the judge model:
+
+```bash
+export EVAL_JUDGE_MODEL_URL="https://<maas-route>/v1"
+export EVAL_JUDGE_MODEL_ID="<model-id>"
+export EVAL_JUDGE_API_KEY="<your key>"
+```
+
+Next re-install with evaluations enabled:
+
+```bash
+make helm-uninstall
+export ENABLE_EVALS=true
+make install-full
+```
+
+and finally:
+
+run
+
+```bash
+make run-eval
+```
+
+`make run-eval` installs the local evaluation runner on its first invocation, drives the deployed UI through the seeded disruption questions, and writes evaluation scores and traces to an MLflow run. You should see output similar to the following:
+
+```bash
+make[1]: Nothing to be done for 'eval-ui-install'.
+>>> Evaluating UI at https://supply-chain-dashboard-frontend-midawson.apps.ai-dev02.kni.syseng.devcluster.openshift.com
+>>> MLflow experiment: supply-chain-disruption-evals-20261116T142406Z-r1
+INFO:supply_chain_disruption_eval:Using MLflow judge endpoint https://maas-rhdp.apps.maas.redhatworkshops.io/v1/chat/completions
+INFO:supply_chain_disruption_eval:Evaluating disruption: Port Strike LA (supply-chain-port-strike-la)
+INFO:supply_chain_disruption_eval:Evaluating disruption: Suez Blockage (supply-chain-suez-blockage)
+INFO:supply_chain_disruption_eval:Evaluating disruption: UK Airspace Closure (opensky-uk-closure-001)
+INFO:supply_chain_disruption_eval:Some UI answers are not searchable in MLflow yet (13 traces visible); retrying in up to 2s
+INFO:supply_chain_disruption_eval:Some UI answers are not searchable in MLflow yet (13 traces visible); retrying in up to 2s
+INFO:supply_chain_disruption_eval:Adding MLflow built-in relevance, safety, and retrieval judges using the configured MaaS model and endpoint
+INFO:supply_chain_disruption_eval:Scoring 13 question/answer pairs from MLflow chat traces
+
+✨ Evaluation completed.
+
+Metrics and evaluation results are logged to the MLflow run:
+  Run name: seeded-disruptions-v1-news-unknown-20261116T202412Z
+  Run ID: c64500acd97548b58c6877f68d42afca
+View the evaluation results at https://<your cluster url>/mlflow/#/experiments/167/evaluation-runs?selectedRunUuid=c64500acd97548b58c6877f68d42afca
+
+MLflow experiment: supply-chain-disruption-evals-20261116T142406Z-r1
+MLflow run name: seeded-disruptions-v1-news-unknown-20261116T202412Z
+MLflow run ID: c64500acd97548b58c6877f68d42afca
+Results artifact directory: evaluation/
+```
+
+While tracing is enabled, the backend records model-backed chat requests, including user prompts, chat history, model responses, and function-call responses.
+
+You can view the traces and evaluations in the MLflow UI. First open MLflow by selecting the 3 by 3 boxes at the top right of the OpenShift UI and then select MLflow from the dropdown:
+
+![OpenShift AI application menu with the MLflow entry visible](/docs/images/mlflow-link.png)
+
+Next select the workspace you deployed the quickstart to:
+
+
+![MLflow workspace picker with an available workspace listed](/docs/images/mlflow-select-workspace.png)
+
+You should now see an overview with one experiment listed. This was the experiment created when you deployed with
+tracing enabled:
+
+
+![MLflow home page with the supply-chain disruption evaluation experiment listed under Recent Experiments](/docs/images/mlflow-experiment.png)
+
+From that page select the experiment and then select `Evaluation runs` on the left side menu
+and you should see one evaluation listed:
+
+![MLflow Evaluation runs page listing the seeded-disruptions evaluation run](/docs/images/mlflow-evaluation.png)
+
+Select that evaluation, then adjust the columns to show the base attributes and all assessments. The table lists the questions and evaluation results for each metric. Hover over Pass/Fail results to read the judge explanations. For the evaluation questions, see [seeded-disruptions.json](evaluation/ui/datasets/seeded-disruptions.json). For scorer definitions, see [`_build_scorers`](evaluation/ui/run_eval.py#L1141) and [scorers.py](evaluation/ui/scorers.py#L49).
+
+![MLflow evaluation output showing scores and traces](/docs/images/mlflow-evaluations-expanded.png)
+
+You can now explore the evaluation results in more detail or look at the traces for each of the questions and answers to understand the interaction with the agent in more detail.
+
+#### Adapt flight data to your organization (optional)
+
+You can use a YAML file to show flights your company regularly carries cargo on and attach your shipment details to each flight. The default OpenSky import provides live aircraft positions, but its generated cargo values are demo data, not your shipment manifest. Flights declared in YAML use the coordinates you provide and stay there until you reseed them.
+
+1. Copy the example manifest to `data/supply-chain-network.yaml`. When this file exists, `make seed-customer-data` uses it automatically; if it is absent, the target uses the committed example. The local file is gitignored:
+
+   ```bash
+   cp data/supply-chain-network.example.yaml data/supply-chain-network.yaml
+   ```
+
+2. Edit the manifest. Set a `company_id` and `company_name` at the top level to tag your flights, then add each flight with a stable, unique `id`, its callsign and route, and its map coordinates. Add cargo as top-level records whose `carrier_id` matches the flight's `id`:
+
+   ```yaml
+   version: "1"
+   dataset_id: "my-customer-network"
+   company_id: "company-acme"
+   company_name: "Acme Air Cargo"
+
+   flights:
+     - id: flight-customer-001
+       callsign: ACME123
+       route: LHR-NAP
+       origin: United Kingdom
+       status: airborne
+       lon: 14.18
+       lat: 40.76
+
+   cargo:
+     - id: cargo-customer-001-pharma
+       carrier_id: flight-customer-001
+       commodity: pharmaceuticals
+       quantity: 6
+       unit_price_usd: 8500
+   ```
+
+Add one cargo record per shipment or cargo group, with its commodity, quantity, and unit price. The popup uses these fields to show the cargo and its value. Add airports, ports, vessels, or inventory SKUs in the same file as needed; the example manifest shows their fields.
+
+3. After `make install-full`, import your file and refresh the UI 
+
+   ```bash
+   make seed-customer-data
+   ```
+
+To use a file at another path instead, run `make seed-customer-data NETWORK_YAML=path/to/file.yaml`. Reusing an entity `id` updates that record; new IDs add records. The overlay does not delete existing demo or OpenSky entities.
+
+For a first-time install, `make install-full` imports the files listed under `seed.networkFiles` in `helm/values.yaml`. Add your local manifest to that list if you want it included during installation. Set `seed.opensky.enabled: false` in the values file to skip the additional OpenSky aircraft.
+
+#### Modifying the application (optional)
+
+By default the deployment uses images that have been pre-built and pushed to the rh-ai-quickstart organization in quay.io. Quickstart images use `REGISTRY`; general-simulation images use `REGISTRY_GEN_SIM` and default `GEN_SIM_TAG` to the committed submodule short SHA (override it with your chosen tag).
+
+To build and push quickstart images instead of using the default Quay images, replace `your-org` with your Quay organization:
 
 ```
-make build
-make release REGISTRY=quay.io/<your-org>
+make build REGISTRY=quay.io/your-org
+make release REGISTRY=quay.io/your-org
 ```
 
-You will then need to run `make helm-uninstall` followed by `make helm-install ...` (where ... are the options you used as explained earlier) after having set `REGISTRY=quay.io/<your-org>` (and `REGISTRY_GEN_SIM` / `GEN_SIM_TAG` if needed).
+You will then need to run `make helm-uninstall` followed by `make install-full ...` (where ... are the options you used as explained earlier) after setting `REGISTRY=quay.io/your-org`.
 
 ### Delete
 
@@ -442,7 +534,7 @@ oc delete project supply-chain-dashboard
 
 - [What to expect after deployment](./docs/WHAT_TO_EXPECT.md)
 - [Supply-chain KPIs](./docs/KPIS.md) — formulas, data sources, and healthy vs disrupted modes
-- [OGX documentation](https://ogx.readthedocs.io)
+- [OGX documentation](https://ogx-ai.github.io/docs)
 - [LangChain PGVector integration](https://python.langchain.com/docs/integrations/vectorstores/pgvector/)
 - [React Leaflet](https://react-leaflet.js.org/)
 - [OpenShift AI documentation](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed)
