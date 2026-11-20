@@ -50,6 +50,9 @@ general-simulation:
     enabled: true
     fullnameOverride: neo4j
     disableLookups: true
+    neo4j:
+      resources:
+        cpu: "500m"
   bootstrap:
     enabled: true
     waitFor:
