@@ -167,6 +167,7 @@ This quickstart can be deployed by a user with:
 
 - Permission to create projects/namespaces
 - Namespace **admin** on the target project (sufficient to create Routes, Deployments, Services, Jobs through helm deployments)
+- The deploying user must be allowed to bind `system:openshift:scc:anyuid` in the target project. If they lack that permission, ask an administrator to grant the user access to the SCC in that project by running: `oc adm policy add-scc-to-user anyuid <your-OpenShift-username> -n <project-namespace>`.
 
 ## Deploy
 
