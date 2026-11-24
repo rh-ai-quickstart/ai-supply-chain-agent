@@ -8,8 +8,9 @@ jobs:
   validate-pr-branch:
     runs-on: ubuntu-latest
     steps:
-      - run: |
-          PR_SOURCE_BRANCH="${{ github.event.pull_request.head.ref }}"
+      - env:
+          PR_SOURCE_BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
           PR_SOURCE_REPO="${{ github.event.pull_request.head.repo.full_name }}"
           TARGET_REPO="${{ github.repository }}"
           if [ "${PR_SOURCE_REPO}" != "${TARGET_REPO}" ]; then
